@@ -36,6 +36,7 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
 .g #o{display:flex}
 #i{position:absolute;top:1em;left:1.2em;margin:0;font:.8em/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;text-shadow:0 1px 4px #000;pointer-events:none}
 #fs{position:absolute;top:.6em;right:3.4em;display:none;padding:.3em .6em;background:#2d0320d9;box-shadow:inset 0 0 0 2px #ff9ccb,0 .3em 1em #0009;font-size:1.3em;color:#fff4e8;opacity:.8}.g #fs{display:flex}
+#t{position:absolute;left:50%;top:18%;transform:translate(-50%,-.5em);font:900 2.2em/1.2 Georgia,serif;letter-spacing:.06em;color:#fff;text-shadow:0 .1em .6em #000c;opacity:0;transition:opacity 1.2s,transform 1.2s;pointer-events:none;white-space:nowrap}#t.on{opacity:1;transform:translate(-50%,0)}
 </style></head><body class=l>
 <canvas id=c></canvas>
 <div id=m>
@@ -56,6 +57,7 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
           <i><b>Esc</b></i>Menu
           <i><b>M</b></i>Mute
           <i><b>N</b></i>Day / night
+          <i><b>R</b></i>Back to the hub
           <i><b>F</b></i>Fly mode
           <i><b>H</b></i>Stats</p>
       </div>
@@ -64,12 +66,12 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
   </div>
 </div>
 <button id=o aria-label=Menu>≡</button><button id=fs aria-label="Full screen">⛶</button>
-<pre id=i></pre>
+<pre id=i></pre><div id=t></div>
 <script>
 /* ============================== SHADERS ============================== */
 //WGSL-START
 const COMMON=`
-struct U{vp:mat4x4f,view:mat4x4f,ivp:mat4x4f,lvp:mat4x4f,cam:vec4f,grid:vec4f,misc:vec4f,fog:vec4f,sun:vec4f,sunC:vec4f,vis:vec4f,skyp:vec4f,scr:vec4f,proj:vec4f,sh:array<vec4f,9>,nite:vec4f};
+struct U{vp:mat4x4f,view:mat4x4f,ivp:mat4x4f,lvp:mat4x4f,cam:vec4f,grid:vec4f,misc:vec4f,fog:vec4f,sun:vec4f,sunC:vec4f,vis:vec4f,skyp:vec4f,scr:vec4f,proj:vec4f,sh:array<vec4f,9>,nite:vec4f,rgn:vec4f};
 @group(0)@binding(0)var<uniform>u:U;
 const PI=3.14159265;
 fn ss(a:f32,b:f32,x:f32)->f32{let t=clamp((x-a)/(b-a),0.,1.);return t*t*(3.-2.*t);}
@@ -130,6 +132,21 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   pos=a.xyz+vec3f(d.x*tau,vz*tau-4.9*tau*tau,d.y*tau);
   if(pos.y<a.w){o.hide=1.;}
   p*=b.xyz;
+ }else if(kind==5){ // fish: swim a wobbly ellipse, tail wagging
+  let th=t*d.x+c.w*6.2831;let off=vec3f(b.x*cos(th),b.y*sin(th*2.3+c.w*9.),b.z*sin(th));
+  let sg=select(1.,-1.,d.x<0.);let yaw=atan2(-b.x*sin(th)*sg,b.z*cos(th)*sg);
+  if(part>.5){let w=sin(t*(6.+d.z*8.)+c.w*30.)*.5;p=ry(p-vec3f(0.,0.,-.18),w)+vec3f(0.,0.,-.18);}
+  p*=d.y;p=ry(p,yaw+a.w);n=ry(n,yaw+a.w);pos=a.xyz+ry(off,a.w);
+ }else if(kind==6){ // whole ride turning: about x (Ferris wheel) or y (carousel)
+  let ang=-(t*d.x+c.w*6.2831);
+  if(d.y<.5){p=rx(p,ang);n=rx(n,ang);}else{p=ry(p,ang);n=ry(n,ang);}
+  p*=b.xyz;p=ry(p,a.w);n=ry(n,a.w);
+ }else if(kind==7){ // something carried round: gondolas, horses, coaster cars, drop-tower seats
+  let th=t*d.x+c.w*6.2831;var off=vec3f(0.);
+  if(d.y<.5){off=vec3f(0.,b.x*sin(th),b.x*cos(th));}
+  else if(d.y<1.5){off=vec3f(b.x*cos(th),b.y*sin(d.z*th+c.w*3.),b.z*sin(th));let sg=select(1.,-1.,d.x<0.);let yw=atan2(-b.x*sin(th)*sg,b.z*cos(th)*sg);p=ry(p,yw);n=ry(n,yw);}
+  else{off=vec3f(0.,b.y*(.5+.5*sin(th)),0.);}
+  p=ry(p+off,a.w);n=ry(n,a.w);
  }else{
   var pitch=d.x;var yaw=a.w;
   if(kind==4){let w=sin(t*1.3+c.w*30.+a.x*.2)*.06;pitch+=w;yaw+=w*.6;}
@@ -195,7 +212,9 @@ struct FO{@location(0)c:vec4f,@location(1)g:vec4f,@location(2)a:vec4f};
  let r=dynXf(p,n,part,a,b,c,d);var o:VO;
  let kind=i32(b.w+.5);var em=0.;var sp=.12;
  if(kind==3){em=.5;sp=.97;}else if(kind==4){sp=.3;}else if(kind==1){sp=.2;}
- o.wp=r.p;o.n=r.n;o.col=r.col;o.m=vec4f(em,sp,0.,0.);o.lp=p;o.ln=n;o.sg=vec4f(-1.,0.,0.,0.);
+ var col=r.col;
+ if(kind>=5&&kind<=7){sp=.5;if(part>.5&&part<1.5&&kind!=5){em=3.;col=mix(r.col,vec3f(1.,.7,.3),.5)*(.6+.4*sin(u.cam.w*3.+p.x*2.+p.y*3.+p.z*2.));}if(part>1.5&&part<2.5){col=vec3f(.9,.88,.85);sp=.7;}}
+ o.wp=r.p;o.n=r.n;o.col=col;o.m=vec4f(em,sp,0.,0.);o.lp=p;o.ln=n;o.sg=vec4f(-1.,0.,0.,0.);
  o.pos=u.vp*vec4f(r.p,1.);if(r.hide>.5){o.pos=vec4f(2.,2.,2.,1.);}
  return o;
 }
@@ -210,6 +229,12 @@ fn shadow(p:vec3f,soft:f32)->f32{
 fn matOf(p:i32)->vec4f{
  if(p==1||p==12){return vec4f(0.,1.5,1.,.2);}
  if(p==7){return vec4f(7.,3.4,1.,1.5);}
+ if(p==20){return vec4f(9.,2.5,1.,1.3);}
+ if(p==21){return vec4f(10.,3.,1.,1.1);}
+ if(p==22){return vec4f(11.,2.2,1.,1.1);}
+ if(p==23){return vec4f(12.,2.4,1.,1.);}
+ if(p==24){return vec4f(13.,2.,1.,.45);}
+ if(p==25){return vec4f(14.,2.2,1.,1.1);}
  if(p==2){return vec4f(2.,1.7,1.,.55);}
  if(p==10){return vec4f(1.,2.3,1.,.32);}
  if(p==11){return vec4f(3.,2.,.5,1.);}
@@ -293,7 +318,8 @@ fn inlay(wp:vec3f,w:f32)->f32{
   if(dot(i.ln,fd)>.5){emis=i.col*i.m.x*tx;base=vec3f(.02);}else{emis=vec3f(0.);base=vec3f(.03);}
  }
  let up=abs(Ng.y)>.5;
- if(pat==3){ // carpet
+ if(pat==13){base=vec3f(.6,.68,.78)*(.94+.06*vn(wp*2.));rough=.03+.1*ss(.55,.8,vn(vec3f(wp.xz*6.,1.)));metal=0.;}
+ else if(pat==3){ // carpet
   base*=.8+.35*vn(wp*9.);rough=1.;
  }else if(pat==4&&!up){ // stripes
   base*=mix(1.,.55,step(.5,fract((wp.x+wp.z)*1.4)));
@@ -311,9 +337,10 @@ fn inlay(wp:vec3f,w:f32)->f32{
  let F0=mix(vec3f(.04),base,metal);let dif=base*(1.-metal);
  let NV=max(dot(N,V),1e-3);
  // baked sky visibility + ambient occlusion (from the compute pass)
- let vc=(wp+Ng*.55-u.vis.xyz)*u.vis.w/vec3f(textureDimensions(visT));
- let vv=textureSampleLevel(visT,smp,vc,0.);
- let skyV=vv.r;let ao=vv.g;
+ let wq=wp+Ng*.55;let qx=wq.x-u.rgn.z;let qz=wq.z-u.rgn.w;
+ let vc=(vec3f(u.rgn.x*qx+u.rgn.y*qz,wq.y,-u.rgn.y*qx+u.rgn.x*qz)-u.vis.xyz)*u.vis.w/vec3f(textureDimensions(visT));
+ var skyV=.6;var ao=1.;
+ if(all(vc>vec3f(0.))&&all(vc<vec3f(1.))){let vv=textureSampleLevel(visT,smp,vc,0.);skyV=vv.r;ao=vv.g;}
  var acc=dif*shIrr(N)/PI*skyV;
  acc+=dif*mix(vec3f(.09,.075,.065),vec3f(.15,.145,.15),N.y*.5+.5)*u.misc.y*ao;
  let R=reflect(-V,N);
@@ -390,7 +417,7 @@ fn inlay(wp:vec3f,w:f32)->f32{
  if(g>0.){refl+=u.sunC.rgb*ggx(N,V,u.sun.xyz,.05,vec3f(.04))*g/max(F,.04)*.2;}
  let dirt=vn(i.wp*vec3f(.6,2.5,.6))*.6+vn(i.wp*3.1)*.4;
  let a=(1.-F)*(.86-.07*dirt);
- return vec4f(refl*F+vec3f(.012,.013,.012)*dirt,a);
+ return vec4f(refl*F+vec3f(.012,.013,.012)*dirt+i.col*i.m.x*.35,a*(1.-.55*min(i.m.x,1.)));
 }`;
 const SHADOW_WGSL=COMMON+`
 @vertex fn vsDyn(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)part:f32,@location(3)a:vec4f,@location(4)b:vec4f,@location(5)c:vec4f,@location(6)d:vec4f)->@builtin(position)vec4f{
@@ -401,25 +428,27 @@ const SHADOW_WGSL=COMMON+`
 const VIS_WGSL=`
 @group(0)@binding(0)var occ:texture_3d<u32>;
 @group(0)@binding(1)var outT:texture_storage_3d<rgba8unorm,write>;
-@group(0)@binding(2)var<uniform>vp:vec4f;
+struct VP{a:vec4f,o:vec4f,n:vec4f};
+@group(0)@binding(2)var<uniform>vp:VP;
 fn solid(p:vec3f)->bool{
- let g=floor((p-vec3f(-150.,-1.,-85.))/.5);
- if(g.x<0.||g.y<0.||g.z<0.||g.x>=600.||g.z>=340.){return true;}
- if(g.y>=30.){return false;}
+ let g=floor((p-vp.o.xyz)/.5);
+ if(g.y<0.){return true;}
+ if(g.y>=vp.n.y){return false;}
+ if(g.x<0.||g.z<0.||g.x>=vp.n.x||g.z>=vp.n.z){return vp.a.z>.5;}
  return textureLoad(occ,vec3i(g),0).r>0u;
 }
 @compute @workgroup_size(4,4,4) fn main(@builtin(global_invocation_id)id:vec3u){
  let dims=textureDimensions(outT);if(any(id>=dims)){return;}
- let c=vec3f(-150.,-1.,-85.)+vec3f(id)+.5;
- let ns=u32(vp.x);var sky=0.;
+ let c=vp.o.xyz+vec3f(id)+.5;let top=vp.o.y+vp.n.y*.5+.3;
+ let ns=u32(vp.a.x);var sky=0.;
  for(var k=0u;k<ns;k++){
   let fk=(f32(k)+.5)/f32(ns);let r=sqrt(fk);let ph=f32(k)*2.399963;
   let d=vec3f(r*cos(ph),sqrt(1.-fk),r*sin(ph));
   var t=.7;var vis=1.;
-  loop{let p=c+d*t;if(p.y>14.3){break;}if(solid(p)){vis=0.;break;}t+=.5;if(t>110.){vis=0.;break;}}
+  loop{let p=c+d*t;if(p.y>top){break;}if(solid(p)){vis=0.;break;}t+=.5;if(t>110.){vis=0.;break;}}
   sky+=vis;
  }
- let na=u32(vp.y);var occl=0.;
+ let na=u32(vp.a.y);var occl=0.;
  for(var k=0u;k<na;k++){
   let fk=(f32(k)+.5)/f32(na);let z=1.-2.*fk;let rr=sqrt(1.-z*z);let ph=f32(k)*2.399963;
   let d=vec3f(rr*cos(ph),z,rr*sin(ph));var t=.7;
@@ -546,40 +575,49 @@ fn aces(x:vec3f)->vec3f{return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),vec3f
 
 /* ============================== MALL GENERATOR ============================== */
 //GEN-START
-const NAMECAP=200,ACOLS=4,AROWS=50,FH=6;
-const GC=.5,GX0=-150,GY0=-1,GZ0=-85,GNX=600,GNY=30,GNZ=340;
+const NAMECAP=768,ACOLS=8,AROWS=96,FH=6,GC=.5;
+// collision grids: the hub in world space, each district in its own local frame (x -61..61, z -1..141)
+const HUBG={x0:-150,y0:-1,z0:-85,nx:600,ny:30,nz:340},DISTG={x0:-61,y0:-1,z0:-1,nx:244,ny:40,nz:284};
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function hsl(h,s,l){h=(((h%360)+360)%360)/360;const f=n=>{const k=(n+h*12)%12,a=s*Math.min(l,1-l);return l-a*Math.max(-1,Math.min(k-3,9-k,1))};return[f(0),f(8),f(4)].map(v=>Math.pow(v,2.2))}
-function genMall(){
-const R=rng(19870611),rnd=(a,b)=>a+(b-a)*R(),pick=a=>a[Math.floor(R()*a.length)],chance=p=>R()<p;
-const inst=[],glass=[],lights=[],names=[],used=new Set();let stores=0;
-const grid=new Uint8Array(GNX*GNY*GNZ);
+function genWorld(){
+let R=rng(19870611);const rnd=(a,b)=>a+(b-a)*R(),pick=a=>a[Math.floor(R()*a.length)],chance=p=>R()<p;
+// state of the region being built
+let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
 const cl=(v,n)=>v<0?0:v>n-1?n-1:v;
-function mark(x0,y0,z0,x1,y1,z1){
- const i0=cl(Math.floor((x0-GX0)/GC),GNX),i1=cl(Math.floor((x1-GX0-1e-4)/GC),GNX),
-       j0=cl(Math.floor((y0-GY0)/GC),GNY),j1=cl(Math.floor((y1-GY0-1e-4)/GC),GNY),
-       k0=cl(Math.floor((z0-GZ0)/GC),GNZ),k1=cl(Math.floor((z1-GZ0-1e-4)/GC),GNZ);
- for(let k=k0;k<=k1;k++)for(let j=j0;j<=j1;j++){const o=GNX*(j+GNY*k);for(let i=i0;i<=i1;i++)grid[o+i]=1}
+// local -> world: XF.q quarter turns about +y (same sense as the shader's ry), then the offset
+const xd=(x,z)=>{const q=XF.q;return q===0?[x,z]:q===1?[z,-x]:q===2?[-x,-z]:[-z,x]};
+const xp=(x,z)=>{const r=xd(x,z);return[r[0]+XF.ox,r[1]+XF.oz]};
+const AXM=[[[0,1],[1,1]],[[1,-1],[0,1]],[[0,-1],[1,-1]],[[1,1],[0,-1]]];
+const rotFace=f=>{const v=[[0,1],[0,-1],[1,0],[-1,0]][f],[x,z]=xd(v[0],v[1]);return z>.5?0:z<-.5?1:x>.5?2:3};
+function mark(x0,y0,z0,x1,y1,z1){const{x0:GX,y0:GY,z0:GZ,nx,ny,nz,d}=G;
+ if(x1<GX||z1<GZ||y1<GY||x0>GX+nx*GC||z0>GZ+nz*GC||y0>GY+ny*GC)return;
+ const i0=cl(Math.floor((x0-GX)/GC),nx),i1=cl(Math.floor((x1-GX-1e-4)/GC),nx),
+       j0=cl(Math.floor((y0-GY)/GC),ny),j1=cl(Math.floor((y1-GY-1e-4)/GC),ny),
+       k0=cl(Math.floor((z0-GZ)/GC),nz),k1=cl(Math.floor((z1-GZ-1e-4)/GC),nz);
+ for(let k=k0;k<=k1;k++)for(let j=j0;j<=j1;j++){const o=nx*(j+ny*k);for(let i=i0;i<=i1;i++)d[o+i]=1}
 }
 function markRot(x,y,z,sx,sy,sz,r){
  const c=Math.cos(r),s=Math.sin(r),na=Math.ceil(sx/.2)+1,nb=Math.ceil(sy/.2)+1,nc=Math.ceil(sz/.2)+1;
  for(let a=0;a<na;a++)for(let b=0;b<nb;b++)for(let d=0;d<nc;d++){
   const lx=(a/(na-1)-.5)*sx,ly=(b/(nb-1)-.5)*sy,lz=(d/(nc-1)-.5)*sz;
-  const i=Math.floor((c*lx-s*ly+x-GX0)/GC),j=Math.floor((s*lx+c*ly+y-GY0)/GC),k=Math.floor((lz+z-GZ0)/GC);
-  if(i>=0&&j>=0&&k>=0&&i<GNX&&j<GNY&&k<GNZ)grid[i+GNX*(j+GNY*k)]=1}
+  const i=Math.floor((c*lx-s*ly+x-G.x0)/GC),j=Math.floor((s*lx+c*ly+y-G.y0)/GC),k=Math.floor((lz+z-G.z0)/GC);
+  if(i>=0&&j>=0&&k>=0&&i<G.nx&&j<G.ny&&k<G.nz)G.d[i+G.nx*(j+G.ny*k)]=1}
 }
 function box(x,y,z,sx,sy,sz,col,o){o=o||{};const r=o.rot||0;let pat=o.pat||0;
  if(!pat&&!o.glass){if(col===C.wood)pat=2;else if(col===C.facade||col===C.ceil)pat=11}
- (o.glass?glass:inst).push(x,y,z,r,sx,sy,sz,o.e||0,col[0],col[1],col[2],o.s??.12,o.sign??-1,o.face||0,pat,o.ax||0);
+ const[wx,wz]=xp(x,z),q=XF.q,odd=q&1,[nax,sg]=AXM[q][o.ax||0],face=q&&(o.sign??-1)>=0?rotFace(o.face||0):o.face||0;
+ (o.glass?glass:inst).push(wx,y,wz,r*sg,odd?sz:sx,sy,odd?sx:sz,o.e||0,col[0],col[1],col[2],o.s??.12,o.sign??-1,face,pat,nax);
  if(o.solid!==false&&!o.ax){r?markRot(x,y,z,sx,sy,sz,r):mark(x-sx/2,y-sy/2,z-sz/2,x+sx/2,y+sy/2,z+sz/2)}}
 function B(x0,y0,z0,x1,y1,z1,col,o){box((x0+x1)/2,(y0+y1)/2,(z0+z1)/2,Math.abs(x1-x0),Math.abs(y1-y0),Math.abs(z1-z0),col,o)}
 /* ---------- life: foliage, water, birds (drawn by the free-orientation pipeline) ---------- */
-const fol=[],leaves=[],drops=[],birds=[],shops=[],seats=[],fountains=[];
 // kind 0 = static part, 4 = leaf (sways); yaw/pitch/roll orient the box's long (z) axis
-const part=(x,y,z,sx,sy,sz,col,yaw,pitch,roll,kind)=>(kind===4?leaves:fol).push(x,y,z,yaw,sx,sy,sz,kind,col[0],col[1],col[2],R(),pitch,roll,0,0);
+const part=(x,y,z,sx,sy,sz,col,yaw,pitch,roll,kind,ex=0,ey=0)=>{const[wx,wz]=xp(x,z);(kind===4?leaves:fol).push(wx,y,wz,yaw+XF.q*Math.PI/2,sx,sy,sz,kind,col[0],col[1],col[2],R(),pitch,roll,ex,ey)};
 const stick=(x0,y0,z0,x1,y1,z1,w,col,kind=0)=>{const dx=x1-x0,dy=y1-y0,dz=z1-z0,l=Math.hypot(dx,dy,dz);
  part((x0+x1)/2,(y0+y1)/2,(z0+z1)/2,w,w,l,col,Math.atan2(dx,dz),-Math.asin(dy/l),0,kind)};
 const BARK=hsl(25,.28,.2);
+const seat=(x,z,yaw,y=0)=>{const[a,b]=xp(x,z);seats.push(a,b,yaw+XF.q*Math.PI/2,y)};
+const fpush=(x,y,z,big)=>{const[a,b]=xp(x,z);fountains.push({x:a,y,z:b,big})};
 const crown=(x,y,z,rx,ry,n,hue,big=1)=>{for(let k=0;k<n;k++){let px,py,pz;do{px=rnd(-1,1);py=rnd(-1,1);pz=rnd(-1,1)}while(px*px+py*py+pz*pz>1);
  const l=rnd(.16,.28)*big;part(x+px*rx,y+py*ry,z+pz*rx,l*.8,l*.3,l,hsl(hue+rnd(-14,14),rnd(.35,.62),rnd(.13,.32)),rnd(0,6.283),rnd(-1.2,1.2),rnd(-.7,.7),4)}};
 const tree=(x,y,z,h)=>{const tx=x+rnd(-.15,.15),tz=z+rnd(-.15,.15);stick(x,y,z,tx,y+h*.7,tz,.2,BARK);
@@ -592,12 +630,12 @@ const palm=(x,z,h)=>{let px=x,py=.6,pz=z;const lean=rnd(0,6.283),bend=rnd(.03,.0
  for(let f=0;f<11;f++){const az=f/11*6.283+rnd(-.2,.2);let fx=px,fy=py,fz=pz;const L=rnd(2.6,3.4);
   for(let s=0;s<7;s++){const el=.55-s*.24,sl=L/7,nx=fx+Math.sin(az)*Math.cos(el)*sl,ny=fy+Math.sin(el)*sl,nz=fz+Math.cos(az)*Math.cos(el)*sl;
    stick(fx,fy,fz,nx,ny,nz,.06,hsl(80,.35,.22),0);const ll=.9*Math.sin((s+1)/8*Math.PI);
-   for(const sd of[-1,1])part((fx+nx)/2+Math.sin(az+sd*1.3)*ll*.45,(fy+ny)/2-.08,(fz+nz)/2+Math.cos(az+sd*1.3)*ll*.45,.22,.06,ll,hsl(rnd(95,120),.5,rnd(.17,.27)),az+sd*1.3,.35,0,4);
+   for(const sd of[-1,1])part((fx+nx)/2+Math.sin(az+sd*1.3)*ll*.45,(fy+ny)/2-.08,(fz+nz)/2+Math.cos(az+sd*1.3)*ll*.45,.34,.08,ll,hsl(rnd(95,120),.5,rnd(.17,.27)),az+sd*1.3,.35,0,4);
    fx=nx;fy=ny;fz=nz}}};
 // water: each droplet arcs from a nozzle with its own velocity; level = where it disappears
-const jet=(x,y,z,vx,vy,vz,level,n,spread)=>{for(let k=0;k<n;k++)drops.push(x,y,z,level,.035,.06,.035,3,.55,.72,.85,k/n+rnd(0,.02),vx+rnd(-spread,spread),vz+rnd(-spread,spread),vy*rnd(.96,1.04),0)};
-const bird=(cx,cy,cz,r,amp,w)=>birds.push(cx,cy,cz,0,r,amp,0,2,.025,.025,.03,R(),0,0,w,0);
-function light(x,y,z,col,I,r,o){o=o||{};lights.push({x,y,z,r,c:col.map(v=>v*I),f:o.f?rnd(1,99):0,both:!!o.both})}
+const jet=(x,y,z,vx,vy,vz,level,n,spread)=>{const[wx,wz]=xp(x,z);for(let k=0;k<n;k++){const[a,b]=xd(vx+rnd(-spread,spread),vz+rnd(-spread,spread));drops.push(wx,y,wz,level,.035,.06,.035,3,.55,.72,.85,k/n+rnd(0,.02),a,b,vy*rnd(.96,1.04),0)}};
+const bird=(cx,cy,cz,r,amp,w,col=[.025,.025,.03],sc=0)=>{const[wx,wz]=xp(cx,cz);birds.push(wx,cy,wz,0,r,amp,sc,2,col[0],col[1],col[2],R(),0,0,w,0)};
+function light(x,y,z,col,I,r,o){o=o||{};const[wx,wz]=xp(x,z);lights.push({x:wx,y,z:wz,r,c:col.map(v=>v*I),f:o.f?rnd(1,99):0,both:!!o.both})}
 function frame(px,pz,ax,az,nx,nz){
  const wx=(u,v)=>px+ax*u+nx*v,wz=(u,v)=>pz+az*u+nz*v;
  const F=(u0,y0,v0,u1,y1,v1,col,o)=>{const uc=(u0+u1)/2,vc=(v0+v1)/2,su=Math.abs(u1-u0),sv=Math.abs(v1-v0);
@@ -605,7 +643,7 @@ function frame(px,pz,ax,az,nx,nz){
  F.L=(u,y,v,col,I,r,o)=>light(wx(u,v),y,wz(u,v),col,I,r,o);F.w=(u,v)=>[wx(u,v),wz(u,v)];
  return F}
 const faceOf=(nx,nz)=>nz===1?1:nz===-1?0:nx===1?3:2;
-function addName(t,font,up){names.push({t:up?t.toUpperCase():t,font});return(names.length-1)%NAMECAP}
+function addName(t,font,up){names.push({t:up?t.toUpperCase():t,font});return names.length-1}
 const C={floor:hsl(38,.16,.8),ceil:hsl(40,.1,.86),facade:hsl(30,.06,.9),trim:hsl(35,.25,.5),steel:hsl(210,.06,.68),dark:hsl(240,.1,.07),
  wood:hsl(28,.45,.32),leaf:hsl(115,.45,.32),pot:hsl(20,.3,.42),white:hsl(40,.2,.95),warm:hsl(36,.75,.82),cool:hsl(205,.35,.85),glass:hsl(200,.15,.6)};
 const tint=(a,b,k)=>a.map((v,i)=>v*(1-k)+b[i]*k);
@@ -702,7 +740,7 @@ function shop(px,pz,ax,az,nx,nz,w,D,lvl,key,o){o=o||{};
  let wallC=hsl(hue+rnd(-20,20),rnd(.1,.35),rnd(.55,.85));if(cat.dark)wallC=hsl(hue,.3,.08);if(cat.velvet)wallC=hsl(hue+300,.45,.18);if(cat.pale)wallC=hsl(hue,.35,.88);
  const wo=cat.stripes?{pat:4}:{pat:11};
  for(const[u0,u1]of[[-hw,-hw+.25],[hw-.25,hw]]){if(o.door){F(u0,fy,0,u1,fy+H,o.door[0],wallC,wo);F(u0,fy,o.door[1],u1,fy+H,D,wallC,wo);F(u0,fy+4.2,o.door[0],u1,fy+H,o.door[1],wallC,wo)}else F(u0,fy,0,u1,fy+H,D,wallC,wo)}
- F(-hw,fy,D-.25,hw,fy+H,D,wallC,wo);
+ if(o.back){F(-hw,fy,D-.25,-3,fy+H,D,wallC,wo);F(3,fy,D-.25,hw,fy+H,D,wallC,wo);F(-3,fy+4.2,D-.25,3,fy+H,D,wallC,wo)}else F(-hw,fy,D-.25,hw,fy+H,D,wallC,wo);
  const fc=cat.fp===2?hsl(30,.4,.42):cat.fp===3?hsl(hue,.35,.22):hsl(hue,.08,.85);
  F(-hw,fy,0,hw,fy+.02,D,o.marble?hsl(35,.1,.85):fc,{pat:o.marble?7:[0,12,2,10][cat.fp],s:cat.fp===1?.55:.25,solid:false});
  F(-hw,fy+5,0,hw,fy+H,D,C.ceil);
@@ -718,10 +756,338 @@ function shop(px,pz,ax,az,nx,nz,w,D,lvl,key,o){o=o||{};
  if(o.big){for(let v=4;v<D-3;v+=3.2)for(let u=-hw+2;u<hw-6;u+=5.5){const gh=rnd(0,360);rack(c,v,u,u+4,()=>hsl(gh+rnd(-30,30),rnd(.3,.7),rnd(.25,.7)))}
   for(let u=-hw+2;u<hw-3;u+=4.2)if(Math.abs(u+1.4)>op+.5)glowCase(c,u,1.6,u+2.8,2.4);for(let u=-op+1;u<op-.5;u+=2.2)mannequin(c,u,.9,rnd(0,360))}
  else{cat.props(c);extras(c,key)}
- shops.push({x:F.w(0,0)[0],z:F.w(0,0)[1],nx,nz,fy,hw,D,key,name,big:!!o.big,closed,counter:!!c.counter,w:F.w});
+ {const[sx0,sz0]=xp(...F.w(0,0)),[wnx,wnz]=xd(nx,nz);shops.push({x:sx0,z:sz0,nx:wnx,nz:wnz,fy,hw,D,key,name,big:!!o.big,closed,counter:!!c.counter,w:(u,v)=>xp(...F.w(u,v))})}
  if(closed)F(-op+.05,fy+2.5,.02,op-.05,fy+4,.14,C.steel,{pat:6,s:.5});
  stores++}
 
+// railings
+function rail(x0,z0,x1,z1,y=6){const len=Math.hypot(x1-x0,z1-z0),ax=x1!==x0,th=.08,mx=(x0+x1)/2,mz=(z0+z1)/2;
+ box(mx,y+1.05,mz,ax?len:th,.07,ax?th:len,C.steel,{s:.8});box(mx,y+1.0,mz,ax?len:.04,.03,ax?.04:len,C.warm,{e:1.2,solid:false});
+ box(mx,y+.08,mz,ax?len:th*1.5,.16,ax?th*1.5:len,C.trim);box(mx,y+.55,mz,ax?len:.02,.8,ax?.02:len,C.glass,{glass:1,solid:false});
+ const n=Math.max(1,Math.round(len/1.6));for(let k=0;k<=n;k++)box(x0+(x1-x0)*k/n,y+.55,z0+(z1-z0)*k/n,.06,1,.06,C.steel)}
+const ang=Math.atan2(6,10.4),EL=Math.hypot(6,10.4);
+const esc=(cx,z,sx,y0=0)=>{const r=sx*ang,cs=Math.cos(r),sn=Math.sin(r),bx=cx-sx*5.2;ESC.push({bx:cx-sx*5.6,tx:cx+sx*5.6,z,sx,y0});
+ box(cx,3+y0,z,EL+.6,.45,1.5,hsl(220,.08,.3),{rot:r,s:.6});
+ for(const e of[-.72,.72]){box(cx-sn*.65,3+y0+cs*.65,z+e,EL,1,.08,C.glass,{rot:r,glass:1});box(cx-sn*1.17,3+y0+cs*1.17,z+e,EL,.07,.12,hsl(200,.8,.6),{rot:r,e:1.6,solid:false})}
+ B(bx-sx*1.2,y0,z-.9,bx,y0+.04,z+.9,C.steel,{s:.8,solid:false})};
+const STEEL=hsl(40,.04,.86),GL=hsl(185,.25,.75);
+function vault(spanHalf,rise,nSeg,along,c0,c1,ribStep,base=12.4,c2=0){ // along: 'x' (arch in z-y) or 'z' (arch in x-y)
+ const R=(spanHalf*spanHalf+rise*rise)/(2*rise),cy=base+rise-R,pm=Math.asin(spanHalf/R),len=Math.abs(c1-c0),cm=(c0+c1)/2,ax=along==='x'?1:0;
+ const P=a=>[R*Math.sin(a)+c2,cy+R*Math.cos(a)];
+ const put=(s,y,c,ss,sy,sc,col,o)=>ax?box(c,y,s,sc,sy,ss,col,o):box(s,y,c,ss,sy,sc,col,o);
+ for(let k=0;k<nSeg;k++){const a0=-pm+2*pm*k/nSeg,a1=a0+2*pm/nSeg,am=(a0+a1)/2,[s0,y0]=P(a0),[s1,y1]=P(a1);
+  const sc=(s0+s1)/2,yc=(y0+y1)/2,ch=Math.hypot(s1-s0,y1-y0)+.02,r=Math.atan2(y1-y0,s1-s0),is=Math.sin(am),ic=Math.cos(am);
+  put(sc,yc,cm,ch,.03,len,GL,{glass:1,rot:r,ax,solid:false});
+  put(s0-.1*Math.sin(a0),y0-.1*Math.cos(a0),cm,.1,.14,len,STEEL,{solid:false,s:.5});
+  for(let c=Math.min(c0,c1);c<=Math.max(c0,c1)+.01;c+=ribStep)put(sc-.2*is,yc-.2*ic,c,ch,.34,.16,STEEL,{rot:r,ax,solid:false,s:.5})}
+ return s=>cy+Math.sqrt(Math.max(0,R*R-(s-c2)*(s-c2)))}
+const W8=hsl(190,.7,.5);
+const chairC=[hsl(0,.7,.5),hsl(45,.85,.55),hsl(200,.7,.5),hsl(140,.5,.45)];
+const planter=(x,z)=>{B(x-1.2,0,z-1.2,x+1.2,.7,z+1.2,C.pot);B(x-1.1,.7,z-1.1,x+1.1,.75,z+1.1,hsl(25,.4,.18),{solid:false});B(x-.1,.7,z-.1,x+.1,2,z+.1,BARK);
+ tree(x,.75,z,rnd(3.6,4.4));shrubs(x,.75,z,1,1,110)};
+const fountain=(x,z)=>{B(x-1.7,0,z-1.7,x+1.7,.55,z-1.4,C.facade);B(x-1.7,0,z+1.4,x+1.7,.55,z+1.7,C.facade);B(x-1.7,0,z-1.4,x-1.4,.55,z+1.4,C.facade);B(x+1.4,0,z-1.4,x+1.7,.55,z+1.4,C.facade);
+ B(x-1.4,0,z-1.4,x+1.4,.4,z+1.4,W8,{e:1.1,pat:8,solid:false});B(x-.2,0,z-.2,x+.2,1.1,z+.2,C.facade);
+ for(let k=0;k<8;k++){const a=k/8*6.283;jet(x+Math.sin(a)*.15,1.1,z+Math.cos(a)*.15,Math.sin(a)*1.5,2.4,Math.cos(a)*1.5,.4,34,.06)}
+ jet(x,1.1,z,0,3.6,0,.4,70,.15);light(x,.9,z,W8,3,6);fpush(x,.8,z,0)};
+const bench=(x,z,alongX)=>{const a=alongX?1.1:.3,b=alongX?.3:1.1;B(x-a,.42,z-b,x+a,.5,z+b,C.wood);B(x-a+.1,0,z-b+.05,x-a+.2,.42,z+b-.05,C.steel);B(x+a-.2,0,z-b+.05,x+a-.1,.42,z+b-.05,C.steel)};
+const kiosk=(x,z)=>{const h=rnd(0,360),k=hsl(h,.5,.4);B(x-1.4,0,z-.9,x+1.4,1,z+.9,k);B(x-1.5,1,z-1,x+1.5,1.06,z+1,C.white,{s:.6});
+ for(const[dx,dz]of[[-1.4,-.9],[1.4,-.9],[-1.4,.9],[1.4,.9]])B(x+dx-.04,1.06,z+dz-.04,x+dx+.04,2.6,z+dz+.04,C.steel);
+ B(x-1.6,2.6,z-1.1,x+1.6,2.8,z+1.1,hsl(h,.85,.55),{e:1.6});for(let q=0;q<8;q++){const s=rnd(.12,.25),u=rnd(-1.2,1.2),w=rnd(-.7,.7);B(x+u-s/2,1.06,z+w-s/2,x+u+s/2,1.06+s,z+w+s/2,hsl(rnd(0,360),.8,.55),{solid:false})}};
+
+/* ---------- themed districts ---------- */
+// Every district is 120 m wide and 140 m deep in its own frame: you arrive at (0,0) heading +z and can
+// leave ahead (0,140), left (-60,70) or right (60,70). A 6 m promenade runs along x=0 and z=70 and is kept clear.
+let NK;
+const DW=60,DD=140,DH=3.2,MID=DD/2;
+const nn=(x,y,z)=>{const k=x.toFixed(1)+','+y+','+z.toFixed(1);if(NK.has(k))return NK.get(k);const[a,b]=xp(x,z);NAV.n.push({x:a,y,z:b});NK.set(k,NAV.n.length-1);return NAV.n.length-1};
+const nl=(a,b,e=0)=>{if(a!==b)NAV.l.push([a,b,e])};
+const npath=(pts,y=0,loop=false)=>{let pr=-1,first=-1;for(const[x,z]of pts){const i=nn(x,y,z);if(pr>=0)nl(pr,i);else first=i;pr=i}if(loop&&first>=0)nl(pr,first)};
+const ring=(cx,cz,rx,rz,n,y=0)=>{const pts=[];for(let k=0;k<n;k++){const a=k/n*6.283;pts.push([cx+Math.cos(a)*rx,cz+Math.sin(a)*rz])}npath(pts,y,true);return pts};
+const join=(x0,z0,x1,z1,y=0)=>nl(nn(x0,y,z0),nn(x1,y,z1));
+const stand=(x,z,yaw,y=0)=>{const[a,b]=xp(x,z);idle.push(a,y,b,yaw+XF.q*Math.PI/2)};
+const ride=(mesh,a,b,c,d)=>{const[wx,wz]=xp(a[0],a[2]);(rides[mesh]=rides[mesh]||[]).push(wx,a[1],wz,(a[3]||0)+XF.q*Math.PI/2,...b,...c,...d)};
+const idF=frame(0,0,1,0,0,1),ctx=(fy,hue)=>({F:idF,fy,hw:DW,D:DD,hue,neon:hsl(hue,.95,.62),accent:hsl(hue,.55,.42)});
+const T=t=>addName(t,'900 {s} system-ui,sans-serif',1);
+function shell(o){
+ const H=o.h??10,wc=o.wallCol??C.facade,wp=o.wallPat??11;
+ B(-DW,-.4,0,DW,0,DD,o.floor??C.floor,{pat:o.floorPat??12,s:.3});
+ const seg=(x0,z0,x1,z1)=>{if(o.glassWalls){B(x0,0,z0,x1,1.1,z1,wc,{pat:wp});B(x0,1.1,z0,x1,H,z1,GL,{glass:1})}else B(x0,0,z0,x1,H,z1,wc,{pat:wp})};
+ for(const z of[0,DD]){const z0=z?DD-.4:0,z1=z?DD:.4;seg(-DW,z0,-DH,z1);seg(DH,z0,DW,z1);if(H>4.6)B(-DH,4.6,z0,DH,H,z1,wc,{pat:wp})}
+ for(const sx of[-1,1]){const x0=sx<0?-DW:DW-.4,x1=sx<0?-DW+.4:DW;seg(x0,0,x1,MID-DH);seg(x0,MID+DH,x1,DD);if(H>4.6)B(x0,4.6,MID-DH,x1,H,MID+DH,wc,{pat:wp})}
+ const dp=(x,z,dx,dz)=>{const[wx,wz]=xp(x,z),[a,b]=xd(dx,dz);doors.push({x:wx,z:wz,dx:a,dz:b})};
+ dp(0,0,0,-1);dp(0,DD,0,1);dp(-DW,MID,-1,0);dp(DW,MID,1,0);
+ const sy=o.signY??(H>5?5.2:3.4),SC=hsl(150,.9,.55);
+ box(0,sy,DD-1,5,.7,.2,SC,{e:3,sign:T('Explore →'),face:1,solid:false});
+ box(-DW+1,sy,MID,.2,.7,5,SC,{e:3,sign:T('Explore →'),face:2,solid:false});
+ box(DW-1,sy,MID,.2,.7,5,SC,{e:3,sign:T('Explore →'),face:3,solid:false});
+ box(0,o.titleY??(H>7?7:3.8),12,16,1.8,.2,o.titleCol??hsl(45,.9,.62),{e:3.2,sign:addName(o.title,o.font??'900 {s} Georgia,serif',1),face:1,solid:false});
+ if((o.titleY??(H>7?7:3.8))<5){B(-8.2,0,11.8,-7.9,(o.titleY??3.8)+.9,12.2,C.dark);B(7.9,0,11.8,8.2,(o.titleY??3.8)+.9,12.2,C.dark)}
+ if(o.roof==='flat'){B(-DW,H,0,DW,H+.4,DD,o.ceil??C.ceil);if(o.panels!==false)for(let x=-48;x<=48;x+=12)for(let z=8;z<DD;z+=12){B(x-.9,H-.05,z-.9,x+.9,H,z+.9,C.white,{e:2.3,solid:false});light(x,H-.6,z,o.lightCol??C.warm,o.lightI??7,13)}}
+ if(o.roof==='glass')vault(DW,o.rise??14,24,'z',0,DD,10,H);
+ npath(Array.from({length:41},(_,k)=>[0,1+k*3.45]));npath(Array.from({length:35},(_,k)=>[-59+k*118/34,MID]));
+}
+const lamp=(x,z,h=4,col=C.warm,I=5)=>{B(x-.06,0,z-.06,x+.06,h,z+.06,C.dark);B(x-.22,h,z-.22,x+.22,h+.4,z+.22,col,{e:3,solid:false});light(x,h-.2,z,col,I,9)};
+const bulbs=(x0,z0,x1,z1,y,n,sag=.8)=>{for(let k=0;k<=n;k++){const t=k/n,x=x0+(x1-x0)*t,z=z0+(z1-z0)*t,yy=y-sag*4*t*(1-t);B(x-.06,yy-.06,z-.06,x+.06,yy+.06,z+.06,hsl([45,0,120,200,300][k%5],.9,.6),{e:4,solid:false})}};
+const umbrella=(x,z,col)=>{B(x-.04,0,z-.04,x+.04,2.3,z+.04,C.steel,{solid:false});for(let k=0;k<10;k++){const a=k/10*6.283;part(x+Math.sin(a)*.62,2.25,z+Math.cos(a)*.62,.7,.02,1.25,k%2?col:C.white,a,.32,0,0)}};
+const rock=(x,z,s)=>{for(let k=0;k<3;k++)part(x+rnd(-s,s)*.4,s*.25,z+rnd(-s,s)*.4,s*rnd(.6,1),s*rnd(.4,.7),s*rnd(.6,1),hsl(30,.06,rnd(.25,.4)),rnd(0,6.28),rnd(-.3,.3),rnd(-.3,.3),0)};
+const conifer=(x,z,h)=>{stick(x,0,z,x,h*.92,z,.24,BARK);const hue=rnd(120,150);
+ for(let l=0;l<13;l++){const t=l/13,y=h*(.18+.78*t),r=h*.3*(1-t)+.35,n=Math.round(7+r*5);
+  for(let k=0;k<n;k++){const a=k/n*6.283+rnd(0,.5)+l*.4,rr=r*rnd(.45,.6);part(x+Math.sin(a)*rr,y-r*.12,z+Math.cos(a)*rr,r*rnd(.45,.6),r*.25,r*rnd(.9,1.1),hsl(hue+rnd(-8,8),.42,rnd(.1,.2)),a,.32,rnd(-.25,.25),4)}}};
+const bigTree=(x,z,h)=>{const tx=x+rnd(-.3,.3),tz=z+rnd(-.3,.3);stick(x,0,z,tx,h*.62,tz,.32*h/8,BARK);
+ for(let k=0;k<6;k++){const a=k*1.05+rnd(0,.5),r=rnd(1.2,2.4)*h/8;stick(tx,h*rnd(.4,.55),tz,tx+Math.sin(a)*r,h*rnd(.68,.82),tz+Math.cos(a)*r,.12*h/8,BARK)}
+ crown(tx,h*.78,tz,h*.4,h*.26,1300,rnd(90,128),h/4.5)};
+const flowers=(x,z,rx,rz,n,hue)=>{for(let k=0;k<n;k++){const px=x+rnd(-rx,rx),pz=z+rnd(-rz,rz),l=rnd(.08,.15);part(px,rnd(.05,.4),pz,l*.8,l*.3,l,R()<.35?hsl(hue+rnd(-25,25),.8,.55):hsl(rnd(95,130),.5,rnd(.12,.25)),rnd(0,6.28),rnd(-1.4,-.3),rnd(-.4,.4),4)}};
+const bed=(x,z,w,d,hue)=>{B(x-w,0,z-d,x+w,.35,z+d,hsl(25,.15,.35),{pat:22});B(x-w+.15,.35,z-d+.15,x+w-.15,.38,z+d-.15,hsl(25,.4,.12),{solid:false});flowers(x,z+0,w-.3,d-.3,Math.round(w*d*14),hue)};
+const people=(x0,z0,x1,z1,n)=>{for(let k=0;k<n;k++)stand(rnd(x0,x1),rnd(z0,z1),rnd(0,6.28))};
+const THEMES={
+/* ---------------- arboretum: a giant glass conservatory ---------------- */
+arboretum(){
+ shell({title:'The Arboretum',floorPat:20,floor:hsl(95,.35,.5),roof:'glass',h:9,rise:16,glassWalls:1,wallCol:hsl(30,.2,.35),wallPat:22,titleCol:hsl(120,.7,.55)});
+ for(const[x0,z0,x1,z1]of[[-3.2,0,3.2,DD],[-DW,MID-3.2,DW,MID+3.2]])B(x0,0,z0,x1,.03,z1,C.floor,{pat:22,solid:false});
+ const quads=[[-31,35],[31,35],[-31,105],[31,105]];
+ quads.forEach(([cx,cz],qi)=>{
+  const rx=20,rz=22,pts=ring(cx,cz,rx,rz,22);for(const[x,z]of pts)B(x-1.4,0,z-1.4,x+1.4,.025,z+1.4,C.floor,{pat:22,solid:false});
+  join(cx>0?3:-3,cz,cx-Math.sign(cx)*rx,cz);join(cx,cz+(cz<MID?rz:-rz),cx,MID);
+  for(let k=0;k<14;k++){const a=k/14*6.283+rnd(0,.3);bench(cx+Math.cos(a)*(rx+2.6),cz+Math.sin(a)*(rz+2.6),Math.abs(Math.sin(a))>.7);if(k%3===0)lamp(cx+Math.cos(a+.2)*(rx-2),cz+Math.sin(a+.2)*(rz-2),3.6,C.warm,4)}
+  if(qi===0){ // lily pond with a footbridge
+   B(cx-11,0,cz-8,cx+11,.4,cz-7.6,hsl(30,.1,.6),{pat:22});B(cx-11,0,cz+7.6,cx+11,.4,cz+8,hsl(30,.1,.6),{pat:22});B(cx-11,0,cz-7.6,cx-10.6,.4,cz+7.6,hsl(30,.1,.6),{pat:22});B(cx+10.6,0,cz-7.6,cx+11,.4,cz+7.6,hsl(30,.1,.6),{pat:22});
+   B(cx-10.6,0,cz-7.6,cx+10.6,.15,cz+7.6,hsl(170,.5,.35),{e:.5,pat:8,solid:false});
+   B(cx-1.2,.35,cz-8.4,cx+1.2,.5,cz+8.4,C.wood,{pat:23});rail(cx-1.2,cz-8,cx-1.2,cz+8,.45);rail(cx+1.2,cz-8,cx+1.2,cz+8,.45);npath([[cx,cz-rz],[cx,cz-9],[cx,cz+9],[cx,cz+rz]],0);
+   for(let k=0;k<30;k++)part(cx+rnd(-9,9),.17,cz+rnd(-6.5,6.5),rnd(.4,.8),.02,rnd(.4,.8),hsl(rnd(100,130),.5,.25),rnd(0,6.28),0,0,0);
+   for(let k=0;k<8;k++)part(cx+rnd(-9,9),.25,cz+rnd(-6,6),.12,.08,.12,hsl(rnd(320,360),.7,.7),0,0,0,0);
+   for(let k=0;k<6;k++)bigTree(cx+(k%2?-16:16)+rnd(-2,2),cz-15+k*6,rnd(9,13));
+  }else if(qi===1){ // palm house
+   for(let k=0;k<9;k++){const a=k/9*6.283;palm(cx+Math.cos(a)*9,cz+Math.sin(a)*10,rnd(9,14))}
+   bed(cx,cz,6,6,20);fountain(cx,cz-14);for(let k=0;k<10;k++)bigTree(cx+rnd(-17,17),cz+(k%2?17:-18)+rnd(-2,2),rnd(7,11));
+  }else{ // rose garden / tree grove
+   for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++)if((i+j)%2===0)bed(cx+i*6,cz+j*6,1.8,1.8,qi===2?350:50);
+   for(let k=0;k<12;k++){const a=k/12*6.283;bigTree(cx+Math.cos(a)*(rx+7),cz+Math.sin(a)*(rz+7),rnd(8,14))}
+  }
+  for(let k=0;k<8;k++)bird(cx+rnd(-8,8),rnd(1.2,3),cz+rnd(-8,8),rnd(1,3),.5,(chance(.5)?1:-1)*rnd(.6,1.1),hsl(pick([45,20,280,200,330]),.9,.6));
+  people(cx-rx,cz-rz,cx+rx,cz+rz,6);
+ });
+ for(let z=12;z<DD;z+=16)for(const sx of[-1,1])if(Math.abs(z-MID)>6){lamp(sx*4.5,z,4,C.warm,5)}
+ for(let k=0;k<20;k++)bird(rnd(-40,40),rnd(30,40),rnd(20,120),rnd(8,20),2,(chance(.5)?1:-1)*rnd(.12,.2));
+ return{title:'The Arboretum',fog:.0035};
+},
+/* ---------------- aquarium: a walk-through tunnel under the fish ---------------- */
+aquarium(){
+ const WALL=hsl(215,.45,.08);
+ shell({title:'Deep Blue Aquarium',floorPat:3,floor:hsl(220,.5,.12),roof:'flat',h:8,wallCol:WALL,wallPat:0,ceil:hsl(215,.4,.06),panels:false,titleCol:hsl(190,.9,.55),font:'italic 900 {s} Georgia,serif'});
+ const WATER=hsl(195,.8,.35),BLUE=hsl(200,.9,.5);
+ for(const[z0,z1]of[[8,63],[77,132]]){
+  // the tank: water all around the tunnel, glass arch you walk under
+  B(-16,0,z0,-3.6,7.6,z1,WATER,{glass:1,e:.22,solid:false});B(3.6,0,z0,16,7.6,z1,WATER,{glass:1,e:.22,solid:false});B(-3.6,4.1,z0,3.6,7.6,z1,WATER,{glass:1,e:.22,solid:false});
+  B(-16.4,0,z0,-16,8,z1,WALL);B(16,0,z0,16.4,8,z1,WALL);B(-3.65,0,z0,-3.45,1,z1,C.dark);B(3.45,0,z0,3.65,1,z1,C.dark);
+  vault(3.55,3.1,12,'z',z0,z1,3,.9);
+  B(-16,7.55,z0,16,7.6,z1,hsl(195,.8,.6),{e:1.8,pat:8,solid:false});
+  for(let z=z0+3;z<z1;z+=6){light(0,3.6,z,hsl(195,.9,.6),6,9);B(-15.9,0,z-2,-4,.6,z+2,hsl(30,.2,.3));B(4,0,z-2,15.9,.6,z+2,hsl(30,.2,.3))}
+  for(let k=0;k<90;k++){const x=(chance(.5)?-1:1)*rnd(4.2,15.5),z=rnd(z0+1,z1-1);
+   if(chance(.5))part(x,rnd(.4,1.6),z,rnd(.15,.4),rnd(.4,1.6),rnd(.15,.4),hsl(pick([10,330,30,280,50]),.75,.55),rnd(0,6),rnd(-.3,.3),rnd(-.3,.3),0);
+   else for(let j=0;j<12;j++)part(x+rnd(-.4,.4),rnd(.6,2.4),z+rnd(-.4,.4),.06,.5,.03,hsl(rnd(100,150),.6,.3),rnd(0,6),rnd(-.4,.4),rnd(-.4,.4),4)}
+  // fish: big schools overhead, smaller ones along the sides
+  for(let s=0;s<14;s++){const zc=rnd(z0+12,z1-12),y=rnd(4.6,7),rx=rnd(6,12),rz=rnd(8,(z1-z0)/2-3),w=(chance(.5)?1:-1)*rnd(.25,.55),hue=pick([45,15,200,330,170,280]),n=Math.round(rnd(6,16)),sc=rnd(.6,1.6);
+   for(let k=0;k<n;k++)ride('fish',[rnd(-1,1),y+rnd(-.6,.6),zc+rnd(-2,2),0],[rx+rnd(-.8,.8),rnd(.2,.8),rz+rnd(-1,1),5],[...hsl(hue+rnd(-15,15),.85,rnd(.4,.65)),k/n*.25+rnd(0,.05)],[w,sc,rnd(.3,.9),0])}
+  for(const sx of[-1,1])for(let s=0;s<5;s++){const zc=rnd(z0+10,z1-10),y=rnd(.8,3.5),hue=pick([45,15,330,60]);for(let k=0;k<10;k++)ride('fish',[sx*rnd(8,11),y+rnd(-.4,.4),zc,0],[rnd(2.5,3.6),.3,rnd(6,12),5],[...hsl(hue,.9,.55),k/10*.3],[(chance(.5)?1:-1)*rnd(.4,.8),rnd(.4,.8),.6,0])}
+  ride('fish',[rnd(-2,2),6.4,(z0+z1)/2,0],[9,.6,(z1-z0)/2-6,5],[.32,.34,.38,0],[.12,6,.3,0]); // a shark
+ }
+ // side galleries along the cross hall: wall tanks, jellyfish columns, touch pool
+ for(const sx of[-1,1]){
+  for(let x=18;x<56;x+=9){const X=sx*x;
+   for(const zs of[-1,1]){const z=MID+zs*6.6;B(X-3.6,0,z-(zs>0?0:2.2),X+3.6,.9,z+(zs>0?2.2:0),WALL);B(X-3.5,.9,z-(zs>0?0:2.2),X+3.5,4.6,z+(zs>0?2.2:0),hsl(rnd(170,220),.8,.4),{glass:1,e:.5});
+    for(let k=0;k<8;k++)ride('fish',[X,rnd(1.4,4),z+zs*1.1,0],[rnd(1,2.6),.2,rnd(.3,.8),5],[...hsl(rnd(0,360),.9,.6),k/8],[(chance(.5)?1:-1)*rnd(.6,1.2),rnd(.3,.6),.8,0]);
+    light(X,4,z,hsl(rnd(170,220),.9,.6),4,6)}}
+  for(let k=0;k<3;k++){const X=sx*(22+k*12),Z=MID+(k%2?-12:12);B(X-1.2,0,Z-1.2,X+1.2,6,Z+1.2,hsl(250,.6,.25),{glass:1,e:.5});light(X,3,Z,hsl(280,.9,.6),5,7);
+   for(let j=0;j<10;j++)ride('jelly',[X+rnd(-.6,.6),rnd(.8,5.2),Z+rnd(-.6,.6),0],[.3,.5,.3,7],[...hsl(rnd(280,330),.8,.65),R()],[.5,2,1,0])}
+ }
+ for(let x=-56;x<=56;x+=8){if(Math.abs(x)<5)continue;B(x-1,7.9,MID-.6,x+1,8,MID+.6,hsl(195,.9,.6),{e:2,solid:false});light(x,7,MID,hsl(195,.9,.7),5,10)}
+ people(-3,10,3,130,40);people(-56,MID-2,56,MID+2,25);
+ return{title:'Deep Blue Aquarium',night:1,fog:.01,fogCol:[.0,.02,.05]};
+},
+/* ---------------- amusement park at night ---------------- */
+amusement(){
+ shell({title:'Starlight Fair',floorPat:22,floor:hsl(30,.1,.5),h:3,wallCol:hsl(0,.5,.3),wallPat:0,titleCol:hsl(330,.9,.6),titleY:5,signY:4});
+ for(const sx of[-1,1])for(let z=4;z<DD;z+=8)if(Math.abs(z-MID)>5){const X=sx*(DW-.3);B(X-.1,3,z-.1,X+.1,5,z+.1,C.steel);B(X-.25,5,z-.25,X+.25,5.4,z+.25,hsl(z*7,.9,.6),{e:4,solid:false})}
+ for(let z=6;z<DD;z+=10)if(Math.abs(z-MID)>6){bulbs(-3.4,z,3.4,z,5.4,6,.5);lamp(-4,z,4.5,hsl(45,.9,.6),5);lamp(4,z,4.5,hsl(45,.9,.6),5)}
+ // ferris wheel
+ {const cx=-32,cz=34,hub=17,Rw=14;for(const s of[-1,1]){stick(cx+s*1.5,0,cz-6,cx+s*.8,hub,cz,.35,C.steel);stick(cx+s*1.5,0,cz+6,cx+s*.8,hub,cz,.35,C.steel)}
+  ride('ferris',[cx,hub,cz,Math.PI/2],[1,1,1,6],[1,.9,.95,0],[.08,0,0,0]);
+  for(let k=0;k<16;k++)ride('gondola',[cx,hub,cz,Math.PI/2],[Rw,0,Rw,7],[...hsl(k*22.5,.8,.55),k/16],[.08,0,0,0]);
+  B(cx-4,0,cz-8,cx+4,.4,cz-6,hsl(0,.6,.4));npath([[cx,cz-9],[-3,cz-9]]);light(cx,hub,cz,hsl(300,.9,.6),12,20)}
+ // carousel
+ {const cx=32,cz=34;B(cx-7.5,0,cz-7.5,cx+7.5,.3,cz+7.5,hsl(45,.6,.4),{solid:false});ride('carousel',[cx,0,cz,0],[1,1,1,6],[1,.85,.9,0],[.35,1,0,0]);
+  for(let k=0;k<20;k++)ride('horse',[cx,.9,cz,0],[k%2?4.2:5.6,.35,k%2?4.2:5.6,7],[...hsl(k*37,.5,.8),k/20],[.35,1,6,0]);
+  light(cx,6,cz,hsl(45,.9,.6),14,16);ring(cx,cz,10,10,14);join(3,cz,cx-10,cz)}
+ // roller coaster
+ {const cx=-30,cz=104,rx=22,rz=26;for(let k=0;k<96;k++){const a0=k/96*6.283,a1=(k+1)/96*6.283,y=a=>7+4*Math.sin(3*a);
+   const[x0,z0,x1,z1]=[cx+Math.cos(a0)*rx,cz+Math.sin(a0)*rz,cx+Math.cos(a1)*rx,cz+Math.sin(a1)*rz];
+   for(const o of[-.6,.6]){const nx=Math.cos(a0)*o,nz=Math.sin(a0)*o;stick(x0+nx,y(a0),z0+nz,x1+nx,y(a1),z1+nz,.12,hsl(0,.8,.5))}
+   if(k%4===0)stick(x0,0,z0,x0,y(a0)-.2,z0,.25,C.steel)}
+  for(let t=0;t<2;t++)for(let k=0;k<6;k++)ride('car',[cx,7.35,cz,0],[rx,4,rz,7],[...hsl(200+t*120,.8,.5),t*.5+k*.012],[.45,1,3,0])}
+ // drop tower
+ {const cx=32,cz=104;B(cx-.8,0,cz-.8,cx+.8,34,cz+.8,hsl(220,.3,.5));B(cx-1.2,34,cz-1.2,cx+1.2,35,cz+1.2,hsl(0,.9,.55),{e:3,solid:false});
+  ride('drop',[cx,3,cz,0],[1,24,1,7],[1,.3,.4,0],[.35,2,0,0]);light(cx,30,cz,hsl(0,.9,.6),14,24);ring(cx,cz,9,9,12);join(3,cz,cx-9,cz)}
+ // midway: game booths and snack stands along the cross path
+ const games=['Ring Toss','Duck Pond','Hoop Shot','Balloon Darts','Lucky Wheel','Cotton Candy','Popcorn','Funnel Cakes'];
+ for(const sx of[-1,1])for(let k=0;k<4;k++){const x=sx*(10+k*12),z=MID+(k%2?-8:8),hue=rnd(0,360);
+  B(x-2.5,0,z-1.5,x+2.5,1,z+1.5,hsl(hue,.6,.4));B(x-2.6,3,z-1.6,x+2.6,3.2,z+1.6,hsl(hue+30,.8,.5));for(const dx of[-2.4,2.4])B(x+dx-.08,1,z-.08,x+dx+.08,3,z+.08,C.white);
+  for(let j=0;j<10;j++)B(x+(j/10-.5)*5,3.2,z-1.7,x+(j/10-.5)*5+.5,3.6,z+1.7,j%2?C.white:hsl(hue,.9,.55),{solid:false});
+  box(x,3.9,z-(z>MID?1.8:-1.8),4,.6,.12,hsl(hue,.9,.6),{e:3,sign:T(games[(k+(sx>0?4:0))%8]),face:z>MID?1:0,solid:false});light(x,2.6,z,hsl(hue,.9,.7),5,7);stand(x,z+(z>MID?.6:-.6),z>MID?Math.PI:0)}
+ for(let k=0;k<30;k++)part(rnd(-50,50),rnd(5,9),rnd(10,130),.35,.45,.35,hsl(rnd(0,360),.9,.6),0,0,0,0); // balloons
+ people(-55,MID-3,55,MID+3,30);people(-3,5,3,135,20);
+ return{title:'Starlight Fair',night:1,fog:.004};
+},
+/* ---------------- open-air street market ---------------- */
+market(){
+ shell({title:'Old Town Market',floorPat:22,floor:hsl(30,.1,.6),h:14,wallCol:hsl(15,.4,.5),wallPat:25,titleCol:hsl(30,.9,.6)});
+ // building facades with lit windows and shopfronts at street level
+ for(const[x0,z0,x1,z1,face]of[[-DW,0,DW,.4,0],[-DW,DD-.4,DW,DD,1],[-DW,0,-DW+.4,DD,2],[DW-.4,0,DW,DD,3]]){
+  const along=face<2,len=along?x1-x0:z1-z0;
+  for(let s=4;s<len-2;s+=4){const u=(along?x0:z0)+s;if(Math.abs(u-(along?0:MID))<5)continue;
+   for(let fl=1;fl<3;fl++){const y=5+fl*3.4,lit=chance(.55);const col=lit?hsl(40,.8,.7):hsl(220,.2,.15);
+    if(along)B(u-.7,y,face?DD-.45:.4,u+.7,y+1.8,face?DD-.4:.45,col,{e:lit?1.6:0,solid:false});else B(face===2?-DW+.4:DW-.45,y,u-.7,face===2?-DW+.45:DW-.4,y+1.8,u+.7,col,{e:lit?1.6:0,solid:false})}}}
+ for(const sx of[-1,1])for(const sz of[-1,1]){const x0=sx*8,z0=MID+sz*8;
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){const x=x0+sx*i*11+sx*4,z=z0+sz*j*13+sz*4,hue=pick([0,30,120,200,45,330]),wide=rnd(2.2,2.8);
+   B(x-wide,0,z-1.1,x+wide,.9,z+1.1,C.wood,{pat:23});for(const[dx,dz]of[[-wide,-1.1],[wide,-1.1],[-wide,1.1],[wide,1.1]])B(x+dx-.05,.9,z+dz-.05,x+dx+.05,2.6,z+dz+.05,C.wood);
+   for(let k=0;k<8;k++)B(x-wide-.2+k*(wide*2+.4)/8,2.6,z-1.6,x-wide-.2+(k+1)*(wide*2+.4)/8,2.75,z+1.6,k%2?C.white:hsl(hue,.75,.5),{solid:false});
+   const goods=pick(['fruit','flowers','bread','crafts']);
+   for(let k=0;k<26;k++){const gx=x+rnd(-wide+.2,wide-.2),gz=z+rnd(-.9,.9);
+    if(goods==='flowers')part(gx,1.05,gz,.18,.06,.3,hsl(pick([340,50,280,0,20]),.8,.6),rnd(0,6),rnd(-1.4,-.4),0,4);
+    else{const s=rnd(.1,.2);B(gx-s,.9,gz-s,gx+s,.9+s*1.4,gz+s,goods==='fruit'?hsl(pick([0,30,55,90,15]),.85,.5):goods==='bread'?hsl(32,.6,rnd(.35,.55)):hsl(rnd(0,360),.5,.5),{solid:false})}}
+   stand(x,z+sz*1.6,sz>0?Math.PI:0);light(x,2.3,z,C.warm,3,6)}}
+ fountain(0,MID);for(const[x,z]of[[-8,MID-8],[8,MID-8],[-8,MID+8],[8,MID+8]]){planter(x,z)}
+ for(let z=10;z<DD;z+=12)bulbs(-DW+.5,z,DW-.5,z+6,10,40,1.5);
+ for(let k=0;k<10;k++){const x=rnd(-50,50),z=pick([20,120])+rnd(-6,6);if(Math.abs(x)<5)continue;B(x-.5,.72,z-.5,x+.5,.76,z+.5,C.white,{solid:false});B(x-.05,0,z-.05,x+.05,.72,z+.05,C.dark,{solid:false});umbrella(x,z,hsl(rnd(0,360),.7,.45));
+  for(const[dx,dz]of[[-.9,0],[.9,0]]){B(x+dx-.2,0,z+dz-.2,x+dx+.2,.45,z+dz+.2,C.dark,{solid:false});if(chance(.6))seat(x+dx,z+dz,Math.atan2(-dx,-dz))}}
+ for(let z=6;z<DD;z+=14)for(const sx of[-1,1])lamp(sx*4.5,z,4.5,C.warm,5);
+ for(let k=0;k<14;k++)bird(rnd(-30,30),rnd(1.2,3),rnd(20,120),rnd(2,6),.5,(chance(.5)?1:-1)*rnd(.4,.8),hsl(0,0,rnd(.25,.45)));
+ people(-50,MID-3,50,MID+3,20);people(-3,5,3,135,20);
+ return{title:'Old Town Market',fog:.0025};
+},
+/* ---------------- forest boardwalk ---------------- */
+forest(){
+ shell({title:'Whispering Pines',floorPat:21,floor:hsl(30,.3,.5),h:2.4,wallCol:hsl(28,.3,.25),wallPat:23,titleCol:hsl(100,.6,.55),titleY:4.2,signY:3.4});
+ const bw=(x0,z0,x1,z1)=>{B(x0,0,z0,x1,.45,z1,C.wood,{pat:23})};
+ bw(-2.2,0,2.2,DD);bw(-DW,MID-2.2,DW,MID+2.2);
+ for(const s of[-1,1]){for(const[a,b]of[[3,MID-2.4],[MID+2.4,DD-1]])rail(s*2.2,a,s*2.2,b,.45);for(const[a,b]of[[-DW+1,-2.4],[2.4,DW-1]])rail(a,MID+s*2.2,b,MID+s*2.2,.45)}
+ // a stream with a little bridge
+ for(let z=0;z<DD;z+=2){const x=-22+Math.sin(z*.06)*10;B(x-2,0,z,x+2,.06,z+2,hsl(180,.5,.3),{e:.4,pat:8,solid:false});for(const s of[-1,1])if(chance(.4))rock(x+s*2.6,z+1,rnd(.4,.9))}
+ const clear=(x,z)=>Math.abs(x)<5||Math.abs(z-MID)<5||Math.abs(x-(-22+Math.sin(z*.06)*10))<4;
+ let n=0;for(let k=0;k<400&&n<70;k++){const x=rnd(-57,57),z=rnd(3,137);if(clear(x,z))continue;n++;if(chance(.65))conifer(x,z,rnd(9,17));else bigTree(x,z,rnd(7,12))}
+ for(let k=0;k<60;k++){const x=rnd(-57,57),z=rnd(3,137);if(clear(x,z))continue;shrubs(x,0,z,1.2,1.2,40);if(chance(.3))rock(x+1,z,rnd(.5,1.4))}
+ for(let z=8;z<DD;z+=10)if(Math.abs(z-MID)>5)for(const s of[-1,1]){B(s*2.4-.05,.45,z-.05,s*2.4+.05,1.6,z+.05,C.dark);B(s*2.4-.15,1.6,z-.15,s*2.4+.15,1.9,z+.15,hsl(40,.9,.6),{e:3,solid:false});light(s*2.4,1.7,z,C.warm,3,7)}
+ for(let k=0;k<6;k++){const z=rnd(10,130);if(Math.abs(z-MID)<6)continue;bench(3.6,z,0)}
+ for(let k=0;k<25;k++)bird(rnd(-50,50),rnd(18,30),rnd(10,130),rnd(5,15),2,(chance(.5)?1:-1)*rnd(.15,.3));
+ for(let k=0;k<40;k++)bird(rnd(-50,50),rnd(.8,2.5),rnd(10,130),rnd(.5,2),.4,(chance(.5)?1:-1)*rnd(.5,1),[.9,.95,.4]); // fireflies / butterflies
+ people(-1.5,5,1.5,135,22);people(-55,MID-1.5,55,MID+1.5,14);
+ return{title:'Whispering Pines',fog:.009,fogCol:[.06,.08,.07]};
+},
+/* ---------------- grand department store: three floors around an atrium ---------------- */
+dept(){
+ const H=18;shell({title:'Hartwell & Co.',floorPat:7,floor:hsl(35,.1,.85),roof:'flat',h:H,panels:false,titleCol:hsl(45,.8,.62),font:'400 {s} Didot,"Bodoni 72",Georgia,serif'});
+ const AX=14,AZ0=48,AZ1=92;
+ for(const y of[6,12]){B(-DW,y-.4,0,DW,y,AZ0,C.floor,{pat:12});B(-DW,y-.4,AZ1,DW,y,DD,C.floor,{pat:12});B(-DW,y-.4,AZ0,-AX,y,AZ1,C.floor,{pat:12});B(AX,y-.4,AZ0,DW,y,AZ1,C.floor,{pat:12});
+  for(const s of[-1,1]){rail(-AX,s>0?AZ1:AZ0,AX,s>0?AZ1:AZ0,y);rail(s*AX,AZ0,s*AX,AZ1-8.5,y)}
+  for(let x=-54;x<=54;x+=12)for(let z=8;z<DD;z+=12){if(Math.abs(x)<AX+2&&z>AZ0&&z<AZ1)continue;B(x-.9,y-.45,z-.9,x+.9,y-.4,z+.9,C.white,{e:2.3,solid:false});light(x,y-.9,z,C.warm,6,12,{both:y===6?0:0})}}
+ for(let x=-54;x<=54;x+=12)for(let z=8;z<DD;z+=12){if(Math.abs(x)<AX+2&&z>AZ0&&z<AZ1)continue;B(x-.9,H-.05,z-.9,x+.9,H,z+.9,C.white,{e:2.3,solid:false});light(x,H-.8,z,C.warm,6,12)}
+ vault(AX,6,12,'z',AZ0,AZ1,4,H);B(-AX,H,AZ0-.01,AX,H+.01,AZ0,C.ceil);
+ for(const y0 of[0,6]){const z=AZ1-4;esc(y0?-6.8:6.8,z,y0?-1:1,y0)}
+ for(let k=0;k<5;k++){const cy=H-2-k*.01,cz=AZ0+6+k*8;for(let j=0;j<24;j++){const a=j/24*6.283;B(Math.cos(a)*1.4-.06,cy-.5,cz+Math.sin(a)*1.4-.06,Math.cos(a)*1.4+.06,cy,cz+Math.sin(a)*1.4+.06,hsl(45,.5,.85),{e:4,solid:false})}light(0,cy-1,cz,C.warm,10,18)}
+ // departments on every floor
+ [0,6,12].forEach((fy,fl)=>{const c=ctx(fy,rnd(0,360));
+  for(const sx of[-1,1])for(const[xa,z0]of[[20,18],[20,122],[40,18],[40,40],[40,100],[40,122],[24,36],[24,104]]){const x0=sx*xa,sz=z0<MID?-1:1,kind=(fl*3+xa+z0+(sx+1))%5;
+   if(kind===0)for(let v=-10;v<=10;v+=3.4)rack(c,z0+v,x0-8,x0+8,()=>hsl(rnd(0,360),rnd(.3,.7),rnd(.3,.7)));
+   else if(kind===1){for(let i=0;i<3;i++)for(let j=0;j<3;j++)glowCase(c,x0-9+i*7,z0-9+j*7,x0-4+i*7,z0-7.6+j*7);}
+   else if(kind===2){for(let i=0;i<3;i++)for(let j=0;j<2;j++){const x=x0-8+i*8,z=z0-6+j*12,so=hsl(rnd(0,360),.3,.45);B(x-1.6,fy,z-.5,x+1.6,fy+.45,z+.5,so);B(x-1.6,fy+.45,z+.3,x+1.6,fy+1,z+.5,so);B(x-.6,fy,z-1.8,x+.6,fy+.4,z-1.1,C.wood)}}
+   else if(kind===3){for(let i=0;i<4;i++){const x=x0-9+i*6;B(x-1.5,fy,z0-10,x+1.5,fy+1.1,z0+10,C.white,{s:.6});for(let z=z0-9;z<z0+10;z+=1.5)B(x-.4,fy+1.1,z-.3,x+.4,fy+1.6,z+.3,hsl(200+rnd(-40,40),.6,.55),{e:1.4,pat:5,solid:false})}}
+   else for(let i=0;i<4;i++)mannequin(c,x0-6+i*4,z0+(sz<0?-6:6),rnd(0,360));
+   for(let k=0;k<4;k++)stand(x0+rnd(-10,10),z0+rnd(-10,10),rnd(0,6),fy)}
+  if(fy){npath([[-AX-2,AZ0-2],[-AX-2,AZ1+2],[AX+2,AZ1+2],[AX+2,AZ0-2]],fy,true);npath([[0,AZ0-2],[-AX-2,AZ0-2]],fy);npath([[0,AZ0-2],[AX+2,AZ0-2]],fy);npath([[0,AZ1+2],[0,DD-4]],fy);npath([[0,4],[0,AZ0-2]],fy);npath([[-56,MID],[-AX-2,MID]],fy);npath([[AX+2,MID],[56,MID]],fy)}});
+ for(const e of ESC){const y0=e.y0;nl(nn(e.bx,y0,e.z),nn(e.tx,y0+6,e.z),1);join(e.bx,e.z,e.bx,e.z+(e.sx>0?2:-2),y0);join(e.tx,e.z,AX+2*(e.tx>0?1:-1),AZ1+2,y0+6)}
+ for(const e of ESC)nl(nn(e.bx,e.y0,e.z),nn(0,e.y0,e.z<MID?e.z:AZ1+2));
+ return{title:'Hartwell & Co.',fog:.002};
+},
+/* ---------------- ice rink under glass ---------------- */
+rink(){
+ shell({title:'Glacier Ice Rink',floorPat:0,floor:hsl(220,.1,.3),roof:'glass',h:8,rise:12,glassWalls:1,wallCol:hsl(210,.2,.3),titleCol:hsl(195,.9,.65)});
+ const cx=0,cz=40,rx=24,rz=30;
+ B(-rx,0,cz-rz,rx,.04,cz+rz,hsl(200,.15,.95),{pat:13,solid:false});
+ B(-rx+2,.04,cz-.18,rx-2,.05,cz+.18,hsl(0,.85,.45),{solid:false});for(const s of[-1,1])B(-rx+2,.04,cz+s*9-.18,rx-2,.05,cz+s*9+.18,hsl(220,.85,.45),{solid:false});
+ for(let k=0;k<40;k++){const a=k/40*6.283;B(Math.cos(a)*4.5-.12,.04,cz+Math.sin(a)*4.5-.12,Math.cos(a)*4.5+.12,.05,cz+Math.sin(a)*4.5+.12,hsl(220,.85,.45),{solid:false})}
+ for(let k=0;k<80;k++){const a0=k/80*6.283,a1=(k+1)/80*6.283,x0=cx+Math.cos(a0)*rx,z0=cz+Math.sin(a0)*rz,x1=cx+Math.cos(a1)*rx,z1=cz+Math.sin(a1)*rz;
+  if(Math.abs(x0)<3.5)continue;const mx=(x0+x1)/2,mz=(z0+z1)/2;part(mx,.55,mz,.18,1.1,Math.hypot(x1-x0,z1-z0)+.05,k%10<5?C.white:hsl(210,.6,.5),Math.atan2(x1-x0,z1-z0),0,0,0);mark(mx-.25,0,mz-.25,mx+.25,1.1,mz+.25)}
+ const sk=ring(cx,cz,rx-4,rz-5,26);const sk2=ring(cx,cz,rx-10,rz-11,18);
+ for(let k=0;k<6;k++)bulbs(-rx,cz-rz+k*12,rx,cz-rz+k*12,9,24,1);
+ // the tall decorated tree and a cafe
+ {const tx=0,tz=105;conifer(tx-12,tz,16);conifer(tx+12,tz,16);for(let k=0;k<120;k++){const a=rnd(0,6.28),y=rnd(3,14),r=(16*.32*(1-(y-4)/12)+.3)*.9;part(tx-12+Math.sin(a)*r,y,tz+Math.cos(a)*r,.18,.18,.18,hsl(pick([0,45,200,120]),.9,.6),0,0,0,0)}
+  for(let k=0;k<12;k++){const x=rnd(-50,-12),z=rnd(90,130);B(x-.5,.72,z-.5,x+.5,.76,z+.5,C.white,{solid:false});umbrella(x,z,hsl(200,.6,.45));seat(x-.9,z,Math.PI/2);if(chance(.5))seat(x+.9,z,-Math.PI/2)}
+  for(let i=0;i<6;i++)B(20+i*0,i*.3,95+i*1.2,52,i*.3+.3,96.2+i*1.2,hsl(210,.3,.5)); // bleachers
+  for(let k=0;k<30;k++)seat(rnd(22,50),95.6+Math.floor(rnd(0,6))*1.2,Math.PI,0)}
+ for(let k=0;k<8;k++)lamp(pick([-1,1])*4.5,rnd(80,135),4,C.warm,5);
+ for(let k=0;k<8;k++)bird(rnd(-30,30),rnd(22,30),rnd(20,120),rnd(6,14),2,(chance(.5)?1:-1)*rnd(.15,.25));
+ for(let k=0;k<25;k++)part(rnd(-55,55),rnd(8,20),rnd(5,135),.4,.4,.05,C.white,rnd(0,6),rnd(0,6),0,0); // hanging snowflakes
+ people(-55,MID-3,55,MID+3,10);
+ return{title:'Glacier Ice Rink',skaters:[sk,sk2],fog:.003};
+},
+/* ---------------- cinema: lobby and two auditoriums ---------------- */
+cinema(){
+ const RED=hsl(350,.6,.25);
+ shell({title:'Paramount Lights',floorPat:3,floor:hsl(350,.6,.25),roof:'flat',h:10,wallCol:hsl(350,.3,.12),wallPat:0,ceil:hsl(240,.2,.05),panels:false,titleCol:hsl(45,.95,.6)});
+ for(let k=0;k<200;k++){const x=rnd(-58,58),z=rnd(2,138);B(x-.03,9.9,z-.03,x+.03,9.95,z+.03,hsl(45,.4,.9),{e:6,solid:false})}
+ for(let x=-56;x<=56;x+=8)for(let z=6;z<DD;z+=14)light(x,8.5,z,hsl(30,.7,.7),3.2,12);
+ // concession stand and ticket booths
+ B(-14,0,22,-4,1.1,25,RED);B(-14.2,1.1,21.8,-3.8,1.2,25.2,C.white,{s:.7});for(let k=0;k<4;k++)box(-12.5+k*2.6,3,26.6,2.2,1.2,.1,hsl(rnd(0,360),.7,.55),{e:2,solid:false});
+ B(-13.5,1.2,23,-12,2.6,24.2,hsl(45,.9,.65),{e:2.5,glass:1});for(let k=0;k<3;k++)stand(-11+k*3,26,Math.PI);
+ for(let k=0;k<3;k++){const x=6+k*5;B(x-1.6,0,18,x+1.6,2.6,20,hsl(350,.5,.3));B(x-1.5,1.2,17.95,x+1.5,2.2,18,C.glass,{glass:1});stand(x,19.2,Math.PI)}
+ // movie posters in light boxes along the lobby walls
+ const films=['The Last Orbit','Midnight Carousel','Paper Lanterns','Velvet Storm','Neon Harbor','Echoes of June','The Glass Garden','Starfall Express','Little Giants','Tidebreak','The Quiet Map','Ember Road'];
+ for(const sx of[-1,1])for(let k=0;k<5;k++){const z=8+k*11;box(sx*(DW-.5),3.4,z,.15,3.6,2.6,hsl(rnd(0,360),.7,.55),{e:1.8,pat:5,solid:false});box(sx*(DW-.6),5.7,z,.15,.6,3,hsl(45,.9,.6),{e:2.5,sign:T(films[(k+(sx>0?5:0))%12]),face:sx>0?3:2,solid:false})}
+ for(let x=-50;x<=50;x+=2)B(x-.15,7.6,MID-3.5,x+.15,7.9,MID-3.4,hsl(45,.95,.6),{e:x%4?4:1,pat:5,solid:false});
+ // two auditoriums
+ for(const sx of[-1,1]){const xi=sx*8,xo=sx*58,z0=80,z1=136,mx=(xi+xo)/2;
+  B(Math.min(xi,xi+sx*.4),0,z0,Math.max(xi,xi+sx*.4),10,z1-12,hsl(350,.3,.12));B(Math.min(xi,xi+sx*.4),0,z1-6,Math.max(xi,xi+sx*.4),10,z1,hsl(350,.3,.12));B(Math.min(xi,xo),0,z0,Math.max(xi,xo),10,z0+.4,hsl(350,.3,.12));
+  box(xi+sx*.3,5.6,z1-9,.15,.8,4,hsl(45,.95,.6),{e:3,sign:T(films[sx>0?2:7]),face:sx>0?2:3,solid:false});
+  box(mx,4.6,z1-.6,Math.abs(xo-xi)*.8,6.5,.1,hsl(200,.5,.6),{e:2.2,pat:5,solid:false});light(mx,4,z1-6,hsl(210,.6,.7),6,20);
+  for(let r=0;r<9;r++){const z=z1-12-r*4.2,y=r*.42;B(Math.min(xi,xo)+sx*.4,0,z-2.1,Math.max(xi,xo)-sx*.4,y,z+2.1,RED);
+   for(let x=Math.min(xi,xo)+3;x<Math.max(xi,xo)-3;x+=.9){if(Math.abs(x-mx)<1.2)continue;B(x-.36,y,z-.3,x+.36,y+.45,z+.3,hsl(350,.7,.35),{solid:false});B(x-.36,y+.45,z+.25,x+.36,y+1,z+.35,hsl(350,.7,.35),{solid:false});if(chance(.45))seat(x,z,0,y)}}
+  npath([[0,z1-9],[xi+sx*2,z1-9],[mx,z1-9],[mx,z0+4]],0)}
+ for(let z=10;z<62;z+=8)for(const sx of[-1,1]){const x=sx*6;box(x,1.6,z,.12,2.4,1.6,hsl(rnd(0,360),.7,.55),{e:2,pat:5});box(x,3.05,z,.14,.4,1.8,hsl(45,.95,.6),{e:2.5,sign:T(films[Math.floor(rnd(0,12))]),face:sx>0?3:2,solid:false});B(x-.3,0,z-.9,x+.3,.2,z+.9,C.dark)}
+ for(const sx of[-1,1])for(const z of[30,50]){const x=sx*12;B(x-1.6,0,z-1,x+1.6,1.1,z+1,RED);B(x-1.2,1.1,z-.6,x+1.2,2.3,z+.6,hsl(45,.9,.65),{e:2,glass:1});light(x,2.6,z,hsl(40,.9,.7),4,7);stand(x,z+1.6,Math.PI)}
+ for(let z=4;z<64;z+=3)B(-2.2,0,z,2.2,.02,z+1.5,hsl(45,.8,.5),{e:.4,solid:false});
+ people(-50,MID-3,50,MID+3,26);people(-3,5,3,75,16);
+ return{title:'Paramount Lights',night:1,fog:.002};
+},
+/* ---------------- waterpark ---------------- */
+waterpark(){
+ shell({title:'Lagoon Splash',floorPat:24,floor:hsl(40,.2,.85),h:2.6,wallCol:hsl(190,.5,.45),wallPat:0,titleCol:hsl(190,.95,.6),titleY:4.4,signY:3.6});
+ const pool=(x0,z0,x1,z1)=>{B(x0,-.02,z0,x1,.06,z1,hsl(195,.8,.45),{e:.55,pat:8,solid:false});B(x0-.4,0,z0-.4,x1+.4,.25,z0,C.white);B(x0-.4,0,z1,x1+.4,.25,z1+.4,C.white);B(x0-.4,0,z0,x0,.25,z1,C.white);B(x1,0,z0,x1+.4,.25,z1,C.white)};
+ // wave pool, with swimmers
+ pool(-52,10,-8,60);for(let k=0;k<26;k++)stand(rnd(-50,-10),rnd(12,58),rnd(0,6),-.95);
+ for(let k=0;k<20;k++){const x=rnd(-50,-10),z=rnd(12,58);part(x,.12,z,.9,.18,.9,hsl(pick([0,50,200,300]),.85,.55),0,0,0,0)}
+ // splash pad full of jets
+ pool(8,10,52,60);for(let i=0;i<6;i++)for(let j=0;j<6;j++)jet(14+i*6.5,.1,15+j*8,rnd(-.3,.3),rnd(2.5,5),rnd(-.3,.3),.05,18,.2);
+ for(let k=0;k<16;k++)stand(rnd(10,50),rnd(12,58),rnd(0,6),-.5);
+ // slide tower and twisting slides into a splash pool
+ {const tx=-30,tz=105;for(let y=0;y<12;y+=.45){const a=y*.55;B(tx+Math.cos(a)*2.2-1,y,tz+Math.sin(a)*2.2-1,tx+Math.cos(a)*2.2+1,y+.45,tz+Math.sin(a)*2.2+1,hsl(45,.8,.55))}
+  B(tx-3,12,tz-3,tx+3,12.4,tz+3,hsl(200,.5,.5));for(let k=0;k<4;k++)B(tx-3+k*2,12.4,tz-3,tx-2.9+k*2,13.4,tz+3,C.white);
+  for(const[hue,dir]of[[0,1],[200,-1],[120,1]]){let px=tx+dir*3,py=12,pz=tz;for(let k=0;k<48;k++){const a=k*.22*dir,nx=tx+dir*3+Math.sin(a)*6+k*.25*dir,ny=12-k*.24,nz=tz-8+Math.cos(a)*6-k*.5;stick(px,py,pz,nx,ny,nz,.9,hsl(hue,.85,.5));px=nx;py=ny;pz=nz}}
+  pool(tx-14,tz-40,tx+14,tz-24)}
+ // lazy river around a palm island
+ {const cx=30,cz=105,pts=[];for(let k=0;k<48;k++){const a=k/48*6.283,x=cx+Math.cos(a)*18,z=cz+Math.sin(a)*24;B(x-2.4,-.02,z-2.4,x+2.4,.06,z+2.4,hsl(195,.8,.45),{e:.55,pat:8,solid:false})}
+  for(let k=0;k<14;k++)ride('tube',[cx,.12,cz,0],[18,0,24,7],[...hsl(k*25,.85,.55),k/14],[.06,1,0,0]);
+  for(let k=0;k<6;k++)palm(cx+rnd(-8,8),cz+rnd(-12,12),rnd(7,11));shrubs(cx,0,cz,9,14,140)}
+ // loungers, umbrellas, lifeguard chairs, palms along the edges
+ for(let k=0;k<26;k++){const x=pick([-1,1])*rnd(6,55),z=pick([5,64,74])+rnd(-1,1);if(Math.abs(x)<5)continue;B(x-.35,0,z-1,x+.35,.35,z+1,C.white,{solid:false});if(k%2)umbrella(x+.9,z,hsl(pick([0,45,200]),.8,.5));if(chance(.4))seat(x,z,0,-.1)}
+ for(let k=0;k<12;k++)palm(pick([-1,1])*rnd(54,57),rnd(5,135),rnd(7,10));
+ for(const[x,z]of[[-30,62],[30,62]]){B(x-.6,0,z-.6,x+.6,2.4,z+.6,C.white);B(x-.8,2.4,z-.8,x+.8,2.6,z+.8,hsl(0,.8,.5));stand(x,z,Math.PI,2.6)}
+ for(let k=0;k<12;k++)bird(rnd(-40,40),rnd(20,30),rnd(20,120),rnd(6,14),2,(chance(.5)?1:-1)*rnd(.15,.25),[.9,.9,.9]);
+ people(-55,MID-3,55,MID+3,24);people(-3,5,3,135,16);
+ return{title:'Lagoon Splash',fog:.0015};
+},
+};
+
+/* ---------- the hub ---------- */
+function buildHub(){
 /* ---------- structure ---------- */
 B(-150,-.4,-85,150,0,85,C.floor,{pat:1,s:.6});
 const CEIL=(x0,z0,x1,z1)=>B(x0,12,z0,x1,12.4,z1,C.ceil);
@@ -732,37 +1098,18 @@ for(const sd of[-1,1]){US(-120,3*sd,-16,17*sd);US(16,3*sd,120,17*sd);US(-16,26*s
  for(const wx of[-60,60]){US(wx-14,17*sd,wx+14,57*sd);US(wx-16,57*sd,wx+16,77*sd)}US(120*sd,-20,144*sd,20);
  B(16*sd,0,17,16*sd+.3*sd,12,26,C.facade);B(16*sd,0,-26,16*sd+.3*sd,12,-17,C.facade)}
 const BR=[-88,-40,40,88];for(const b of BR)US(b-2,-3,b+2,3);
-// railings
-function rail(x0,z0,x1,z1){const y=6,len=Math.hypot(x1-x0,z1-z0),ax=x1!==x0,th=.08,mx=(x0+x1)/2,mz=(z0+z1)/2;
- box(mx,y+1.05,mz,ax?len:th,.07,ax?th:len,C.steel,{s:.8});box(mx,y+1.0,mz,ax?len:.04,.03,ax?.04:len,C.warm,{e:1.2,solid:false});
- box(mx,y+.08,mz,ax?len:th*1.5,.16,ax?th*1.5:len,C.trim);box(mx,y+.55,mz,ax?len:.02,.8,ax?.02:len,C.glass,{glass:1,solid:false});
- const n=Math.max(1,Math.round(len/1.6));for(let k=0;k<=n;k++)box(x0+(x1-x0)*k/n,y+.55,z0+(z1-z0)*k/n,.06,1,.06,C.steel)}
 for(const z of[-3,3])for(const[a,b]of[[16,38],[42,86],[90,120],[-120,-90],[-86,-42],[-38,-16]])rail(a,z,b,z);
 for(const b of BR)for(const e of[-2,2]){rail(b+e,-3,b+e,-.95);rail(b+e,.95,b+e,3)}
 for(const sd of[-1,1]){rail(-12,22*sd,12,22*sd);rail(16*sd,-3,16*sd,3);for(const[a,b]of[[-22,-10.9],[-9.1,9.1],[10.9,22]])rail(12*sd,a,12*sd,b)}
 // escalators
-const ang=Math.atan2(6,10.4),EL=Math.hypot(6,10.4);
-const ESC=[];
-const esc=(cx,z,sx)=>{const r=sx*ang,cs=Math.cos(r),sn=Math.sin(r),bx=cx-sx*5.2;ESC.push({bx:cx-sx*5.6,tx:cx+sx*5.6,z,sx});
- box(cx,3,z,EL+.6,.45,1.5,hsl(220,.08,.3),{rot:r,s:.6});
- for(const e of[-.72,.72]){box(cx-sn*.65,3+cs*.65,z+e,EL,1,.08,C.glass,{rot:r,glass:1});box(cx-sn*1.17,3+cs*1.17,z+e,EL,.07,.12,hsl(200,.8,.6),{rot:r,e:1.6,solid:false})}
- B(bx-sx*1.2,0,z-.9,bx,.04,z+.9,C.steel,{s:.8,solid:false})};
+
 for(const sx of[1,-1])for(const sz of[1,-1])esc(sx*6.8,sz*10,sx);
 for(const b of BR){esc(b-7.2,0,1);esc(b+7.2,0,-1)}
 // glass barrel vaults: one along each concourse, a taller one over the court
-const STEEL=hsl(40,.04,.86),GL=hsl(185,.25,.75);
+
 for(let x=-113;x<=113;x+=14){if(Math.abs(x)<18)continue;light(x,10.8,0,C.warm,7,15,{both:1})}
 for(const x of[-8,0,8])for(const z of[-16,-8,0,8,16])light(x,10.5,z,C.warm,7,17,{both:1});
-function vault(spanHalf,rise,nSeg,along,c0,c1,ribStep){ // along: 'x' (arch in z-y) or 'z' (arch in x-y)
- const R=(spanHalf*spanHalf+rise*rise)/(2*rise),cy=12.4+rise-R,pm=Math.asin(spanHalf/R),len=Math.abs(c1-c0),cm=(c0+c1)/2,ax=along==='x'?1:0;
- const P=a=>[R*Math.sin(a),cy+R*Math.cos(a)];
- const put=(s,y,c,ss,sy,sc,col,o)=>ax?box(c,y,s,sc,sy,ss,col,o):box(s,y,c,ss,sy,sc,col,o);
- for(let k=0;k<nSeg;k++){const a0=-pm+2*pm*k/nSeg,a1=a0+2*pm/nSeg,am=(a0+a1)/2,[s0,y0]=P(a0),[s1,y1]=P(a1);
-  const sc=(s0+s1)/2,yc=(y0+y1)/2,ch=Math.hypot(s1-s0,y1-y0)+.02,r=Math.atan2(y1-y0,s1-s0),is=Math.sin(am),ic=Math.cos(am);
-  put(sc,yc,cm,ch,.03,len,GL,{glass:1,rot:r,ax,solid:false});
-  put(s0-.1*Math.sin(a0),y0-.1*Math.cos(a0),cm,.1,.14,len,STEEL,{solid:false,s:.5});
-  for(let c=Math.min(c0,c1);c<=Math.max(c0,c1)+.01;c+=ribStep)put(sc-.2*is,yc-.2*ic,c,ch,.34,.16,STEEL,{rot:r,ax,solid:false,s:.5})}
- return s=>cy+Math.sqrt(Math.max(0,R*R-s*s))}
+
 const yCon=vault(7,4.5,12,'x',16,120,6);vault(7,4.5,12,'x',-16,-120,6);
 const yCourt=vault(16,7.5,16,'z',-26,26,4);
 const roofY=(x,z)=>Math.abs(x)<16?yCourt(x):Math.abs(z)<7?yCon(z):12;
@@ -776,34 +1123,24 @@ for(const sd of[-1,1]){
 for(let x=-114;x<=114;x+=6){if(Math.abs(x)<17)continue;for(const z of[-5,5]){B(x-.9,5.55,z-.35,x+.9,5.6,z+.35,C.white,{e:2.2,solid:false});
  if(Math.abs(x)%12===6)light(x,5.15,z,C.warm,7,10,{f:chance(.05)})}}
 // court: fountain, food court tables, hanging signs
-const W8=hsl(190,.7,.5);
+
 B(-3.5,0,-3.5,3.5,.6,-3.1,C.facade);B(-3.5,0,3.1,3.5,.6,3.5,C.facade);B(-3.5,0,-3.1,-3.1,.6,3.1,C.facade);B(3.1,0,-3.1,3.5,.6,3.1,C.facade);
 B(-3.1,0,-3.1,3.1,.45,3.1,W8,{e:1.2,pat:8,solid:false});B(-.6,0,-.6,.6,2.2,.6,C.facade);B(-1.4,2.2,-1.4,1.4,2.4,1.4,C.facade);
 B(-1.2,2.4,-1.2,1.2,2.45,1.2,W8,{e:1.4,pat:8,solid:false});B(-.15,2.45,-.15,.15,3.6,.15,hsl(190,.5,.8),{e:2.5,solid:false});
 light(0,1.3,-4,W8,5,8);light(0,1.3,4,W8,5,8);
-fountains.push({x:0,y:1,z:0,big:1});
+fpush(0,1,0,1);
 for(let k=0;k<16;k++){const a=k/16*6.283;jet(Math.sin(a)*1.35,2.43,Math.cos(a)*1.35,Math.sin(a)*.9,.4,Math.cos(a)*.9,.45,26,.08)}
 jet(0,3.6,0,0,4.6,0,2.45,140,.25);
 for(let k=0;k<12;k++){const a=k/12*6.283+.13;jet(Math.sin(a)*3.25,.6,Math.cos(a)*3.25,-Math.sin(a)*1.5,3.4,-Math.cos(a)*1.5,.45,40,.05)}
 for(const sx of[-1,1])for(const sz of[-1,1]){const x=sx*4.35,z=sz*4.35;B(x-.6,0,z-.6,x+.6,.6,z+.6,C.pot);shrubs(x,.6,z,.5,.5,70);palm(x,z,rnd(7.5,9.5))}
-const chairC=[hsl(0,.7,.5),hsl(45,.85,.55),hsl(200,.7,.5),hsl(140,.5,.45)];
+
 for(let x=-10.5;x<=10.5;x+=3.5)for(let z=-19.5;z<=19.5;z+=3.25){if((Math.abs(x)<5&&Math.abs(z)<5)||(Math.abs(z)>7.8&&Math.abs(z)<12.2))continue;
  B(x-.55,.72,z-.55,x+.55,.78,z+.55,C.white,{s:.5,solid:false});B(x-.07,0,z-.07,x+.07,.72,z+.07,C.steel,{solid:false});const cc=pick(chairC);
  for(const[dx,dz]of[[-.85,0],[.85,0],[0,-.85],[0,.85]]){B(x+dx-.22,.42,z+dz-.22,x+dx+.22,.48,z+dz+.22,cc,{solid:false});B(x+dx-.04,0,z+dz-.04,x+dx+.04,.42,z+dz+.04,C.steel,{solid:false});
-  seats.push(x+dx*1.08,z+dz*1.08,Math.atan2(-dx,-dz));const bx=x+dx*1.25,bz=z+dz*1.25;B(bx-(dx?.03:.22),.48,bz-(dz?.03:.22),bx+(dx?.03:.22),.95,bz+(dz?.03:.22),cc,{solid:false})}}
+  seat(x+dx*1.08,z+dz*1.08,Math.atan2(-dx,-dz));const bx=x+dx*1.25,bz=z+dz*1.25;B(bx-(dx?.03:.22),.48,bz-(dz?.03:.22),bx+(dx?.03:.22),.95,bz+(dz?.03:.22),cc,{solid:false})}}
 const hs=(x,y,z,sx,sz,face,t)=>{box(x,y,z,sx,1.3,sz,hsl(45,.9,.6),{e:3,sign:addName(t,'900 {s} system-ui,sans-serif',1),face,solid:false});const top=roofY(x,z);for(const o of sx>sz?[-sx/2+.5,sx/2-.5]:[-sz/2+.5,sz/2-.5])box(x+(sx>sz?o:0),(y+.65+top)/2,z+(sx>sz?0:o),.02,top-y-.65,.02,C.dark,{solid:false})};
 hs(0,9,-21.6,9,.2,0,'Food Court');hs(0,9,21.6,9,.2,1,'Food Court');hs(20,9.6,0,.2,7.5,2,'East Concourse');hs(-20,9.6,0,.2,7.5,3,'West Concourse');
 // concourse centre: kiosks, planters, benches
-const planter=(x,z)=>{B(x-1.2,0,z-1.2,x+1.2,.7,z+1.2,C.pot);B(x-1.1,.7,z-1.1,x+1.1,.75,z+1.1,hsl(25,.4,.18),{solid:false});B(x-.1,.7,z-.1,x+.1,2,z+.1,BARK);
- tree(x,.75,z,rnd(3.6,4.4));shrubs(x,.75,z,1,1,110)};
-const fountain=(x,z)=>{B(x-1.7,0,z-1.7,x+1.7,.55,z-1.4,C.facade);B(x-1.7,0,z+1.4,x+1.7,.55,z+1.7,C.facade);B(x-1.7,0,z-1.4,x-1.4,.55,z+1.4,C.facade);B(x+1.4,0,z-1.4,x+1.7,.55,z+1.4,C.facade);
- B(x-1.4,0,z-1.4,x+1.4,.4,z+1.4,W8,{e:1.1,pat:8,solid:false});B(x-.2,0,z-.2,x+.2,1.1,z+.2,C.facade);
- for(let k=0;k<8;k++){const a=k/8*6.283;jet(x+Math.sin(a)*.15,1.1,z+Math.cos(a)*.15,Math.sin(a)*1.5,2.4,Math.cos(a)*1.5,.4,34,.06)}
- jet(x,1.1,z,0,3.6,0,.4,70,.15);light(x,.9,z,W8,3,6);fountains.push({x,y:.8,z})};
-const bench=(x,z,alongX)=>{const a=alongX?1.1:.3,b=alongX?.3:1.1;B(x-a,.42,z-b,x+a,.5,z+b,C.wood);B(x-a+.1,0,z-b+.05,x-a+.2,.42,z+b-.05,C.steel);B(x+a-.2,0,z-b+.05,x+a-.1,.42,z+b-.05,C.steel)};
-const kiosk=(x,z)=>{const h=rnd(0,360),k=hsl(h,.5,.4);B(x-1.4,0,z-.9,x+1.4,1,z+.9,k);B(x-1.5,1,z-1,x+1.5,1.06,z+1,C.white,{s:.6});
- for(const[dx,dz]of[[-1.4,-.9],[1.4,-.9],[-1.4,.9],[1.4,.9]])B(x+dx-.04,1.06,z+dz-.04,x+dx+.04,2.6,z+dz+.04,C.steel);
- B(x-1.6,2.6,z-1.1,x+1.6,2.8,z+1.1,hsl(h,.85,.55),{e:1.6});for(let q=0;q<8;q++){const s=rnd(.12,.25),u=rnd(-1.2,1.2),w=rnd(-.7,.7);B(x+u-s/2,1.06,z+w-s/2,x+u+s/2,1.06+s,z+w+s/2,hsl(rnd(0,360),.8,.55),{solid:false})}};
 let ki=0;for(let x=-112;x<=112;x+=8){if(Math.abs(x)<20||BR.some(b=>Math.abs(x-b)>1&&Math.abs(x-b)<14))continue;const t=ki++%3;if(t===0)kiosk(x,0);else if(t===1)planter(x,0);else{bench(x,-1.6,1);bench(x,1.6,1)}}
 // main concourse stores
 for(const lvl of[0,1])for(let x=-120;x<120;x+=8){const cx=x+4;if(Math.abs(cx)<16||Math.abs(Math.abs(cx)-60)<1)continue;
@@ -836,9 +1173,28 @@ for(const[cx,cz,n]of[[-70,0,14],[45,4,16],[0,0,12],[-20,8,8]]){const cy=rnd(24,3
 const ANCH=['Grand Meridian','Holloway & Finch','The Emporium','Sterling & Vale','Brightwater','Marlowe’s'],AF='400 {s} Didot,"Bodoni 72",Georgia,serif';
 let ai=0;
 for(const lvl of[0,1]){ai=0;
- for(const sd of[-1,1]){shop(120*sd,0,0,1,sd,0,34,24,lvl,'apparel',{big:1,open:7,door:[2,10],signW:6.5,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1});
-  for(const wx of[-60,60])shop(wx,57*sd,1,0,0,sd,32,20,lvl,'apparel',{big:1,open:6,signW:6,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1})}}
-return{inst:new Float32Array(inst),glass:new Float32Array(glass),ESC,fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),shops,seats,fountains,lights,names,grid,stores};
+ for(const sd of[-1,1]){shop(120*sd,0,0,1,sd,0,34,24,lvl,'apparel',{big:1,open:7,door:[2,10],back:!lvl,signW:6.5,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1});
+  for(const wx of[-60,60])shop(wx,57*sd,1,0,0,sd,32,20,lvl,'apparel',{big:1,open:6,back:!lvl,signW:6,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1})}}
+
+// gates: short halls behind the department stores lead out to new districts
+const gateSign=(x,z,face)=>{box(x,4.6,z,face<2?5.6:.2,.9,face<2?.2:5.6,hsl(150,.9,.55),{e:3.2,sign:addName('Explore  →','900 {s} system-ui,sans-serif',1),face,solid:false})};
+for(const sd of[-1,1]){
+ B(144*sd,0,-3.3,150*sd,5,-3,C.facade);B(144*sd,0,3,150*sd,5,3.3,C.facade);B(144*sd,5,-3.3,150*sd,5.4,3.3,C.ceil);
+ for(let x=145;x<150;x+=2){B(x*sd-.4,4.95,-.3,x*sd+.4,5,.3,C.white,{e:2.5,solid:false});light(x*sd,4.6,0,C.warm,5,6)}
+ doors.push({x:150*sd,z:0,dx:sd,dz:0});gateSign(141*sd,0,sd>0?3:2);
+ for(const wx of[-60,60]){B(wx-3.3,0,77*sd,wx-3,5,85*sd,C.facade);B(wx+3,0,77*sd,wx+3.3,5,85*sd,C.facade);B(wx-3.3,5,77*sd,wx+3.3,5.4,85*sd,C.ceil);
+  for(let z=78;z<85;z+=2){B(wx-.3,4.95,z*sd-.4,wx+.3,5,z*sd+.4,C.white,{e:2.5,solid:false});light(wx,4.6,z*sd,C.warm,5,6)}
+  doors.push({x:wx,z:85*sd,dx:0,dz:sd});gateSign(wx,74*sd,sd>0?1:0)}}
+return{name:'Skylight Galleria'};
+}
+function region(theme,build,xf,gs,seed){
+ R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};stores=0;NK=new Map();
+ NAV={n:[],l:[]};G={...gs,d:new Uint8Array(gs.nx*gs.ny*gs.nz)};
+ const info=build()||{};
+ return{theme,xf,gs:G,inst:new Float32Array(inst),glass:new Float32Array(glass),fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),
+  shops,seats,fountains,lights,names,ESC,doors,idle,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
+return{hub:()=>region('hub',buildHub,{q:0,ox:0,oz:0},HUBG,19870611),
+ district:(n,theme,xf)=>region(theme,THEMES[theme],xf,DISTG,1000+n*7919),themes:Object.keys(THEMES)};
 }
 //GEN-END
 
@@ -864,26 +1220,28 @@ device.addEventListener?.('uncapturederror',e=>console.error('WebGPU:',e.error.m
 const SNAP=QS.has('snap'),SK=new Set((QS.get('skip')||'').split(',')),ctx=SNAP?null:cv.getContext('webgpu'),fmt=SNAP?'rgba8unorm':navigator.gpu.getPreferredCanvasFormat();if(!SNAP)ctx.configure({device,format:fmt,alphaMode:'opaque'});
 const GU=GPUBufferUsage,TU=GPUTextureUsage,TB=TU.TEXTURE_BINDING,RA=TU.RENDER_ATTACHMENT,CD=TU.COPY_DST;
 
-// photographs: sky + four scanned materials, fetched while the mall is built
-const NMAT=9,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
+// photographs: sky + fifteen scanned materials, fetched while the mall is built
+const NMAT=15,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
 let loaded=0;const IMG=n=>fetch('assets/'+n).then(r=>{if(!r.ok)throw Error(n);return r.blob()}).then(b=>createImageBitmap(b,{colorSpaceConversion:'none'})).then(b=>{prog(.05+.3*(++loaded/FILES.length));return b});
 const assetP=Promise.all(FILES.map(IMG));
 assetP.catch(()=>{});
 prog(.05);await tick();
 
-const M=genMall();msg.textContent='Stocking '+M.stores+' stores…';await tick();
+const WORLD=genWorld(),HUB=WORLD.hub();msg.textContent='Stocking '+HUB.stores+' stores…';await tick();
 const buf=(data,usage)=>{const b=device.createBuffer({size:Math.max(16,data.byteLength+3&~3),usage:usage|GU.COPY_DST});device.queue.writeBuffer(b,0,data);return b};
+// a vertex buffer that grows when the world does
+function gbuf(usage){return{b:null,cap:0,n:0,usage,set(data,stride=16){const need=Math.max(64,data.byteLength);if(need>this.cap){this.b?.destroy();this.cap=Math.ceil(need*1.3/256)*256;this.b=device.createBuffer({size:this.cap,usage:this.usage|GU.COPY_DST})}if(data.byteLength)device.queue.writeBuffer(this.b,0,data);this.n=data.length/stride}}}
 
 // cube
 const cv6=[],ci6=[];for(const n of[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){const u=n[0]?[0,1,0]:[1,0,0],v=[n[1]*u[2]-n[2]*u[1],n[2]*u[0]-n[0]*u[2],n[0]*u[1]-n[1]*u[0]],b=cv6.length/6;
  for(const[a,c]of[[-1,-1],[1,-1],[1,1],[-1,1]])cv6.push(n[0]*.5+u[0]*a*.5+v[0]*c*.5,n[1]*.5+u[1]*a*.5+v[1]*c*.5,n[2]*.5+u[2]*a*.5+v[2]*c*.5,...n);ci6.push(b,b+1,b+2,b,b+2,b+3)}
 const cubeVB=buf(new Float32Array(cv6),GU.VERTEX),cubeIB=buf(new Uint16Array([...ci6,0,0]),GU.INDEX);
-const instVB=buf(M.inst,GU.VERTEX),NI=M.inst.length/16,glassVB=buf(M.glass,GU.VERTEX),NG=M.glass.length/16;
-// meshes for the free-orientation pipeline: boxes tagged with a part id (pos, normal, part)
-function partMesh(parts){const v=[],ix=[];for(const[cx,cy,cz,sx,sy,sz,pid]of parts){const b=v.length/7;
-  for(let k=0;k<24;k++){const o=k*6;v.push(cx+cv6[o]*sx,cy+cv6[o+1]*sy,cz+cv6[o+2]*sz,cv6[o+3],cv6[o+4],cv6[o+5],pid)}
+// meshes for the free-orientation pipeline: boxes tagged with a part id (pos, normal, part); boxes may be rotated (x, then y)
+function partMesh(parts){const v=[],ix=[];for(const[cx,cy,cz,sx,sy,sz,pid,rx=0,ry=0]of parts){const b=v.length/7,cr=Math.cos(rx),sr=Math.sin(rx),cy2=Math.cos(ry),sy2=Math.sin(ry);
+  const R=(x,y,z)=>{const y1=y*cr-z*sr,z1=y*sr+z*cr;return[cy2*x+sy2*z1,y1,-sy2*x+cy2*z1]};
+  for(let k=0;k<24;k++){const o=k*6,[px,py,pz]=R(cv6[o]*sx,cv6[o+1]*sy,cv6[o+2]*sz),[nx,ny,nz]=R(cv6[o+3],cv6[o+4],cv6[o+5]);v.push(cx+px,cy+py,cz+pz,nx,ny,nz,pid)}
   for(const i of ci6)ix.push(b+i)}
- return{vb:buf(new Float32Array(v),GU.VERTEX),ib:buf(new Uint16Array(ix.length%2?[...ix,0]:ix),GU.INDEX),n:ix.length}}
+ const big=v.length/7>65535;return{vb:buf(new Float32Array(v),GU.VERTEX),ib:buf(big?new Uint32Array(ix):new Uint16Array(ix.length%2?[...ix,0]:ix),GU.INDEX),n:ix.length,fmt:big?'uint32':'uint16'}}
 // smooth capsule-ish parts (centre, half-size, part id): a superellipsoid rounded along its long axis
 function roundMesh(parts){const v=[],ix=[];for(const[cx,cy,cz,rx,ry,rz,pid,lo]of parts){const SEG=lo?7:10,RING=lo?5:8,b=v.length/7;
   for(let r=0;r<=RING;r++){const th=r/RING*Math.PI,sy=Math.cos(th),sr=Math.sin(th),k=Math.pow(sr,.45);
@@ -891,6 +1249,8 @@ function roundMesh(parts){const v=[],ix=[];for(const[cx,cy,cz,rx,ry,rz,pid,lo]of
     v.push(cx+x*rx,cy+sy*ry,cz+z*rz,nx/nl,ny/nl,nz/nl,pid)}}
   for(let r=0;r<RING;r++)for(let q=0;q<SEG;q++){const a=b+r*(SEG+1)+q,c=a+SEG+1;ix.push(a,a+1,c,a+1,c+1,c)}}
  return{vb:buf(new Float32Array(v),GU.VERTEX),ib:(()=>{const u=v.length/7>65535?new Uint32Array(ix):new Uint16Array(ix.length%2?[...ix,0]:ix);return buf(u,GU.INDEX)})(),n:ix.length,fmt:v.length/7>65535?'uint32':'uint16'}}
+const ringParts=(n,R,y,x,size,pid,axis)=>Array.from({length:n},(_,k)=>{const a=k/n*6.2832,l=2*Math.PI*R/n+.05;
+ return axis==='x'?[x,R*Math.sin(a),R*Math.cos(a),size,size,l,pid,a+Math.PI/2,0]:[R*Math.cos(a),y,R*Math.sin(a),size,size,l,pid,0,-a]});
 const MESH={unit:partMesh([[0,0,0,1,1,1,0]]),
  // a pointed leaf, folded along its midrib (drawn double-sided)
  leaf:{vb:buf(new Float32Array([0,0,.5,0,1,0,0,-.5,.25,0,-.3,.95,0,0,0,-.5,0,1,0,0,.5,.25,0,.3,.95,0,0,0,-.08,0,0,1,0,0]),GU.VERTEX),ib:buf(new Uint16Array([0,1,2,0,2,3,0,4,2,0,2,1]),GU.INDEX),n:12},
@@ -900,21 +1260,43 @@ const MESH={unit:partMesh([[0,0,0,1,1,1,0]]),
   [-.036,1.676,.091,.018,.011,.012,8,1],[.036,1.676,.091,.018,.011,.012,8,1],[-.036,1.676,.1,.0085,.0085,.005,9,1],[.036,1.676,.1,.0085,.0085,.005,9,1],
   [-.038,1.703,.094,.022,.0055,.01,6,1],[.038,1.703,.094,.022,.0055,.01,6,1],[0,1.652,.104,.011,.024,.017,1,1],[0,1.612,.094,.026,.0075,.01,10,1],
   [-.097,1.665,0,.012,.03,.022,1,1],[.097,1.665,0,.012,.03,.022,1,1],[0,1.6,-.055,.112,.16,.072,11],[0,1.6,.06,.085,.055,.05,12,1]]),
- bird:partMesh([[0,0,0,.09,.07,.3,0],[0,.03,.17,.06,.06,.08,0],[-.21,0,0,.34,.015,.15,1],[.21,0,0,.34,.015,.15,2],[0,0,-.2,.1,.01,.1,0]])};
-const folVB=buf(M.fol,GU.VERTEX),NF=M.fol.length/16,leafVB=buf(M.leaves,GU.VERTEX),NL=M.leaves.length/16,dropVB=buf(M.drops,GU.VERTEX),ND=M.drops.length/16,birdVB=buf(M.birds,GU.VERTEX),NB=M.birds.length/16;
-/* ---------- shoppers ---------- */
+ bird:partMesh([[0,0,0,.09,.07,.3,0],[0,.03,.17,.06,.06,.08,0],[-.21,0,0,.34,.015,.15,1],[.21,0,0,.34,.015,.15,2],[0,0,-.2,.1,.01,.1,0]]),
+ // rides
+ ferris:partMesh([...ringParts(40,14,0,-.9,.28,2,'x'),...ringParts(40,14,0,.9,.28,2,'x'),...ringParts(40,14.25,0,-.9,.12,1,'x'),...ringParts(40,14.25,0,.9,.12,1,'x'),
+  ...Array.from({length:16},(_,k)=>{const a=k/16*6.2832;return[[-.9,7*Math.sin(a),7*Math.cos(a),.14,.14,14,2,-a,0],[.9,7*Math.sin(a),7*Math.cos(a),.14,.14,14,2,-a,0]]}).flat(),[0,0,0,2.4,.7,.7,2]]),
+ gondola:partMesh([[0,-1.5,0,1.5,1.3,1.5,0],[0,-.75,0,1.7,.15,1.7,1],[0,-.4,0,.12,.8,.12,2],[0,-2.2,0,1.55,.12,1.55,0]]),
+ carousel:partMesh([...ringParts(28,6.6,.35,0,.35,2,'y'),...Array.from({length:12},(_,k)=>[0,.32,0,13,.1,1.2,0,0,k/12*Math.PI]),...ringParts(28,6.8,4.6,0,.3,1,'y'),
+  ...Array.from({length:16},(_,k)=>[Math.cos(k/16*6.2832)*3.4,4.9+.9,Math.sin(k/16*6.2832)*3.4,.35,.08,7.2,0,-.3,-k/16*6.2832+Math.PI/2]),[0,3,0,1.2,6,1.2,2],
+  ...Array.from({length:20},(_,k)=>{const a=k/20*6.2832,R=k%2?4.2:5.6;return[R*Math.cos(a),2.6,R*Math.sin(a),.06,4.2,.06,2]})]),
+ horse:partMesh([[0,0,0,.34,.42,1.1,0],[0,.45,.55,.24,.55,.3,0,-.5,0],[0,.68,.82,.2,.22,.42,0],[-.1,-.45,.4,.08,.5,.08,0],[.1,-.45,.4,.08,.5,.08,0],[-.1,-.45,-.4,.08,.5,.08,0],[.1,-.45,-.4,.08,.5,.08,0],[0,.3,0,.38,.12,.5,1]]),
+ car:partMesh([[0,.35,0,1.3,.7,2.2,0],[0,.75,-.4,1.2,.3,.25,2],[0,.75,.6,1.2,.3,.25,2],[-.35,.95,0,.22,.22,.22,1],[.35,.95,0,.22,.22,.22,1]]),
+ drop:partMesh([...ringParts(16,1.8,0,0,.5,0,'y'),...ringParts(16,1.85,.5,0,.12,1,'y'),...Array.from({length:12},(_,k)=>{const a=k/12*6.2832;return[2.2*Math.cos(a),.2,2.2*Math.sin(a),.5,.8,.5,0]})]),
+ tube:partMesh(ringParts(12,.6,0,0,.26,0,'y')),
+ jelly:roundMesh([[0,0,0,.28,.18,.28,1],[0,-.25,0,.05,.35,.05,1],[.12,-.3,0,.03,.3,.03,1],[-.12,-.3,0,.03,.3,.03,1],[0,-.3,.12,.03,.3,.03,1]]),
+ fish:roundMesh([[0,0,0,.07,.11,.26,0],[0,0,-.27,.015,.1,.09,1],[0,.09,-.02,.01,.06,.1,0],[.05,.03,.17,.02,.02,.02,2,1],[-.05,.03,.17,.02,.02,.02,2,1]])};
+const RIDEKIND=['ferris','gondola','carousel','horse','car','drop','tube','jelly','fish'];
+
+/* ---------- regions: the hub plus districts that stream in and out ---------- */
 const PR=rng(4242),rn=(a,b)=>a+(b-a)*PR(),pk=a=>a[Math.floor(PR()*a.length)];
 const SHIRTS=[[0,.65,.45],[210,.55,.4],[120,.35,.35],[45,.8,.55],[0,0,.92],[0,0,.08],[330,.5,.6],[190,.6,.45],[25,.6,.5],[270,.35,.45],[160,.3,.6],[0,0,.55]];
-const shirt=()=>{const[h,s0,l]=pk(SHIRTS);return hsl(h+rn(-12,12),Math.min(1,s0*rn(.8,1.2)),Math.min(.95,l*rn(.85,1.15)))};
-const PPL=[];
-function person(x,y,z,yaw,pose,speed){const kid=PR()<.08,h=kid?rn(.55,.7):rn(.9,1.08);
- const p={x,y,z,yaw,ty:yaw,pose,speed,base:speed,s:[rn(.9,1.08)*(kid?.85:1),h,rn(.95,1.05)],c:shirt(),ph:PR(),lane:null,dir:1,off:0,wait:0,turn:rn(3,12)};PPL.push(p);return p}
-// walking map: shoppers wander node to node, ride the escalators and pop into shops
-const NODES=[];
-const nd=(x,y,z)=>{for(let i=NODES.length-1;i>=0;i--){const n=NODES[i];if(Math.abs(n.x-x)<.3&&n.y===y&&Math.abs(n.z-z)<.3)return i}NODES.push({x,y,z,nb:[],shop:null});return NODES.length-1};
-const lk=(a,b,esc=0)=>{if(a===b||NODES[a].nb.some(e=>e.to===b))return;NODES[a].nb.push({to:b,esc});NODES[b].nb.push({to:a,esc})};
-const chain=(pts,y)=>{let pr=-1;for(const[x,z]of pts){const i=nd(x,y,z);if(pr>=0)lk(pr,i);pr=i}};
-const BRG=[-88,-40,40,88],rng4=(lo,hi,extra)=>{const st=new Set();for(let x=lo;x<=hi+.01;x+=4)st.add(+x.toFixed(2));for(const x of extra)if(x>=lo&&x<=hi)st.add(x);return[...st].sort((a,b)=>a-b)};
+const SWIM=[[200,.8,.5],[350,.8,.5],[50,.9,.55],[160,.7,.45]];
+const shirt=(pal=SHIRTS)=>{const[h,s0,l]=pk(pal);return hsl(h+rn(-12,12),Math.min(1,s0*rn(.8,1.2)),Math.min(.95,l*rn(.85,1.15)))};
+function person(list,x,y,z,yaw,pose,speed,pal){const kid=PR()<.08,h=kid?rn(.55,.7):rn(.9,1.08);
+ const p={x,y,z,yaw,ty:yaw,pose,speed,base:speed,s:[rn(.9,1.08)*(kid?.85:1),h,rn(.95,1.05)],c:shirt(pal),ph:PR(),off:0,wait:0,turn:rn(3,12)};list.push(p);return p}
+const invXd=(q,x,z)=>q===0?[x,z]:q===1?[-z,x]:q===2?[-x,-z]:[z,-x];
+const XD=(q,x,z)=>q===0?[x,z]:q===1?[z,-x]:q===2?[-x,-z]:[-z,x];
+function prepRegion(r){
+ if(r.theme==='hub'){r.bb=[-150,150,-85,85]}
+ else{const c=[[-60,0],[60,0],[-60,140],[60,140]].map(([x,z])=>{const[a,b]=XD(r.xf.q,x,z);return[a+r.xf.ox,b+r.xf.oz]});
+  r.bb=[Math.min(...c.map(v=>v[0])),Math.max(...c.map(v=>v[0])),Math.min(...c.map(v=>v[1])),Math.max(...c.map(v=>v[1]))]}
+ r.doors.forEach(d=>d.link=null);r.loadedOnce=true;
+ buildCrowd(r);return r}
+// crowd for a region: a walking map (nodes + links), wanderers, diners/seated, shoppers in stores, staff
+function buildCrowd(r){const N=[],P=[];r.N=N;r.P=P;
+ const nd=(x,y,z)=>{for(let i=N.length-1;i>=0;i--){const n=N[i];if(Math.abs(n.x-x)<.3&&n.y===y&&Math.abs(n.z-z)<.3)return i}N.push({x,y,z,nb:[],shop:null});return N.length-1};
+ const lk=(a,b,esc=0)=>{if(a===b||N[a].nb.some(e=>e.to===b))return;N[a].nb.push({to:b,esc});N[b].nb.push({to:a,esc})};
+ const chain=(pts,y)=>{let pr=-1;for(const[x,z]of pts){const i=nd(x,y,z);if(pr>=0)lk(pr,i);pr=i}};
+ if(r.theme==='hub'){const BRG=[-88,-40,40,88],rng4=(lo,hi,extra)=>{const st=new Set();for(let x=lo;x<=hi+.01;x+=4)st.add(+x.toFixed(2));for(const x of extra)if(x>=lo&&x<=hi)st.add(x);return[...st].sort((a,b)=>a-b)};
 for(const sd of[-1,1]){
  chain(rng4(-116,116,[-62.5,-57.5,57.5,62.5,-8.75,8.75,-1.75,1.75,...BRG.flatMap(b=>[b-14,b+14])]).map(x=>[x,4.9*sd]),0);
  for(const s2 of[-1,1]){chain(rng4(16.5,118,[57.5,62.5,40,88]).map(x=>[x*s2,5*sd]),6);lk(nd(16.5*s2,6,5*sd),nd(14*s2,6,5*sd))}
@@ -927,59 +1309,90 @@ for(const sd of[-1,1]){
   const sx=Math.sign(wx),cx=[64,68,76,84,92,100,108,116,124,126].map(x=>[x*sx,54*sd]);
   chain([[wx+2.5*sx,53*sd],...cx,...[45,37,29,21,19,12,6.2].map(z=>[125*sx,z*sd]),[119*sx,6.2*sd]],y);
   lk(nd(119*sx,y,6.2*sd),nd((y?118:116)*sx,y,zl*sd))}}
-for(const e of M.ESC){const b=nd(e.bx,0,e.z),t=nd(e.tx,6,e.z);lk(b,t,1);
+for(const e of r.ESC){const b=nd(e.bx,0,e.z),t=nd(e.tx,6,e.z);lk(b,t,1);
  if(Math.abs(e.z)>1){const sd=Math.sign(e.z);chain([[e.bx,e.z],[e.sx*1.9,8.6*sd],[e.sx*1.75,4.9*sd]],0);lk(t,nd(14*e.sx,6,e.z))}
  else{const br=BRG.reduce((a,b)=>Math.abs(b-e.tx)<Math.abs(a-e.tx)?b:a);for(const sd of[-1,1])lk(b,nd(br-14*e.sx,0,4.9*sd));const m=nd(br,6,0);lk(t,m);for(const sd of[-1,1])lk(m,nd(br,6,5*sd))}}
-// shop visits: a node just inside each open shop, tied to the nearest point of the map
-const ROUTE=NODES.length;
-for(const sh of M.shops){if(sh.closed||sh.big||PR()<.25)continue;const[ix,iz]=sh.w(0,sh.D*.42),[fx,fz]=sh.w(0,-1.3);let best=-1,bd=7;
- for(let i=0;i<ROUTE;i++){const n=NODES[i];if(n.y!==sh.fy)continue;const d=Math.hypot(n.x-fx,n.z-fz);if(d<bd){bd=d;best=i}}
- if(best<0)continue;const f=nd(fx,sh.fy,fz),inn=nd(ix,sh.fy,iz);NODES[inn].shop=sh;lk(best,f);lk(f,inn)}
-for(let k=0;k<440;k++){let a;do{a=Math.floor(PR()*ROUTE)}while(!NODES[a].nb.length);const e=pk(NODES[a].nb);
- const n=NODES[a],p=person(n.x,n.y,n.z,0,0,rn(1,1.45));p.g={from:a,to:e.to,esc:e.esc,t:PR()};p.off=rn(-.45,.45)}
-for(let k=0;k<M.seats.length;k+=3)if(PR()<.45)person(M.seats[k],0,M.seats[k+1],M.seats[k+2],2,0);
-for(const sh of M.shops){if(sh.closed)continue;const n=sh.big?Math.floor(rn(4,9)):Math.floor(rn(0,3.2));
- for(let k=0;k<n;k++){const[x,z]=sh.w(rn(-sh.hw+1.3,sh.hw-1.3),rn(1,sh.D*(sh.big?.8:.55)));person(x,sh.fy,z,rn(0,6.283),1,0)}
- if(sh.counter){const[x,z]=sh.w(0,sh.D-1.15);person(x,sh.fy,z,Math.atan2(-sh.nx,-sh.nz),1,0)}}
-const NP=PPL.length,pplData=new Float32Array(NP*16),pplVB=device.createBuffer({size:pplData.byteLength,usage:GU.VERTEX|GU.COPY_DST});
+}
+ else{const base=N.length;for(const n of r.nav.n)N.push({x:n.x,y:n.y,z:n.z,nb:[],shop:null});for(const[a,b,e]of r.nav.l)lk(base+a,base+b,e)}
+ const ROUTE=N.length;
+ for(const sh of r.shops){if(sh.closed||sh.big||PR()<.25)continue;const[ix,iz]=sh.w(0,sh.D*.42),[fx,fz]=sh.w(0,-1.3);let best=-1,bd=7;
+  for(let i=0;i<ROUTE;i++){const n=N[i];if(n.y!==sh.fy)continue;const d=Math.hypot(n.x-fx,n.z-fz);if(d<bd){bd=d;best=i}}
+  if(best<0)continue;const f=nd(fx,sh.fy,fz),inn=nd(ix,sh.fy,iz);N[inn].shop=sh;lk(best,f);lk(f,inn)}
+ const walkers=r.theme==='hub'?440:Math.min(140,Math.round(ROUTE*.7)),ice=r.theme==='rink',pal=r.theme==='waterpark'?SWIM:SHIRTS;
+ for(let k=0;k<walkers&&ROUTE;k++){let a,tries=0;do{a=Math.floor(PR()*ROUTE)}while(!N[a].nb.length&&++tries<50);if(!N[a].nb.length)continue;const e=pk(N[a].nb);
+  const n=N[a],p=person(P,n.x,n.y,n.z,0,0,ice?rn(2.2,3.4):rn(1,1.45),pal);p.g={from:a,to:e.to,esc:e.esc,t:PR()};p.off=rn(-.45,.45)}
+ for(let k=0;k<r.seats.length;k+=4)if(PR()<(r.theme==='hub'?.45:.6))person(P,r.seats[k],r.seats[k+3],r.seats[k+1],r.seats[k+2],2,0,pal);
+ for(let k=0;k<r.idle.length;k+=4)person(P,r.idle[k],r.idle[k+1],r.idle[k+2],r.idle[k+3],1,0,pal);
+ for(const sh of r.shops){if(sh.closed)continue;const n=sh.big?Math.floor(rn(4,9)):Math.floor(rn(0,3.2));
+  for(let k=0;k<n;k++){const[x,z]=sh.w(rn(-sh.hw+1.3,sh.hw-1.3),rn(1,sh.D*(sh.big?.8:.55)));person(P,x,sh.fy,z,rn(0,6.283),1,0)}
+  if(sh.counter){const[x,z]=sh.w(0,sh.D-1.15);person(P,x,sh.fy,z,Math.atan2(-sh.nx,-sh.nz),1,0)}}}
+prepRegion(HUB);
+let LOADED=[HUB],CUR=HUB,PPL=[],dirty=true,districtCount=0;
+const ORDER=(()=>{const t=[...WORLD.themes];for(let i=t.length-1;i>0;i--){const j=Math.floor(PR()*(i+1));[t[i],t[j]]=[t[j],t[i]]}return t})();
+function spawnAt(from,door,theme){const n=districtCount++,th=theme||ORDER[n%ORDER.length];
+ const q=door.dz>.5?0:door.dx>.5?1:door.dz<-.5?2:3;
+ const r=prepRegion(WORLD.district(n,th,{q,ox:door.x,oz:door.z}));r.doors[0].link=from;door.link=r;r.num=n+1;LOADED.push(r);dirty=true;return r}
+function enter(r){CUR=r;const keep=new Set([r,...r.doors.map(d=>d.link).filter(Boolean)]);
+ for(const o of LOADED)if(!keep.has(o)){for(const d of o.doors)if(d.link&&keep.has(d.link)){/* forget the way back */}
+  for(const k of keep)for(const d of k.doors)if(d.link===o)d.link=null;dropWater(o)}
+ LOADED=LOADED.filter(o=>keep.has(o));dirty=true;regionChanged=true;showTitle(r)}
+const inside=(r,x,z)=>x>=r.bb[0]&&x<=r.bb[1]&&z>=r.bb[2]&&z<=r.bb[3];
+function regionAt(x,z){for(const r of LOADED)if(r!==HUB&&inside(r,x,z))return r;return LOADED.includes(HUB)&&inside(HUB,x,z)?HUB:null}
+let regionChanged=true;
+const SHOPS=()=>LOADED.flatMap(r=>r.shops);
+
+/* ---------- world buffers, rebuilt whenever districts load or unload ---------- */
+const instB=gbuf(GU.VERTEX),glassB=gbuf(GU.VERTEX),folB=gbuf(GU.VERTEX),leafB=gbuf(GU.VERTEX),dropB=gbuf(GU.VERTEX),birdB=gbuf(GU.VERTEX),pplB=gbuf(GU.VERTEX);
+const rideB=Object.fromEntries(RIDEKIND.map(k=>[k,gbuf(GU.VERTEX)]));
+const cat=(key,fix)=>{const n=LOADED.reduce((s,r)=>s+(r[key]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r[key];if(!a)continue;out.set(a,o);if(fix)fix(out,o,a.length,r);o+=a.length}return out};
+let lightBuf=null,gridBuf=null,LGRID=[0,0,6,1,1],sceneBG=null,pplData=new Float32Array(0),NP=0;
+const LC=6,MAXL=32,STRIDE=33;
+function buildLights(){const all=LOADED.flatMap(r=>r.lights);let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const r of LOADED){x0=Math.min(x0,r.bb[0]);x1=Math.max(x1,r.bb[1]);z0=Math.min(z0,r.bb[2]);z1=Math.max(z1,r.bb[3])}
+ const LOX=Math.floor(x0)-6,LOZ=Math.floor(z0)-6,LCOLS=Math.ceil((x1-LOX)/LC)+2,LROWS=Math.ceil((z1-LOZ)/LC)+2,NC=LCOLS*LROWS;
+ const lb=new Float32Array(Math.max(1,all.length)*8),lists=Array.from({length:2*NC},()=>[]);
+ all.forEach((L,i)=>{lb.set([L.x,L.y,L.z,L.r,...L.c,L.f],i*8);const lv=L.both?[0,1]:[L.y>5.99?1:0];
+  for(let gz=Math.max(0,Math.floor((L.z-L.r-LOZ)/LC));gz<=Math.min(LROWS-1,Math.floor((L.z+L.r-LOZ)/LC));gz++)
+  for(let gx=Math.max(0,Math.floor((L.x-L.r-LOX)/LC));gx<=Math.min(LCOLS-1,Math.floor((L.x+L.r-LOX)/LC));gx++){
+   const cx=LOX+gx*LC,cz=LOZ+gz*LC,dx=Math.max(cx-L.x,0,L.x-cx-LC),dz=Math.max(cz-L.z,0,L.z-cz-LC),d=dx*dx+dz*dz;if(d<L.r*L.r)for(const l of lv)lists[l*NC+gz*LCOLS+gx].push([d,i])}});
+ const ga=new Uint32Array(2*NC*STRIDE);lists.forEach((a,k)=>{a.sort((p,q)=>p[0]-q[0]);const n=Math.min(MAXL,a.length);ga[k*STRIDE]=n;for(let j=0;j<n;j++)ga[k*STRIDE+1+j]=a[j][1]});
+ lightBuf?.destroy();gridBuf?.destroy();lightBuf=buf(lb,GU.STORAGE);gridBuf=buf(ga,GU.STORAGE);LGRID=[LOX,LOZ,LC,LCOLS,LROWS];return all.length}
+// sign atlas: every loaded region's shop names and signs
+const AW=detail===0?1024:2048,AH=AW*3,amips=Math.floor(Math.log2(AH))+1;
+const atlas=device.createTexture({size:[AW,AH],format:'rgba8unorm',mipLevelCount:amips,usage:TB|CD|RA});
+const atlasC=document.createElement('canvas');atlasC.width=AW;atlasC.height=AH;
+function buildAtlas(){const g=atlasC.getContext('2d');g.fillStyle='#000';g.fillRect(0,0,AW,AH);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';
+ const cw=AW/ACOLS,ch=AH/AROWS;let slot=0;
+ for(const r of LOADED){r.signBase=slot;for(const n of r.names){if(slot>=NAMECAP)break;const x=(slot%ACOLS)*cw,y=Math.floor(slot/ACOLS)*ch;let s=ch*.62;g.font=n.font.replace('{s}',s+'px');
+  const m=g.measureText(n.t).width;if(m>cw*.9){s*=cw*.9/m;g.font=n.font.replace('{s}',s+'px')}g.fillText(n.t,x+cw/2,y+ch*.53);slot++}}
+ let prev=atlasC;for(let l=0;l<amips;l++){const w=Math.max(1,AW>>l),h=Math.max(1,AH>>l);let src=atlasC;
+  if(l){src=document.createElement('canvas');src.width=w;src.height=h;const g2=src.getContext('2d');g2.imageSmoothingQuality='high';g2.drawImage(prev,0,0,w,h)}
+  device.queue.copyExternalImageToTexture({source:src},{texture:atlas,mipLevel:l},[w,h]);prev=src}}
+let NLIGHTS=0;
+function rebuildWorld(){
+ buildAtlas();
+ instB.set(cat('inst',(out,o,len,r)=>{for(let i=o+12;i<o+len;i+=16)if(out[i]>=0)out[i]=Math.min(NAMECAP-1,out[i]+r.signBase)}));
+ glassB.set(cat('glass'));folB.set(cat('fol'));leafB.set(cat('leaves'));dropB.set(cat('drops'));birdB.set(cat('birds'));
+ for(const k of RIDEKIND)rideB[k].set(cat2(k));
+ PPL=LOADED.flatMap(r=>r.P);NP=PPL.length;pplData=new Float32Array(NP*16);pplB.set(pplData);
+ NLIGHTS=buildLights();makeSceneBG();shadowPass();for(const r of LOADED)addWater(r);dirty=false}
+const cat2=k=>{const n=LOADED.reduce((s,r)=>s+(r.rides?.[k]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r.rides?.[k];if(a){out.set(a,o);o+=a.length}}return out};
+
+/* ---------- crowd stepping ---------- */
 const angLerp=(a,b,k)=>{let d=(b-a+Math.PI)%(2*Math.PI);if(d<0)d+=2*Math.PI;return a+(d-Math.PI)*k};
-function stepPeople(dt,t){for(let i=0;i<NP;i++){const p=PPL[i];
-  if(p.g){const g=p.g;let A=NODES[g.from],Bn=NODES[g.to];
+function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p of r.P){
+  if(p.g){const g=p.g;let A=N[g.from],Bn=N[g.to];
    if(p.wait>0){p.wait-=dt;p.pose=1;p.speed=0;if(Bn.shop)p.ty=Math.atan2(Bn.shop.nx,Bn.shop.nz)+Math.sin(t*.3+p.ph*9)*.8;if(p.wait<=0)p.pose=0}
    else{const len=Math.max(.01,Math.hypot(Bn.x-A.x,Bn.y-A.y,Bn.z-A.z)),sp=g.esc?.6:p.base;p.speed+=(sp-p.speed)*Math.min(1,dt*3);p.pose=g.esc?1:0;
     g.t+=p.speed*dt/len;
-    if(g.t>=1){if(Bn.shop)p.wait=rn(3,10);else if(!g.esc&&PR()<.04)p.wait=rn(2,5);
-     let opts=Bn.nb.filter(e=>e.to!==g.from);if(!opts.length)opts=Bn.nb;const plain=opts.filter(e=>!NODES[e.to].shop&&!NODES[e.to].nb.some(q=>NODES[q.to].shop));
-     const e=(plain.length&&PR()<.8)?pk(plain):pk(opts);g.from=g.to;g.to=e.to;g.esc=e.esc;g.t=0;A=NODES[g.from];Bn=NODES[g.to]}}
+    if(g.t>=1){if(Bn.shop)p.wait=rn(3,10);else if(!g.esc&&PR()<.04&&p.base<2)p.wait=rn(2,5);
+     let opts=Bn.nb.filter(e=>e.to!==g.from);if(!opts.length)opts=Bn.nb;const plain=opts.filter(e=>!N[e.to].shop&&!N[e.to].nb.some(q=>N[q.to].shop));
+     const e=(plain.length&&PR()<.8)?pk(plain):pk(opts);g.from=g.to;g.to=e.to;g.esc=e.esc;g.t=0;A=N[g.from];Bn=N[g.to]}}
    const k=Math.min(1,g.t),dx=Bn.x-A.x,dz=Bn.z-A.z,lh=Math.hypot(dx,dz)||1,o=g.esc||Bn.shop||A.shop?0:p.off;
    p.x=A.x+dx*k+dz/lh*o;p.z=A.z+dz*k-dx/lh*o;p.y=A.y+(Bn.y-A.y)*k+(g.esc?.2:0);
    if(!(p.wait>0))p.ty=Math.atan2(dx,dz);p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*5))}
   else if(p.pose===1){p.turn-=dt;if(p.turn<0){p.turn=rn(3,12);p.ty=p.yaw+rn(-1.6,1.6)}p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*2))}
-  pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,0,0,p.g&&p.pose===0?p.speed:0,p.pose],i*16)}
- device.queue.writeBuffer(pplVB,0,pplData)}
-
-// lights + light grid
-const LC=6,LOX=-150,LOZ=-85,LCOLS=50,LROWS=29,MAXL=32,STRIDE=33,NC=LCOLS*LROWS;
-const lb=new Float32Array(Math.max(1,M.lights.length)*8),lists=Array.from({length:2*NC},()=>[]);
-M.lights.forEach((L,i)=>{lb.set([L.x,L.y,L.z,L.r,...L.c,L.f],i*8);
- const lv=L.both?[0,1]:[L.y>5.99?1:0];
- for(let gz=Math.max(0,Math.floor((L.z-L.r-LOZ)/LC));gz<=Math.min(LROWS-1,Math.floor((L.z+L.r-LOZ)/LC));gz++)
- for(let gx=Math.max(0,Math.floor((L.x-L.r-LOX)/LC));gx<=Math.min(LCOLS-1,Math.floor((L.x+L.r-LOX)/LC));gx++){
-  const x0=LOX+gx*LC,z0=LOZ+gz*LC,dx=Math.max(x0-L.x,0,L.x-x0-LC),dz=Math.max(z0-L.z,0,L.z-z0-LC),d=dx*dx+dz*dz;
-  if(d<L.r*L.r)for(const l of lv)lists[l*NC+gz*LCOLS+gx].push([d,i])}});
-const ga=new Uint32Array(2*NC*STRIDE);lists.forEach((a,k)=>{a.sort((p,q)=>p[0]-q[0]);const n=Math.min(MAXL,a.length);ga[k*STRIDE]=n;for(let j=0;j<n;j++)ga[k*STRIDE+1+j]=a[j][1]});
-const lightBuf=buf(lb,GU.STORAGE),gridBuf=buf(ga,GU.STORAGE);
-
-// sign atlas
-const AW=detail===0?1024:2048,AH=AW*2,mips=Math.floor(Math.log2(AH))+1;
-const atlas=device.createTexture({size:[AW,AH],format:'rgba8unorm',mipLevelCount:mips,usage:TB|CD|RA});
-{const c0=document.createElement('canvas');c0.width=AW;c0.height=AH;const g=c0.getContext('2d');g.fillStyle='#000';g.fillRect(0,0,AW,AH);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';
- const cw=AW/ACOLS,ch=AH/AROWS;
- M.names.slice(0,NAMECAP).forEach((n,i)=>{const x=(i%ACOLS)*cw,y=Math.floor(i/ACOLS)*ch;let s=ch*.62;g.font=n.font.replace('{s}',s+'px');
-  const m=g.measureText(n.t).width;if(m>cw*.9){s*=cw*.9/m;g.font=n.font.replace('{s}',s+'px')}g.fillText(n.t,x+cw/2,y+ch*.53)});
- let prev=c0;for(let l=0;l<mips;l++){const w=Math.max(1,AW>>l),h=Math.max(1,AH>>l);let src=c0;
-  if(l){src=document.createElement('canvas');src.width=w;src.height=h;const g2=src.getContext('2d');g2.imageSmoothingQuality='high';g2.drawImage(prev,0,0,w,h)}
-  device.queue.copyExternalImageToTexture({source:src},{texture:atlas,mipLevel:l},[w,h]);prev=src}}
+  pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,0,0,p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i*16);i++}}
+ if(NP)device.queue.writeBuffer(pplB.b,0,pplData)}
 
 // photo textures
 let bms;try{bms=await assetP}catch(e){return fail('Could not load the photo textures ('+e.message+'). Check your connection and reload.')}
@@ -1001,19 +1414,21 @@ const SKYSCALE=3.2,SUNSCALE=5.5;
 const galAz=Math.PI,betaN=galAz-Math.atan2(SKY.galaxy[2],SKY.galaxy[0]),NGAIN=.55,MOONC=[.5,.62,.95].map(v=>v*1.3);
 const BRIDGES=[-88,-40,40,88];let nightK=0,nightOverride=null;
 const dot3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
-const LVP=(()=>{const f=SUN.map(v=>-v);let r=[1-f[0]*f[0],-f[0]*f[1],-f[0]*f[2]];const rl=Math.hypot(...r);r=r.map(v=>v/rl);
+// the sun's shadow map covers the region you are in (casters from everything loaded)
+function lightMat(){const f=SUN.map(v=>-v);let r=[1-f[0]*f[0],-f[0]*f[1],-f[0]*f[2]];const rl=Math.hypot(...r);r=r.map(v=>v/rl);
  const uu=[r[1]*f[2]-r[2]*f[1],r[2]*f[0]-r[0]*f[2],r[0]*f[1]-r[1]*f[0]];
+ const rec=CUR===HUB?[-124,124,0,21,-27,27]:[CUR.bb[0],CUR.bb[1],0,36,CUR.bb[2],CUR.bb[3]];
  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
- for(const x of[-124,124])for(const y of[0,21])for(const z of[-27,27]){const p=[x,y,z],a=dot3(r,p),b=dot3(uu,p);x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b);z1=Math.max(z1,dot3(f,p))}
- for(const x of[-150,150])for(const y of[-1,22])for(const z of[-85,85])z0=Math.min(z0,dot3(f,[x,y,z]));
+ for(const x of[rec[0],rec[1]])for(const y of[rec[2],rec[3]])for(const z of[rec[4],rec[5]]){const p=[x,y,z],a=dot3(r,p),b=dot3(uu,p);x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b);z1=Math.max(z1,dot3(f,p))}
+ for(const R of LOADED)for(const x of[R.bb[0],R.bb[1]])for(const y of[-1,40])for(const z of[R.bb[2],R.bb[3]])z0=Math.min(z0,dot3(f,[x,y,z]));
  z0-=1;z1+=1;const sx=2/(x1-x0),cx=(x1+x0)/2,sy=2/(y1-y0),cy=(y1+y0)/2,sz=1/(z1-z0);
- return[r[0]*sx,uu[0]*sy,f[0]*sz,0,r[1]*sx,uu[1]*sy,f[1]*sz,0,r[2]*sx,uu[2]*sy,f[2]*sz,0,-cx*sx,-cy*sy,-z0*sz,1]})();
+ return[r[0]*sx,uu[0]*sy,f[0]*sz,0,r[1]*sx,uu[1]*sy,f[1]*sz,0,r[2]*sx,uu[2]*sy,f[2]*sz,0,-cx*sx,-cy*sy,-z0*sz,1]}
 
 // uniforms
-const ubuf=device.createBuffer({size:576,usage:GU.UNIFORM|GU.COPY_DST}),pbuf=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
-const ub=new Float32Array(144);
-ub.set(LVP,48);ub.set([LOX,LOZ,LC,LCOLS,LROWS,1,ACOLS,AROWS,.0016,.05,.045,.042,...SUN,1,...SKY.sunE.map(v=>v*SUNSCALE),QS.has('vol')?+QS.get('vol'):.0022,-150,-1,-85,1,SKY.K,SKYSCALE,Math.cos(-beta),Math.sin(-beta)],68);
-SKY.sh.forEach((c,i)=>ub.set(c,104+i*4));
+const ubuf=device.createBuffer({size:592,usage:GU.UNIFORM|GU.COPY_DST}),pbuf=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
+const ub=new Float32Array(148);
+ub.set([0,0,6,1,1,1,ACOLS,AROWS,.0016,.05,.045,.042,...SUN,1,...SKY.sunE.map(v=>v*SUNSCALE),QS.has('vol')?+QS.get('vol'):.0022,-150,-1,-85,1,SKY.K,SKYSCALE,Math.cos(-beta),Math.sin(-beta)],68);
+SKY.sh.forEach((c,i)=>ub.set(c,104+i*4));ub.set([1,0,0,0],144);
 
 // shared sampling state
 const lin=device.createSampler({magFilter:'linear',minFilter:'linear',mipmapFilter:'linear',maxAnisotropy:8,addressModeU:'clamp-to-edge',addressModeV:'clamp-to-edge'});
@@ -1021,17 +1436,21 @@ const clampS=device.createSampler({magFilter:'linear',minFilter:'linear',address
 const rep=device.createSampler({magFilter:'linear',minFilter:'linear',mipmapFilter:'linear',maxAnisotropy:16,addressModeU:'repeat',addressModeV:'repeat'});
 const cmpS=device.createSampler({compare:'less',magFilter:'linear',minFilter:'linear'});
 
-// bake sky visibility and ambient occlusion on the GPU
-{const occ=device.createTexture({size:[GNX,GNY,GNZ],dimension:'3d',format:'r8uint',usage:TB|CD});
- device.queue.writeTexture({texture:occ},M.grid,{bytesPerRow:GNX,rowsPerImage:GNY},[GNX,GNY,GNZ]);
- var visTex=device.createTexture({size:[300,16,170],dimension:'3d',format:'rgba8unorm',usage:TB|TU.STORAGE_BINDING});
- const pipe=await device.createComputePipelineAsync({layout:'auto',compute:{module:device.createShaderModule({code:VIS_WGSL}),entryPoint:'main'}});
- const e=device.createCommandEncoder(),c=e.beginComputePass();c.setPipeline(pipe);
- c.setBindGroup(0,device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:[{binding:0,resource:occ.createView()},{binding:1,resource:visTex.createView()},{binding:2,resource:{buffer:buf(new Float32Array(QS.has('rays')?[+QS.get('rays'),4,0,0]:[[10,20,32][detail],[8,12,16][detail],0,0]),GU.UNIFORM)}}]}));
- c.dispatchWorkgroups(75,4,43);c.end();device.queue.submit([e.finish()]);await device.queue.onSubmittedWorkDone();occ.destroy()}
+// sky visibility and ambient occlusion, baked on the GPU for the region you are in
+const visPipe=await device.createComputePipelineAsync({layout:'auto',compute:{module:device.createShaderModule({code:VIS_WGSL}),entryPoint:'main'}});
+let visTex=device.createTexture({size:[1,1,1],dimension:'3d',format:'rgba8unorm',usage:TB|TU.STORAGE_BINDING});
+function bakeVis(r){const g=r.gs,vx=Math.ceil(g.nx/2),vy=Math.ceil(g.ny/2),vz=Math.ceil(g.nz/2);
+ const occ=device.createTexture({size:[g.nx,g.ny,g.nz],dimension:'3d',format:'r8uint',usage:TB|CD});
+ device.queue.writeTexture({texture:occ},g.d,{bytesPerRow:g.nx,rowsPerImage:g.ny},[g.nx,g.ny,g.nz]);
+ visTex.destroy();visTex=device.createTexture({size:[vx,vy,vz],dimension:'3d',format:'rgba8unorm',usage:TB|TU.STORAGE_BINDING});
+ const rays=QS.has('rays')?[+QS.get('rays'),4]:[[10,20,32][detail],[8,12,16][detail]];
+ const vb=buf(new Float32Array([rays[0],rays[1],r===HUB?1:0,0,g.x0,g.y0,g.z0,0,g.nx,g.ny,g.nz,0]),GU.UNIFORM);
+ const e=device.createCommandEncoder(),c=e.beginComputePass();c.setPipeline(visPipe);
+ c.setBindGroup(0,device.createBindGroup({layout:visPipe.getBindGroupLayout(0),entries:[{binding:0,resource:occ.createView()},{binding:1,resource:visTex.createView()},{binding:2,resource:{buffer:vb}}]}));
+ c.dispatchWorkgroups(Math.ceil(vx/4),Math.ceil(vy/4),Math.ceil(vz/4));c.end();device.queue.submit([e.finish()]);device.queue.onSubmittedWorkDone().then(()=>{occ.destroy();vb.destroy()});
+ const q=r.xf.q,a=q===0?1:q===2?-1:0,b=q===1?-1:q===3?1:0;ub.set([a,b,r.xf.ox,r.xf.oz],144);ub.set([g.x0,g.y0,g.z0,1],88)}
 prog(.7);msg.textContent='Polishing the marble…';await tick();
 
-// pipelines
 const VBUF=[{arrayStride:24,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'}]},
  {arrayStride:64,stepMode:'instance',attributes:[0,1,2,3].map(k=>({shaderLocation:2+k,offset:k*16,format:'float32x4'}))}];
 const VSF=GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,FSS=GPUShaderStage.FRAGMENT;
@@ -1060,21 +1479,21 @@ const[dynPipe,dynShPipe]=await Promise.all([
   primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
  device.createRenderPipelineAsync({layout:shPipe.getBindGroupLayout?'auto':'auto',vertex:{module:shMod,entryPoint:'vsDyn',buffers:VBUF2},primitive:{topology:'triangle-list',cullMode:'none'},
   depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:3,depthBiasSlopeScale:3}})]);
-const drawDyn=(p,mesh,vb,n)=>{if(!n)return;p.setVertexBuffer(0,mesh.vb);p.setIndexBuffer(mesh.ib,mesh.fmt||'uint16');p.setVertexBuffer(1,vb);p.drawIndexed(mesh.n,n)};
+const drawDyn=(p,mesh,g)=>{if(!g.n)return;p.setVertexBuffer(0,mesh.vb);p.setIndexBuffer(mesh.ib,mesh.fmt||'uint16');p.setVertexBuffer(1,g.b);p.drawIndexed(mesh.n,g.n)};
 const fsPipe=(code,ep,targets)=>{const m=device.createShaderModule({code});return device.createRenderPipelineAsync({layout:'auto',vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:ep,targets},primitive:{topology:'triangle-list'}})};
 const ADD={color:{srcFactor:'one',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one',operation:'add'}},H16={format:'rgba16float'};
 const[fxPipe,combPipe,down0Pipe,downPipe,upPipe,finalPipe]=await Promise.all([fsPipe(FX_WGSL,'fs',[H16,H16]),fsPipe(COMBINE_WGSL,'fs',[H16]),
  fsPipe(BLOOM_WGSL,'fsDown0',[H16]),fsPipe(BLOOM_WGSL,'fsDown',[H16]),fsPipe(BLOOM_WGSL,'fsUp',[{format:'rgba16float',blend:ADD}]),fsPipe(FINAL_WGSL,'fs',[{format:fmt}])]);
 
-// the sun never moves: render its shadow map once
+
 const SHW=detail?4096:2048,shTex=device.createTexture({size:[SHW,SHW/2],format:'depth32float',usage:TB|RA}),shV=shTex.createView();
-if(!SK.has('shadow')){device.queue.writeBuffer(ubuf,0,ub);const e=device.createCommandEncoder(),p=e.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
- p.setPipeline(shPipe);p.setBindGroup(0,device.createBindGroup({layout:shPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]}));
- p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instVB);p.setIndexBuffer(cubeIB,'uint16');p.drawIndexed(36,NI);
- p.setPipeline(dynShPipe);p.setBindGroup(0,device.createBindGroup({layout:dynShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]}));drawDyn(p,MESH.unit,folVB,NF);drawDyn(p,MESH.leaf,leafVB,NL);p.end();device.queue.submit([e.finish()])}
-const sceneBG=device.createBindGroup({layout:BGL,entries:[{binding:0,resource:{buffer:ubuf}},{binding:1,resource:{buffer:lightBuf}},{binding:2,resource:{buffer:gridBuf}},
+const shBG=device.createBindGroup({layout:shPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]}),dynShBG=device.createBindGroup({layout:dynShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]});
+function shadowPass(){ub.set(lightMat(),48);if(SK.has('shadow'))return;device.queue.writeBuffer(ubuf,0,ub);const e=device.createCommandEncoder(),p=e.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
+ p.setPipeline(shPipe);p.setBindGroup(0,shBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(instB.n)p.drawIndexed(36,instB.n);
+ p.setPipeline(dynShPipe);p.setBindGroup(0,dynShBG);drawDyn(p,MESH.unit,folB);drawDyn(p,MESH.leaf,leafB);p.end();device.queue.submit([e.finish()])}
+function makeSceneBG(){sceneBG=device.createBindGroup({layout:BGL,entries:[{binding:0,resource:{buffer:ubuf}},{binding:1,resource:{buffer:lightBuf}},{binding:2,resource:{buffer:gridBuf}},
  {binding:3,resource:atlas.createView()},{binding:4,resource:lin},{binding:5,resource:albT.createView({dimension:'2d-array'})},{binding:6,resource:nrT.createView({dimension:'2d-array'})},
- {binding:7,resource:shV},{binding:8,resource:cmpS},{binding:9,resource:visTex.createView()},{binding:10,resource:skyTex.createView()},{binding:11,resource:rep}]});
+ {binding:7,resource:shV},{binding:8,resource:cmpS},{binding:9,resource:visTex.createView()},{binding:10,resource:skyTex.createView()},{binding:11,resource:rep}]})}
 const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((r,i)=>({binding:i,resource:r}))});
 
 let T=null;
@@ -1096,18 +1515,26 @@ function resize(){
  T=t}
 resize();addEventListener('resize',resize);
 
+
+
 /* ---------- player ---------- */
-const solid=(x,y,z)=>{const i=Math.floor((x-GX0)/GC),j=Math.floor((y-GY0)/GC),k=Math.floor((z-GZ0)/GC);
- if(i<0||j<0||k<0||i>=GNX||j>=GNY||k>=GNZ)return 1;return M.grid[i+GNX*(j+GNY*k)]};
-const hit=(x,y,z)=>{if(y>11.7||y<.5)return true;for(const dy of[-.9,-.45,0,.25])for(const dx of[-.3,.3])for(const dz of[-.3,.3])if(solid(x+dx,y+dy,z+dz))return true;return false};
+// collision: ask every loaded region whose grid covers the point (in its own frame); outside them all is solid
+const solid=(x,y,z)=>{let any=false;for(const r of LOADED){if(x<r.bb[0]-1.5||x>r.bb[1]+1.5||z<r.bb[2]-1.5||z>r.bb[3]+1.5)continue;
+  const[lx,lz]=invXd(r.xf.q,x-r.xf.ox,z-r.xf.oz),g=r.gs,i=Math.floor((lx-g.x0)/GC),j=Math.floor((y-g.y0)/GC),k=Math.floor((lz-g.z0)/GC);
+  if(i<0||k<0||i>=g.nx||k>=g.nz)continue;any=true;if(j<0)return 1;if(j>=g.ny)continue;if(g.d[i+g.nx*(j+g.ny*k)])return 1}
+ return any?0:1};
+const hit=(x,y,z)=>{if(y>40||y<.5)return true;for(const dy of[-.9,-.45,0,.25])for(const dx of[-.3,.3])for(const dz of[-.3,.3])if(solid(x+dx,y+dy,z+dz))return true;return false};
 // first person on foot: gravity, step-up onto ramps and escalators, walls and railings block you. F toggles flying.
 const EYE=1.65,STEP=.55;let fly=false,grounded=true,stepDist=0,bobPh=0;
-const groundAt=(x,top,z)=>{for(let y=top;y>top-14;y-=.25){if(solid(x,y,z))return Math.floor((y-GY0)/GC)*GC+GY0+GC}return -50};
+const groundAt=(x,top,z)=>{for(let y=top;y>top-14;y-=.25){if(solid(x,y,z)){const r=regionAt(x,z)||CUR;return Math.floor((y-r.gs.y0)/GC)*GC+r.gs.y0+GC}}return -50};
 const blocked=(x,feet,z)=>{for(const dy of[.65,1.1,1.6])for(const dx of[-.25,.25])for(const dz of[-.25,.25])if(solid(x+dx,feet+dy,z+dz))return true;return false};
 const VIEWS=[[-34,1.7,1.2,-Math.PI/2+.1,.2],[-1.75,1.7,-21,Math.PI,.32],[14,7.7,-19,Math.PI*.75,-.05],[-100,7.7,5,-Math.PI/2,.1],[60,1.7,19,Math.PI,0],[100,1.7,-4.5,-Math.PI/2,.04]];
 const P={x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vy:0,vz:0};window.__P=P;
-const view=i=>{const v=VIEWS[i];P.x=v[0];P.y=v[1];P.z=v[2];P.yaw=v[3];P.pitch=v[4];P.vx=P.vy=P.vz=0;settle?.()};view(QS.has('v')?+QS.get('v'):0);
-if(QS.has('yaw'))P.yaw=+QS.get('yaw');if(QS.has('night')){nightOverride=+QS.get('night');nightK=nightOverride}if(QS.has('pitch'))P.pitch=+QS.get('pitch');if(QS.has('pos')){const q=QS.get('pos').split(',').map(Number);P.x=q[0];P.y=q[1];P.z=q[2]}settle();
+const view=i=>{if(CUR!==HUB)backToHub();const v=VIEWS[i];P.x=v[0];P.y=v[1];P.z=v[2];P.yaw=v[3];P.pitch=v[4];P.vx=P.vy=P.vz=0;settle?.()};
+function backToHub(){for(const d of HUB.doors)d.link=null;for(const r of LOADED)if(r!==HUB)dropWater(r);LOADED=[HUB];CUR=null;dirty=true;
+ P.x=-34;P.y=1.7;P.z=1.2;P.yaw=-Math.PI/2+.1;P.pitch=.1;P.vx=P.vz=0;settle()}
+// title card as you walk into a new district
+let titleT=0;function showTitle(r){const el=$('t');if(!el)return;el.textContent=r===HUB?'Skylight Galleria':r.title+(r.num?'  ·  District '+r.num:'');el.classList.add('on');clearTimeout(titleT);titleT=setTimeout(()=>el.classList.remove('on'),3500)}
 const keys=new Set(),ptrs=new Map();let primary=null,playing=false,stats=false,muted=false;
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 // controls: mouse look (click to capture the pointer) and WASD; on phones hold to walk, drag to look, two fingers to run
@@ -1130,10 +1557,10 @@ addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
  if(c==='Escape'){playing?pause():body.classList.contains('r')&&play();return}
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
- if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'){fly=!fly;if(!fly)settle()}if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
+ if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null});
 
-// first person on foot: gravity, step-up onto ramps and escalators, walls and railings block you. F toggles flying.
+
 function settle(){P.feet=P.y-EYE;const g=groundAt(P.x,P.feet+STEP,P.z);if(g>-50)P.feet=g;P.ey=P.feet+EYE;P.vy=0}
 function update(dt){
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
@@ -1167,6 +1594,7 @@ function update(dt){
  const target=P.feet+EYE+Math.sin(bobPh)*.025*Math.min(1,moved/dt/2);
  P.ey+=(target-P.ey)*Math.min(1,dt*(grounded?14:30));P.y=P.ey;
  return{fwd}}
+
 
 /* ---------- audio: muzak, crowd chatter, shop music, fountains (all positional) ---------- */
 let actx=null,master=null,chatG=null,muzG=null,noiseBuf=null;const SPK=[],WATER=[];
@@ -1218,10 +1646,7 @@ function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioCon
  // crowd murmur, loudness follows how many people are near you
  const cs=actx.createBufferSource(),cf=actx.createBiquadFilter();cs.buffer=makeBabble();cs.loop=true;cf.type='lowpass';cf.frequency.value=2600;chatG=actx.createGain();chatG.gain.value=0;
  cs.connect(cf);cf.connect(chatG);chatG.connect(master);const cw=actx.createGain();cw.gain.value=.25;chatG.connect(cw);cw.connect(dl);cs.start();
- // fountains
- for(const f of M.fountains){const s=actx.createBufferSource(),bf=actx.createBiquadFilter(),hf=actx.createBiquadFilter(),g=actx.createGain();s.buffer=noiseBuf;s.loop=true;
-  bf.type='bandpass';bf.frequency.value=f.big?900:1300;bf.Q.value=.5;hf.type='highshelf';hf.frequency.value=3000;hf.gain.value=4;g.gain.value=f.big?1.1:.7;
-  const pn=panner(f.x,f.y,f.z,f.big?3:2,1.4);s.connect(bf);bf.connect(hf);hf.connect(g);g.connect(pn);pn.connect(master);s.start(0,Math.random()*2);WATER.push(pn)}
+ for(const r of LOADED)addWater(r);
  // three shop speakers that follow the nearest open shops
  for(let k=0;k<3;k++){const g=actx.createGain(),f=actx.createBiquadFilter(),pn=panner(0,-100,0,2.5,1.6);g.gain.value=0;f.type='lowpass';f.connect(g);g.connect(pn);pn.connect(master);SPK.push({g,f,pn,dest:f,shop:null,st:null,step:0,next:0,prog:null})}
  setInterval(()=>{if(!actx||actx.state!=='running')return;const now=actx.currentTime;
@@ -1239,13 +1664,19 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
  if(now-audT<.25)return;audT=now;
  let dens=0;for(const p of PPL){const dx=p.x-P.x,dy=(p.y+1.6-P.y)*2,dz=p.z-P.z,d2=dx*dx+dy*dy+dz*dz;if(d2<400)dens+=Math.exp(-d2/50)}
  chatG.gain.setTargetAtTime(Math.min(.85,dens*.09),now,.6);
- const near=M.shops.filter(s=>!s.closed&&Math.abs(s.fy+1.7-P.y)<3).map(s=>[Math.hypot(s.x-P.x,s.z-P.z),s]).filter(a=>a[0]<16).sort((a,b)=>a[0]-b[0]).slice(0,3).map(a=>a[1]);
+ const near=SHOPS().filter(s=>!s.closed&&Math.abs(s.fy+1.7-P.y)<3).map(s=>[Math.hypot(s.x-P.x,s.z-P.z),s]).filter(a=>a[0]<16).sort((a,b)=>a[0]-b[0]).slice(0,3).map(a=>a[1]);
  muzG.gain.setTargetAtTime(near.length?.12:.3,now,1);
  for(const sp of SPK)if(sp.shop&&!near.includes(sp.shop)){sp.g.gain.setTargetAtTime(0,now,.25);sp.shop=null}
  for(const sh of near)if(!SPK.some(sp=>sp.shop===sh)){const sp=SPK.find(q=>!q.shop);if(!sp)break;
   const[x,z]=sh.w(0,1.5),pn=sp.pn;if(pn.positionX){pn.positionX.value=x;pn.positionY.value=sh.fy+3;pn.positionZ.value=z}else pn.setPosition(x,sh.fy+3,z);
   sp.shop=sh;sp.st=STY[sh.key]||STY.apparel;sp.prog=PROGS[(sh.name.length+sh.key.length)%4];sp.step=0;sp.next=now+.1;sp.f.frequency.value=sp.st.cut*(sh.big?.8:1);
   sp.g.gain.cancelScheduledValues(now);sp.g.gain.setValueAtTime(0,now);sp.g.gain.setTargetAtTime(sh.big?.5:.8,now+.1,.4)}}
+
+function addWater(r){if(!actx||r.water)return;r.water=[];
+ for(const f of r.fountains){const s=actx.createBufferSource(),bf=actx.createBiquadFilter(),hf=actx.createBiquadFilter(),g=actx.createGain();s.buffer=noiseBuf;s.loop=true;
+  bf.type='bandpass';bf.frequency.value=f.big?900:1300;bf.Q.value=.5;hf.type='highshelf';hf.frequency.value=3000;hf.gain.value=4;g.gain.value=f.big?1.1:.7;
+  const pn=panner(f.x,f.y,f.z,f.big?3:2,1.4);s.connect(bf);bf.connect(hf);hf.connect(g);g.connect(pn);pn.connect(master);s.start(0,Math.random()*2);r.water.push({s,pn})}}
+function dropWater(r){if(!r.water)return;for(const w of r.water){try{w.s.stop()}catch{}w.pn.disconnect()}r.water=null}
 
 /* ---------- menu ---------- */
 const qb=[...$('q').querySelectorAll('button')];
@@ -1254,6 +1685,7 @@ qb.forEach((b,i)=>b.onclick=()=>setDetail(i));
 function play(){playing=true;body.classList.add('g');startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
 function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;if(locked())document.exitPointerLock()}
 $('d').onclick=play;$('o').onclick=pause;
+
 
 /* ---------- render loop ---------- */
 function inv4(m){const a=m,r=new Array(16);
@@ -1264,36 +1696,44 @@ function inv4(m){const a=m,r=new Array(16);
  r[4]=(a[6]*b08-a[4]*b11-a[7]*b07)*d;r[5]=(a[0]*b11-a[2]*b08+a[3]*b07)*d;r[6]=(a[14]*b02-a[12]*b05-a[15]*b01)*d;r[7]=(a[8]*b05-a[10]*b02+a[11]*b01)*d;
  r[8]=(a[4]*b10-a[5]*b08+a[7]*b06)*d;r[9]=(a[1]*b08-a[0]*b10-a[3]*b06)*d;r[10]=(a[12]*b04-a[13]*b02+a[15]*b00)*d;r[11]=(a[9]*b02-a[8]*b04-a[11]*b00)*d;
  r[12]=(a[5]*b07-a[4]*b09-a[6]*b06)*d;r[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d;r[14]=(a[13]*b01-a[12]*b03-a[14]*b00)*d;r[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d;return r}
+
 const pp=new Float32Array(4),VP=new Array(16);
-let last=performance.now(),fpsT=0,fpsN=0,fps=0,frames=0;
+let last=performance.now(),fpsT=0,fpsN=0,fps=0,frames=0,fogK=[.0016,.05,.045,.042];
+// streaming: districts appear ahead of you, a minute's walk apart, and what you have left behind is dropped
+function stream(){const r=regionAt(P.x,P.z);if(r&&r!==CUR)enter(r);if(!CUR)return;
+ for(const d of CUR.doors){if(d.link)continue;if(Math.hypot(P.x-d.x,P.z-d.z)<85)spawnAt(CUR,d)}
+ if(dirty)rebuildWorld();if(regionChanged){regionChanged=false;bakeVis(CUR);makeSceneBG();shadowPass()}}
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000);last=now;fpsT+=dt;fpsN++;if(fpsT>.5){fps=Math.round(fpsN/fpsT);fpsT=fpsN=0}
+ stream();
  const{fwd}=update(dt),t=now/1000;stepPeople(dt,t%1000);audioFrame(fwd);
  const e=[P.x,P.y,P.z],upv=[0,1,0],r=[fwd[1]*upv[2]-fwd[2]*upv[1],fwd[2]*upv[0]-fwd[0]*upv[2],fwd[0]*upv[1]-fwd[1]*upv[0]],rl=Math.hypot(...r);r[0]/=rl;r[1]/=rl;r[2]/=rl;
  const uu=[r[1]*fwd[2]-r[2]*fwd[1],r[2]*fwd[0]-r[0]*fwd[2],r[0]*fwd[1]-r[1]*fwd[0]];
  const V=[r[0],uu[0],-fwd[0],0,r[1],uu[1],-fwd[1],0,r[2],uu[2],-fwd[2],0,-dot3(r,e),-dot3(uu,e),dot3(fwd,e),1];
- const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*Math.PI/360),n=.05,fr=600;
+ const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*Math.PI/360),n=.05,fr=900;
  const Pm=[fy/asp,0,0,0,0,fy,0,0,0,0,fr/(n-fr),-1,0,0,n*fr/(n-fr),0];
  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=Pm[k*4+i]*V[j*4+k];VP[j*4+i]=s}
- ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);
- // day and night swap each time you pass under one of the upper-level bridges
- const zone=BRIDGES.filter(b=>P.x>b).length,nightT=nightOverride??(zone%2?1:0);nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
+ ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
+ // day and night: in the hub they swap under each bridge; every district has its own
+ const zone=BRIDGES.filter(b=>P.x>b).length,nightT=nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
  const nk=nightK*nightK*(3-2*nightK);
  for(let i=0;i<3;i++)ub[84+i]=SKY.sunE[i]*SUNSCALE*(1-nk)+MOONC[i]*nk;ub[87]=.0022*(1-nk)+.003*nk;
  SKY.sh.forEach((c,i)=>{for(let j=0;j<3;j++)ub[104+i*4+j]=c[j]*(1-nk)+SKY.shN[i][j]*NGAIN/SKYSCALE*nk});
  ub.set([nk,SKY.KN*NGAIN,Math.cos(-betaN),Math.sin(-betaN)],140);ub[73]=1-.45*nk;
+ const fg=[CUR&&CUR.fog||.0016,...(CUR&&CUR.fogCol||[.05,.045,.042])];for(let i=0;i<4;i++){fogK[i]+=(fg[i]-fogK[i])*Math.min(1,dt);ub[76+i]=fogK[i]}
  device.queue.writeBuffer(ubuf,0,ub);
- pp.set([QS.has('dbg')?0:.045,(QS.has('ex')?+QS.get('ex'):1.15)*(1-.5*(nightK*nightK*(3-2*nightK))),t%97,QS.has('dbg')||QS.has('ex')?1:0]);device.queue.writeBuffer(pbuf,0,pp);
+ pp.set([QS.has('dbg')?0:.045,(QS.has('ex')?+QS.get('ex'):1.15)*(1-.5*nk),t%97,QS.has('dbg')||QS.has('ex')?1:0]);device.queue.writeBuffer(pbuf,0,pp);
  const enc=device.createCommandEncoder();
  let p=enc.beginRenderPass({colorAttachments:[
    {view:T.mC,resolveTarget:T.hdrV,clearValue:{r:0,g:0,b:0,a:1},loadOp:'clear',storeOp:'discard'},
    {view:T.mG,resolveTarget:T.gbV,clearValue:{r:0,g:0,b:6e4,a:0},loadOp:'clear',storeOp:'discard'},
    {view:T.mA,resolveTarget:T.axV,clearValue:{r:1,g:0,b:0,a:0},loadOp:'clear',storeOp:'discard'}],
   depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
- p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instVB);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')){p.setPipeline(scenePipe);p.drawIndexed(36,NI)}
- p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folVB,NF);drawDyn(p,MESH.leaf,leafVB,NL);drawDyn(p,MESH.unit,dropVB,ND);drawDyn(p,MESH.person,pplVB,NP);drawDyn(p,MESH.bird,birdVB,NB);
+ p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')&&instB.n){p.setPipeline(scenePipe);p.drawIndexed(36,instB.n)}
+ p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);drawDyn(p,MESH.bird,birdB);
+ for(const k of RIDEKIND)drawDyn(p,MESH[k],rideB[k]);
  if(!SK.has('sky')){p.setPipeline(skyPipe);p.draw(3)}
- if(NG&&!SK.has('glass')){p.setPipeline(glassPipe);p.setVertexBuffer(1,glassVB);p.drawIndexed(36,NG)}
+ if(glassB.n&&!SK.has('glass')){p.setPipeline(glassPipe);p.setVertexBuffer(0,cubeVB);p.setIndexBuffer(cubeIB,'uint16');p.setVertexBuffer(1,glassB.b);p.drawIndexed(36,glassB.n)}
  p.end();
  p=enc.beginRenderPass({colorAttachments:[{view:T.fxR,loadOp:'clear',clearValue:{r:0,g:0,b:0,a:0},storeOp:'store'},{view:T.fxV,loadOp:'clear',clearValue:{r:0,g:0,b:0,a:0},storeOp:'store'}]});
  if(!SK.has('fx')){p.setPipeline(fxPipe);p.setBindGroup(0,T.fxBG);p.draw(3)}p.end();
@@ -1308,9 +1748,16 @@ function frame(now){
  if(snapBuf){const W=T.W,H=T.H;snapBuf.mapAsync(GPUMapMode.READ).then(()=>{const src=new Uint8Array(snapBuf.getMappedRange()),c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),im=g.createImageData(W,H);
   const bgr=fmt.startsWith('bgra');for(let y=0;y<H;y++)for(let x=0;x<W;x++){const s=y*bpr+x*4,d=(y*W+x)*4;im.data[d]=src[s+(bgr?2:0)];im.data[d+1]=src[s+1];im.data[d+2]=src[s+(bgr?0:2)];im.data[d+3]=255}
   g.putImageData(im,0,0);window.__snap=c.toDataURL('image/png')})}
- if(stats)$('i').textContent=`${fps} fps · ${T.W}×${T.H}\n${M.stores} stores · ${NP} people · ${NI+NG+NF+NL+ND} objects · ${M.lights.length} lights\nx ${P.x.toFixed(1)}  y ${P.y.toFixed(1)}  z ${P.z.toFixed(1)}  ${P.y>6?'Upper level':'Ground level'}`;
- window.__frames=++frames;
+ if(stats)$('i').textContent=`${fps} fps · ${T.W}×${T.H}\n${CUR?(CUR===HUB?'Skylight Galleria':CUR.title):'—'} · ${LOADED.length} areas loaded · ${districtCount} districts found\n${NP} people · ${instB.n+glassB.n+folB.n+leafB.n+dropB.n} objects · ${NLIGHTS} lights\nx ${P.x.toFixed(1)}  y ${P.y.toFixed(1)}  z ${P.z.toFixed(1)}`;
+ window.__dbg={inst:instB.n,glass:glassB.n,fol:folB.n,leaf:leafB.n,drop:dropB.n,bird:birdB.n,ppl:pplB.n,regions:LOADED.map(r=>r.theme+':'+(r.leaves?.length/16))};window.__frames=++frames;window.__where=CUR?(CUR===HUB?'hub':CUR.theme):'none';window.__found=districtCount;
  requestAnimationFrame(frame)}
+// first build
+rebuildWorld();bakeVis(HUB);makeSceneBG();shadowPass();regionChanged=false;
+view(QS.has('v')?+QS.get('v'):0);
+if(QS.has('yaw'))P.yaw=+QS.get('yaw');if(QS.has('night')){nightOverride=+QS.get('night');nightK=nightOverride}if(QS.has('pitch'))P.pitch=+QS.get('pitch');if(QS.has('pos')){const q=QS.get('pos').split(',').map(Number);P.x=q[0];P.y=q[1];P.z=q[2]}settle();
+// ?dist=theme opens a district straight away at the east gate (for testing and screenshots)
+if(QS.has('dist')){const d=HUB.doors[0],r=spawnAt(HUB,d,QS.get('dist'));const lz=+(QS.get('dz')||12),lx=+(QS.get('dx')||0);const[wx,wz]=XD(r.xf.q,lx,lz);P.x=wx+r.xf.ox;P.z=wz+r.xf.oz;P.y=1.7;
+ const[fx,fz]=XD(r.xf.q,0,1);P.yaw=Math.atan2(-fx,-fz)+(+(QS.get('turn')||0));if(QS.has('pitch'))P.pitch=+QS.get('pitch');rebuildWorld();enter(r);stream();settle();nightK=r.night?1:0}
 prog(1);await tick();
 body.classList.remove('l');body.classList.add('r');
 if(QS.has('go'))play();

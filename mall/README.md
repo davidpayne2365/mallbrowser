@@ -36,6 +36,24 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 - **Floors:** every area has its own stone or tile, with granite inlays.
 - **Stores:** about 200 shops with made-up names.
 
+## Endless districts
+
+Every department store in the hub has a glowing **Explore →** gate at the back. Walk through one and new districts keep appearing ahead of you, each about a minute's walk deep. Every exit leads somewhere you haven't been, so a long walk never runs out.
+
+| District | What's there |
+|---|---|
+| The Arboretum | A giant glass conservatory with a lily pond and footbridge, a palm house, rose gardens and tall trees |
+| Deep Blue Aquarium | A walk-through glass tunnel with schools of fish and a shark overhead, wall tanks and glowing jellyfish |
+| Starlight Fair | A night-time fair with a turning Ferris wheel, a carousel, a roller coaster, a drop tower and game booths |
+| Old Town Market | An open-air market with striped stalls, cafe umbrellas, a fountain and string lights between brick buildings |
+| Whispering Pines | A raised boardwalk through a pine forest, with a stream, lanterns and fireflies |
+| Hartwell & Co. | A three-floor department store around a skylit atrium, with escalators and chandeliers |
+| Glacier Ice Rink | Skaters circling a glossy ice rink under glass, with a lit-up tree, a cafe and bleachers |
+| Paramount Lights | A cinema lobby with a concession stand and two auditoriums you can walk into |
+| Lagoon Splash | A waterpark with a wave pool, a splash pad full of jets, a lazy river and twisting slides |
+
+The first nine districts you reach are all different. After that the themes repeat with new layouts. Press R at any time to go back to the hub.
+
 ## How it looks real
 
 - **Sky:** a 4K HDR photo of a partly cloudy sky. The sun's direction and brightness, and the sky's ambient light, are measured from the photo.
@@ -53,6 +71,8 @@ Sky and textures are from [Poly Haven](https://polyhaven.com) under CC0:
 - granite_tile (Charlotte Baglioni)
 - wood_floor (Dimitrios Savva)
 - painted_plaster_wall (Amal Kumar)
-- floor_tiles_06, large_floor_tiles_02, floor_tiles_08 (Rob Tuytel)
+- floor_tiles_06, large_floor_tiles_02, floor_tiles_08, cobblestone_floor_04, blue_floor_tiles_01, red_brick_03, forest_leaves_02 (Rob Tuytel)
+- leafy_grass (Charlotte Baglioni)
+- weathered_brown_planks (Dimitrios Savva, Rico Cilliers)
 - granite_tile_03 (Charlotte Baglioni)
 - herringbone_parquet (Jenelle van Heerden, Sergej Majboroda)
