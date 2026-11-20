@@ -1,4 +1,4 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><title>Skylight Galleria</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=theme-color content=#0c0710>
+<!doctype html><html lang=en><head><meta charset=utf-8><title>Skylight Galleria</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=theme-color content=#0b1018><meta name=mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-capable content=yes><meta name=apple-mobile-web-app-status-bar-style content=black-translucent>
 <style>
 html{background:#0c0710}
 body{position:fixed;inset:0;margin:0;overflow:hidden;background:radial-gradient(#2a4a6e,#0b1018 70%);font:700 clamp(13px,.7vw + .9vh,36px)/1.4 system-ui,sans-serif;color:#fff4e8;-webkit-user-select:none;user-select:none}
@@ -35,7 +35,7 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
 #o{position:absolute;top:.6em;right:.6em;display:none;padding:.3em .6em;background:#2d0320d9;box-shadow:inset 0 0 0 2px #ff9ccb,0 .3em 1em #0009;font-size:1.3em;color:#fff4e8;opacity:.8}
 .g #o{display:flex}
 #i{position:absolute;top:1em;left:1.2em;margin:0;font:.8em/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;text-shadow:0 1px 4px #000;pointer-events:none}
-#j{display:none;position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:#ffffff1a;box-shadow:inset 0 0 0 2px #ffffff55;pointer-events:none}#j i{position:absolute;left:30px;top:30px;width:50px;height:50px;border-radius:50%;background:#ffffff66}
+#fs{position:absolute;top:.6em;right:3.4em;display:none;padding:.3em .6em;background:#2d0320d9;box-shadow:inset 0 0 0 2px #ff9ccb,0 .3em 1em #0009;font-size:1.3em;color:#fff4e8;opacity:.8}.g #fs{display:flex}
 </style></head><body class=l>
 <canvas id=c></canvas>
 <div id=m>
@@ -59,13 +59,12 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
           <i><b>F</b></i>Fly mode
           <i><b>H</b></i>Stats</p>
       </div>
-      <p id=h>Left thumb walks · right thumb looks around · push the stick all the way to run</p>
+      <p id=h>Hold to walk · drag to look around · two fingers to run</p>
     </div>
   </div>
 </div>
-<button id=o aria-label=Menu>≡</button>
+<button id=o aria-label=Menu>≡</button><button id=fs aria-label="Full screen">⛶</button>
 <pre id=i></pre>
-<div id=j><i></i></div>
 <script>
 /* ============================== SHADERS ============================== */
 //WGSL-START
@@ -111,7 +110,12 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   if(pt==2||pt==3||pt==7){o.col=pants;}
   if((pt==2||pt==3)&&p0.y<.1){o.col=select(vec3f(.012),vec3f(.5,.48,.45),hs1(h+6.)>.65);}
   if(pt==1){o.col=skin;}
-  if(pt==6){o.col=hair;}
+  if(pt==6||pt==11||pt==12){o.col=hair;}
+  if(pt==8){o.col=vec3f(.62,.6,.58);}
+  if(pt==9){let ei=hs1(h+8.);o.col=select(select(vec3f(.025,.012,.006),vec3f(.03,.08,.16),ei>.75),vec3f(.04,.07,.03),ei>.9);}
+  if(pt==10){o.col=skin*vec3f(.78,.45,.45);}
+  let longHair=hs1(h+7.)<.45;let beard=!longHair&&hs1(h+9.)>.72;
+  if((pt==11&&!longHair)||(pt==12&&!beard)){p=vec3f(0.,1.62,0.);}
   if((pt==4||pt==5)&&p0.y<1.2&&hs1(h+5.)>.4){o.col=skin;}
   p*=b.xyz;p=ry(p,a.w);n=ry(n,a.w);
  }else if(kind==2){
@@ -784,9 +788,9 @@ for(let k=0;k<12;k++){const a=k/12*6.283+.13;jet(Math.sin(a)*3.25,.6,Math.cos(a)
 for(const sx of[-1,1])for(const sz of[-1,1]){const x=sx*4.35,z=sz*4.35;B(x-.6,0,z-.6,x+.6,.6,z+.6,C.pot);shrubs(x,.6,z,.5,.5,70);palm(x,z,rnd(7.5,9.5))}
 const chairC=[hsl(0,.7,.5),hsl(45,.85,.55),hsl(200,.7,.5),hsl(140,.5,.45)];
 for(let x=-10.5;x<=10.5;x+=3.5)for(let z=-19.5;z<=19.5;z+=3.25){if((Math.abs(x)<5&&Math.abs(z)<5)||(Math.abs(z)>7.8&&Math.abs(z)<12.2))continue;
- B(x-.55,.72,z-.55,x+.55,.78,z+.55,C.white,{s:.5});B(x-.07,0,z-.07,x+.07,.72,z+.07,C.steel);const cc=pick(chairC);
- for(const[dx,dz]of[[-.85,0],[.85,0],[0,-.85],[0,.85]]){B(x+dx-.22,.42,z+dz-.22,x+dx+.22,.48,z+dz+.22,cc);B(x+dx-.04,0,z+dz-.04,x+dx+.04,.42,z+dz+.04,C.steel,{solid:false});
-  seats.push(x+dx*1.08,z+dz*1.08,Math.atan2(-dx,-dz));const bx=x+dx*1.25,bz=z+dz*1.25;B(bx-(dx?.03:.22),.48,bz-(dz?.03:.22),bx+(dx?.03:.22),.95,bz+(dz?.03:.22),cc)}}
+ B(x-.55,.72,z-.55,x+.55,.78,z+.55,C.white,{s:.5,solid:false});B(x-.07,0,z-.07,x+.07,.72,z+.07,C.steel,{solid:false});const cc=pick(chairC);
+ for(const[dx,dz]of[[-.85,0],[.85,0],[0,-.85],[0,.85]]){B(x+dx-.22,.42,z+dz-.22,x+dx+.22,.48,z+dz+.22,cc,{solid:false});B(x+dx-.04,0,z+dz-.04,x+dx+.04,.42,z+dz+.04,C.steel,{solid:false});
+  seats.push(x+dx*1.08,z+dz*1.08,Math.atan2(-dx,-dz));const bx=x+dx*1.25,bz=z+dz*1.25;B(bx-(dx?.03:.22),.48,bz-(dz?.03:.22),bx+(dx?.03:.22),.95,bz+(dz?.03:.22),cc,{solid:false})}}
 const hs=(x,y,z,sx,sz,face,t)=>{box(x,y,z,sx,1.3,sz,hsl(45,.9,.6),{e:3,sign:addName(t,'900 {s} system-ui,sans-serif',1),face,solid:false});const top=roofY(x,z);for(const o of sx>sz?[-sx/2+.5,sx/2-.5]:[-sz/2+.5,sz/2-.5])box(x+(sx>sz?o:0),(y+.65+top)/2,z+(sx>sz?0:o),.02,top-y-.65,.02,C.dark,{solid:false})};
 hs(0,9,-21.6,9,.2,0,'Food Court');hs(0,9,21.6,9,.2,1,'Food Court');hs(20,9.6,0,.2,7.5,2,'East Concourse');hs(-20,9.6,0,.2,7.5,3,'West Concourse');
 // concourse centre: kiosks, planters, benches
@@ -881,7 +885,7 @@ function partMesh(parts){const v=[],ix=[];for(const[cx,cy,cz,sx,sy,sz,pid]of par
   for(const i of ci6)ix.push(b+i)}
  return{vb:buf(new Float32Array(v),GU.VERTEX),ib:buf(new Uint16Array(ix.length%2?[...ix,0]:ix),GU.INDEX),n:ix.length}}
 // smooth capsule-ish parts (centre, half-size, part id): a superellipsoid rounded along its long axis
-function roundMesh(parts){const v=[],ix=[],SEG=12,RING=10;for(const[cx,cy,cz,rx,ry,rz,pid]of parts){const b=v.length/7;
+function roundMesh(parts){const v=[],ix=[];for(const[cx,cy,cz,rx,ry,rz,pid,lo]of parts){const SEG=lo?7:10,RING=lo?5:8,b=v.length/7;
   for(let r=0;r<=RING;r++){const th=r/RING*Math.PI,sy=Math.cos(th),sr=Math.sin(th),k=Math.pow(sr,.45);
    for(let q=0;q<=SEG;q++){const ph=q/SEG*2*Math.PI,x=Math.cos(ph)*k,z=Math.sin(ph)*k,nx=x/rx,ny=sy/ry,nz=z/rz,nl=Math.hypot(nx,ny,nz)||1;
     v.push(cx+x*rx,cy+sy*ry,cz+z*rz,nx/nl,ny/nl,nz/nl,pid)}}
@@ -890,7 +894,12 @@ function roundMesh(parts){const v=[],ix=[],SEG=12,RING=10;for(const[cx,cy,cz,rx,
 const MESH={unit:partMesh([[0,0,0,1,1,1,0]]),
  // a pointed leaf, folded along its midrib (drawn double-sided)
  leaf:{vb:buf(new Float32Array([0,0,.5,0,1,0,0,-.5,.25,0,-.3,.95,0,0,0,-.5,0,1,0,0,.5,.25,0,.3,.95,0,0,0,-.08,0,0,1,0,0]),GU.VERTEX),ib:buf(new Uint16Array([0,1,2,0,2,3,0,4,2,0,2,1]),GU.INDEX),n:12},
- person:roundMesh([[0,1.19,0,.19,.33,.12,0],[0,1.43,0,.21,.07,.13,0],[0,1.53,0,.05,.06,.05,1],[0,1.66,.005,.1,.125,.11,1],[-.095,.47,0,.075,.46,.08,2],[.095,.47,0,.075,.46,.08,3],[-.235,1.16,0,.05,.3,.055,4],[.235,1.16,0,.05,.3,.055,5],[0,1.725,-.012,.106,.08,.115,6],[-.095,.045,.04,.06,.045,.13,2],[.095,.045,.04,.06,.045,.13,3],[0,.95,0,.185,.12,.115,7]]),
+ person:roundMesh([[0,1.19,0,.19,.33,.12,0],[0,1.43,0,.21,.07,.13,0],[0,1.53,0,.05,.06,.05,1],[0,1.66,.005,.095,.122,.105,1],[0,1.615,.03,.075,.06,.075,1],
+  [-.095,.47,0,.075,.46,.08,2],[.095,.47,0,.075,.46,.08,3],[-.235,1.16,0,.05,.3,.055,4],[.235,1.16,0,.05,.3,.055,5],[0,1.728,-.014,.102,.075,.112,6],
+  [-.095,.045,.04,.06,.045,.13,2],[.095,.045,.04,.06,.045,.13,3],[0,.95,0,.185,.12,.115,7],
+  [-.036,1.676,.091,.018,.011,.012,8,1],[.036,1.676,.091,.018,.011,.012,8,1],[-.036,1.676,.1,.0085,.0085,.005,9,1],[.036,1.676,.1,.0085,.0085,.005,9,1],
+  [-.038,1.703,.094,.022,.0055,.01,6,1],[.038,1.703,.094,.022,.0055,.01,6,1],[0,1.652,.104,.011,.024,.017,1,1],[0,1.612,.094,.026,.0075,.01,10,1],
+  [-.097,1.665,0,.012,.03,.022,1,1],[.097,1.665,0,.012,.03,.022,1,1],[0,1.6,-.055,.112,.16,.072,11],[0,1.6,.06,.085,.055,.05,12,1]]),
  bird:partMesh([[0,0,0,.09,.07,.3,0],[0,.03,.17,.06,.06,.08,0],[-.21,0,0,.34,.015,.15,1],[.21,0,0,.34,.015,.15,2],[0,0,-.2,.1,.01,.1,0]])};
 const folVB=buf(M.fol,GU.VERTEX),NF=M.fol.length/16,leafVB=buf(M.leaves,GU.VERTEX),NL=M.leaves.length/16,dropVB=buf(M.drops,GU.VERTEX),ND=M.drops.length/16,birdVB=buf(M.birds,GU.VERTEX),NB=M.birds.length/16;
 /* ---------- shoppers ---------- */
@@ -1101,28 +1110,28 @@ const view=i=>{const v=VIEWS[i];P.x=v[0];P.y=v[1];P.z=v[2];P.yaw=v[3];P.pitch=v[
 if(QS.has('yaw'))P.yaw=+QS.get('yaw');if(QS.has('night')){nightOverride=+QS.get('night');nightK=nightOverride}if(QS.has('pitch'))P.pitch=+QS.get('pitch');if(QS.has('pos')){const q=QS.get('pos').split(',').map(Number);P.x=q[0];P.y=q[1];P.z=q[2]}settle();
 const keys=new Set(),ptrs=new Map();let primary=null,playing=false,stats=false,muted=false;
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-// controls: mouse look (click to capture the pointer), WASD; on phones a left-thumb joystick and right-thumb look
-const touchMode=coarse;let joy=null,lookId=null;const joyV={x:0,y:0};
+// controls: mouse look (click to capture the pointer) and WASD; on phones hold to walk, drag to look, two fingers to run
+const touchMode=coarse;let touches=0,lookId=null;const joyV={x:0,y:0};
 const look=(dx,dy,k)=>{P.yaw-=dx*k;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dy*k))};
 const locked=()=>document.pointerLockElement===cv;
 const lockMouse=()=>{try{const r=cv.requestPointerLock?.();if(r&&r.catch)r.catch(()=>{})}catch{}};
-cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCapture(e.pointerId)}catch{}
- if(e.pointerType==='touch'){if(e.clientX<innerWidth*.45&&!joy){joy={id:e.pointerId,x0:e.clientX,y0:e.clientY};$('j').style.cssText=`display:block;left:${e.clientX}px;top:${e.clientY}px`}
-  else if(lookId===null){lookId=e.pointerId;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY})}return}
- if(!locked())lockMouse();ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY})});
-cv.addEventListener('pointermove',e=>{
- if(joy&&e.pointerId===joy.id){joyV.x=Math.max(-1,Math.min(1,(e.clientX-joy.x0)/55));joyV.y=Math.max(-1,Math.min(1,-(e.clientY-joy.y0)/55));$('j').firstChild.style.transform=`translate(${joyV.x*30}px,${-joyV.y*30}px)`;return}
- if(locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;look(dx,dy,e.pointerType==='touch'?.006:.004)});
+cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCapture(e.pointerId)}catch{}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(e.pointerType==='touch'){touches++;if(lookId===null)lookId=e.pointerId;return}
+ if(!locked())lockMouse()});
+cv.addEventListener('pointermove',e=>{if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+ if(e.pointerType==='touch'&&e.pointerId!==lookId)return;look(dx,dy,e.pointerType==='touch'?.006:.004)});
 document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022)});
-const up=e=>{ptrs.delete(e.pointerId);if(joy&&e.pointerId===joy.id){joy=null;joyV.x=joyV.y=0;$('j').style.display='none'}if(e.pointerId===lookId)lookId=null};
+const up=e=>{if(ptrs.delete(e.pointerId)&&e.pointerType==='touch')touches=Math.max(0,touches-1);if(e.pointerId===lookId){lookId=null;for(const[id]of ptrs){lookId=id;break}}};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+const goFull=()=>{try{const d=document.documentElement,r=(d.requestFullscreen||d.webkitRequestFullscreen)?.call(d,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch{}};
+$('fs').onclick=()=>{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen)?.call(document)}else goFull()};
 document.addEventListener('pointerlockchange',()=>{if(!locked()&&playing)pause()});
 addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
  if(c==='Escape'){playing?pause():body.classList.contains('r')&&play();return}
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
  if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'){fly=!fly;if(!fly)settle()}if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
-addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;joy=null;joyV.x=joyV.y=0});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null});
 
 // first person on foot: gravity, step-up onto ramps and escalators, walls and railings block you. F toggles flying.
 function settle(){P.feet=P.y-EYE;const g=groundAt(P.x,P.feet+STEP,P.z);if(g>-50)P.feet=g;P.ey=P.feet+EYE;P.vy=0}
@@ -1130,7 +1139,7 @@ function update(dt){
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
- if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+joyV.y;s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft')+joyV.x;vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(Math.hypot(joyV.x,joyV.y)>.95)fast=true}
+ if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true}
  f=Math.max(-1,Math.min(1,f));
  if(fly){
   let wx=fwd[0]*f+rt[0]*s,wy=fwd[1]*f+vu,wz=fwd[2]*f+rt[2]*s;const l=Math.hypot(wx,wy,wz);
@@ -1242,8 +1251,8 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 const qb=[...$('q').querySelectorAll('button')];
 const setDetail=d=>{detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i===d));try{localStorage.skyMallDetail=d}catch{}resize()};setDetail(detail);
 qb.forEach((b,i)=>b.onclick=()=>setDetail(i));
-function play(){playing=true;body.classList.add('g');startAudio();if(!touchMode)lockMouse();cv.focus?.()}
-function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;joy=null;joyV.x=joyV.y=0;$('j').style.display='none';if(locked())document.exitPointerLock()}
+function play(){playing=true;body.classList.add('g');startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
+function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;if(locked())document.exitPointerLock()}
 $('d').onclick=play;$('o').onclick=pause;
 
 /* ---------- render loop ---------- */

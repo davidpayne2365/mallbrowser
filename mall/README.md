@@ -6,6 +6,10 @@ A two-level shopping mall you can walk through in the browser, under a glass bar
 
 ![The same mall at night](screenshot-night.png)
 
+## Live site
+
+https://skylight-galleria.netlify.app opens it full screen. To redeploy, upload the contents of this folder (`index.html`, `assets/`, `_headers`) to the `skylight-galleria` Netlify site.
+
 ## Running it
 
 Serve this folder over HTTP (for example `python3 -m http.server`) and open `index.html`. Opening the file directly from disk won't work, because the page fetches its photos from `assets/`.
@@ -14,17 +18,17 @@ Controls: you walk through the mall on foot, in first person.
 
 | | Desktop | Phone |
 |---|---|---|
-| Look | Click to capture the mouse, then move it | Drag with your right thumb |
-| Move | W A S D or the arrow keys | Left-thumb joystick |
-| Run | Shift | Push the stick all the way |
+| Look | Click to capture the mouse, then move it | Drag your finger |
+| Move | W A S D or the arrow keys | Hold anywhere to walk forward |
+| Run | Shift | Hold with two fingers |
 | Jump | Space | |
 
-Other keys: 1–6 jump to viewpoints, N switches day and night, F toggles flying, H shows stats, M mutes, and Esc opens the menu.
+The ⛶ button toggles full screen, and phones go full screen when you enter. Other keys: 1–6 jump to viewpoints, N switches day and night, F toggles flying, H shows stats, M mutes, and Esc opens the menu.
 
 ## What's in it
 
 - **Day and night:** each time you pass under one of the upper-level bridges, the sky fades between day and a starry night with the Milky Way and a full moon.
-- **People:** shoppers wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters.
+- **People:** each shopper has a face (eyes, eyebrows, nose, lips, ears), and some have long hair or beards. They wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters.
 - **Sound:** it starts when you enter. Crowd chatter gets louder near people, each shop plays its own style of music as you pass, and you can hear the fountains up close.
 - **Nature:** trees in the planters, palms around the fountain, living walls in the food court, birds circling above the roof, and drifting clouds whose shadows move across the floor.
 - **No dead ends:** a shop-lined loop corridor on both floors joins the end of each wing to the side door of the department store at the end of the concourse, so every route carries on.
