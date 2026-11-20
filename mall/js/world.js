@@ -9,7 +9,7 @@ function hsl(h,s,l){h=(((h%360)+360)%360)/360;const f=n=>{const k=(n+h*12)%12,a=
 function genWorld(){
 let R=rng(19870611);const rnd=(a,b)=>a+(b-a)*R(),pick=a=>a[Math.floor(R()*a.length)],chance=p=>R()<p;
 // state of the region being built
-let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,models,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
+let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,models,slides,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
 const cl=(v,n)=>v<0?0:v>n-1?n-1:v;
 // local -> world: XF.q quarter turns about +y (same sense as the shader's ry), then the offset
 const xd=(x,z)=>{const q=XF.q;return q===0?[x,z]:q===1?[z,-x]:q===2?[-x,-z]:[-z,x]};
@@ -274,8 +274,19 @@ const bigTree=(x,z,h,card)=>{const tx=x+rnd(-.3,.3),tz=z+rnd(-.3,.3);trunk(x,0,z
 const flowers=(x,z,rx,rz,n,hue)=>{model('card_grass',x,0,z,rnd(0,6),Math.max(rx,rz)*.9,{tint:leafTint()});for(let k=0;k<n*.35;k++){const px=x+rnd(-rx,rx),pz=z+rnd(-rz,rz),l=rnd(.08,.15);part(px,rnd(.05,.4),pz,l*.8,l*.3,l,rnd(0,1)<.35?hsl(hue+rnd(-25,25),.8,.55):hsl(rnd(95,130),.5,rnd(.12,.25)),rnd(0,6.28),rnd(-1.4,-.3),rnd(-.4,.4),4)}};
 const bed=(x,z,w,d,hue)=>{B(x-w,0,z-d,x+w,.35,z+d,hsl(25,.15,.35),{pat:22});B(x-w+.15,.35,z-d+.15,x+w-.15,.38,z+d-.15,hsl(25,.4,.12),{solid:false});flowers(x,z+0,w-.3,d-.3,Math.round(w*d*14),hue)};
 const people=(x0,z0,x1,z1,n)=>{for(let k=0;k<n;k++)stand(rnd(x0,x1),rnd(z0,z1),rnd(0,6.28))};
+// a rideable water slide: an open trough along the points (local [x,y,z]); walking into the top end rides it
+const slide=(pts,col)=>{for(let k=0;k<pts.length-1;k++){const[a,b]=[pts[k],pts[k+1]],dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2],l=Math.hypot(dx,dy,dz),yaw=Math.atan2(dx,dz),pitch=-Math.asin(dy/l),mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,mz=(a[2]+b[2])/2,c=Math.cos(yaw),s=Math.sin(yaw);
+  part(mx,my-.05,mz,1.15,.1,l+.08,col,yaw,pitch,0,0);for(const o of[-.6,.6])part(mx+c*o,my+.22,mz-s*o,.08,.5,l+.08,col,yaw,pitch,0,0);
+  if(k%3===0&&a[1]>1)stick(a[0],0,a[2],a[0],a[1]-.15,a[2],.16,C.white)}
+ slides.push(pts.map(([x,y,z])=>{const[a,b]=xp(x,z);return[a,y,b]}))};
+// textured rocks, hedges, grass, logs
+const rockB=(x,z,s,y=0)=>{for(let k=0;k<3;k++){const w=s*rnd(.5,1),h=s*rnd(.35,.8);box(x+rnd(-s,s)*.35,y+h/2,z+rnd(-s,s)*.35,w,h,w*rnd(.7,1.2),hsl(30,.05,rnd(.5,.7)),{pat:27,rot:rnd(-.25,.25)})}};
+const hedge=(x0,z0,x1,z1,h=1.1)=>{const l=Math.hypot(x1-x0,z1-z0),n=Math.max(2,Math.round(l/.9));for(let k=0;k<=n;k++){const t=k/n;model('card_shrub',x0+(x1-x0)*t,0,z0+(z1-z0)*t,rnd(0,6.28),h*rnd(.85,1.1),{tint:leafTint(.85),sway:.2})}
+ const dx=x1-x0,dz=z1-z0;mark(Math.min(x0,x1)-(Math.abs(dz)>Math.abs(dx)?.4:0),0,Math.min(z0,z1)-(Math.abs(dx)>=Math.abs(dz)?.4:0),Math.max(x0,x1)+(Math.abs(dz)>Math.abs(dx)?.4:0),h,Math.max(z0,z1)+(Math.abs(dx)>=Math.abs(dz)?.4:0))};
+const grassPatch=(x0,z0,x1,z1,n)=>{for(let k=0;k<n;k++)model('card_grass',rnd(x0,x1),0,rnd(z0,z1),rnd(0,6.28),rnd(.7,1.3),{tint:leafTint(),sway:.4})};
+const log=(x,z,len,yaw,r=.35)=>{model('trunk_fir',x,r,z,yaw,[r,len,r],{pitch:Math.PI/2,tint:[.8,.75,.7]});const c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));mark(x-s*len-r,0,z-c*len-r,x+s*len+r,r*2,z+c*len+r)};
 // everything a district file may use (see js/districts/*.js)
-const K={model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
+const K={slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
 
 /* ---------- the hub ---------- */
 function buildHub(){
@@ -348,13 +359,56 @@ for(const wx of[-60,60])for(const sz of[-1,1]){
 for(const sx of[-1,1])for(const sz of[-1,1]){
  const X=v=>v*sx,Z=v=>v*sz,W=(x0,z0,x1,z1)=>B(X(x0),0,Z(z0),X(x1),12,Z(z1),C.facade);
  B(X(64),5.6,Z(49),X(130),6,Z(57),C.floor,{pat:1,s:.6});B(X(122),5.6,Z(17),X(130),6,Z(49),C.floor,{pat:1,s:.6});
- W(74,48.7,76,49);W(108,48.7,122,49);W(121.7,17,122,21);W(121.7,45,122,49);W(130,17,130.3,21);W(130,45,130.3,57.3);W(76,57,80,57.3);W(120,57,130.3,57.3);
+ W(74,48.7,76,49);W(108,48.7,109,49);W(111.2,48.7,122,49);B(X(109),2.5,Z(48.7),X(111.2),12,Z(49),C.facade);W(121.7,17,122,21);W(121.7,45,122,49);W(130,17,130.3,21);W(130,45,130.3,57.3);W(76,57,80,57.3);W(120,57,130.3,57.3);
  for(const lvl of[0,1]){for(const cx of[84,92,100,108,116])shop(X(cx),Z(57),1,0,0,sz,8,10,lvl,pick(SHOPCATS));
   for(const zc of[25,33,41]){shop(X(122),Z(zc),0,1,-sx,0,8,10,lvl,pick(SHOPCATS));shop(X(130),Z(zc),0,1,sx,0,8,10,lvl,pick(SHOPCATS))}
   for(const cx of[80,88,96,104])shop(X(cx),Z(49),1,0,0,-sz,8,10,lvl,pick(SHOPCATS))}
  for(const y of[5.55,11.55]){for(let x=68;x<=124;x+=8){B(X(x)-.9,y,Z(53)-.35,X(x)+.9,y+.05,Z(53)+.35,C.white,{e:2.2,solid:false});light(X(x),y-.4,Z(53),C.warm,7,10)}
   for(let z=21;z<=45;z+=8){B(X(126)-.35,y,Z(z)-.9,X(126)+.35,y+.05,Z(z)+.9,C.white,{e:2.2,solid:false});light(X(126),y-.4,Z(z),C.warm,7,10)}}
  planter(X(96),Z(50.3));planter(X(112),Z(50.3));planter(X(128.5),Z(33))}
+// backrooms: a small staff door off each loop corridor leads to a hallway, restrooms and a stockroom
+for(const sx of[-1,1])for(const sz of[-1,1]){
+ const X=v=>v*sx,Z=v=>v*sz,yw=a=>Math.atan2(Math.sin(a)*sx,Math.cos(a)*sz),Bk=(x0,y0,z0,x1,y1,z1,c,o)=>B(X(x0),y0,Z(z0),X(x1),y1,Z(z1),c,o),M=(n,x,y,z,a,s,o)=>model(n,X(x),y,Z(z),yw(a),s,o);
+ const WALL=hsl(45,.12,.72),CEIL=hsl(40,.08,.8),TILE=hsl(190,.1,.88),CY=3.4;
+ const wl=(x0,z0,x1,z1)=>Bk(x0,0,z0,x1,CY,z1,WALL,{pat:0});
+ // the door: dark frame, a door leaf swung open, a small sign
+ Bk(108.9,0,48.6,109,2.5,49.1,C.dark);Bk(111.2,0,48.6,111.3,2.5,49.1,C.dark);Bk(108.9,2.5,48.6,111.3,2.6,49.1,C.dark);
+ Bk(109,0,47.2,109.08,2.4,48.6,hsl(210,.15,.45),{solid:false});
+ box(X(110.1),2.95,Z(49.12),1.9,.35,.04,hsl(210,.6,.35),{e:1.5,sign:addName('Staff · Restrooms','700 {s} system-ui,sans-serif',1),face:sz>0?0:1,solid:false});
+ // hallway down to the back corridor
+ wl(107.8,39,108,48.7);wl(112,35.2,112.2,48.7);Bk(107.8,CY,35,112.2,CY+.2,48.7,CEIL);Bk(108,0,35,112,.02,48.6,hsl(30,.1,.55),{pat:7,s:.4,solid:false});
+ // back corridor along z 35..39, the restroom (x 98..112) and the stockroom (x 76..96) south of it
+ wl(76,38.8,107.8,39);wl(76,19,112.2,19.2);wl(75.8,19,76,39);wl(112,19,112.2,35.2);
+ for(const[a,b]of[[76,84],[88.5,103],[105.4,112]])wl(a,34.8,b,35);Bk(84,2.8,34.8,88.5,CY,35,WALL);Bk(103,2.4,34.8,105.4,CY,35,WALL);wl(96.8,19,97.2,34.8);
+ Bk(76,CY,19,112,CY+.2,39,CEIL);Bk(76,0,35,108,.02,38.8,hsl(30,.1,.55),{pat:7,s:.4,solid:false});
+ for(let x=80;x<=108;x+=7){Bk(x-.7,CY-.05,36.6,x+.7,CY,37.2,C.white,{e:chance(.25)?.6:2,solid:false});light(X(x),CY-.3,Z(36.9),hsl(90,.15,.85),3,6,{f:chance(.4)})}
+ for(let z=37;z<=47;z+=5){Bk(109.3,CY-.05,z-.7,110.7,CY,z+.7,C.white,{e:2,solid:false});light(X(110),CY-.3,Z(z),hsl(90,.15,.85),3,6,{f:chance(.3)})}
+ stick(X(77),CY-.25,Z(38.4),X(108),CY-.25,Z(38.4),.12,hsl(0,0,.55));stick(X(77),CY-.45,Z(38.5),X(108),CY-.45,Z(38.5),.08,hsl(20,.5,.4));
+ M('WetFloorSign_01',100,0,37,rnd(0,6),1);Bk(92,0,38.1,92.6,.5,38.7,hsl(50,.7,.45),{solid:false});
+ box(X(104.2),2.9,Z(34.75),2,.3,.04,hsl(200,.5,.4),{e:1.4,sign:addName('Restrooms','700 {s} system-ui,sans-serif',1),face:sz>0?0:1,solid:false});
+ box(X(86.2),3.05,Z(34.75),4,.3,.04,hsl(30,.6,.4),{e:1.4,sign:addName('Stockroom','700 {s} system-ui,sans-serif',1),face:sz>0?0:1,solid:false});
+ for(let k=0;k<6;k++)Bk(84.05+k*.75,2.15+k*.11,34.82,84.75+k*.75,2.26+k*.11,34.98,hsl(0,0,.5),{solid:false});
+ // restroom: tiled floor, stalls with toilets, sinks under a long mirror
+ Bk(97.2,0,19.2,112,.02,34.8,TILE,{pat:24,s:.5,solid:false});Bk(97.2,1.2,19.2,97.3,CY,34.8,TILE,{pat:24,solid:false});
+ for(let k=0;k<5;k++){const z=20+k*2.6;Bk(109,0,z-.04,112,2,z+.04,hsl(200,.3,.6));
+  Bk(110.9,0,z+.95,111.5,.42,z+1.65,C.white,{s:.8});Bk(111.5,.35,z+.9,111.95,.95,z+1.7,C.white,{s:.8});Bk(110.85,.42,z+.9,111.55,.47,z+1.7,hsl(0,0,.95),{s:.9,solid:false});
+  Bk(109,.15,z+.04,109.05,2,z+(k%2?2.56:1.2),hsl(200,.3,.6),{solid:false})}
+ Bk(109,0,33-.04,112,2,33+.04,hsl(200,.3,.6));
+ Bk(97.3,0,22,98.1,.9,32,hsl(30,.2,.3),{pat:7});Bk(97.3,.9,21.9,98.2,.98,32.1,hsl(0,0,.9),{s:.8});
+ for(let z=23;z<=31;z+=2){Bk(97.5,.92,z-.3,97.9,.98,z+.3,hsl(0,0,.75),{s:.9,solid:false});stick(X(97.4),.98,Z(z),X(97.65),1.2,Z(z),.05,C.steel)}
+ Bk(97.25,1.3,22,97.32,2.6,32,hsl(200,.1,.85),{e:.3,s:1,solid:false});Bk(97.3,2.65,22,97.6,2.75,32,C.white,{e:2.2,solid:false});light(X(98.5),2.5,Z(27),hsl(40,.3,.9),3,7);light(X(105),CY-.3,Z(26),hsl(90,.1,.9),3,8,{f:chance(.5)});
+ for(let k=0;k<3;k++)Bk(103+k*1.6,.6,19.25,103.5+k*1.6,1.4,19.6,C.white,{s:.7});
+ M('WetFloorSign_01',104,0,30,rnd(0,6),1);
+ // stockroom: steel shelving full of stock, crates, barrels, pallets, hanging lamps
+ Bk(76,0,19.2,96.8,.02,34.8,hsl(0,0,.45),{pat:7,s:.3,solid:false});
+ for(let r=0;r<3;r++)for(let k=0;k<4;k++){const x=79+k*4.4,z=22+r*4.4;M(chance(.5)?'steel_frame_shelves_01':'steel_frame_shelves_02',x,0,z,0,1.2,{solid:true});
+  for(let j=0;j<6;j++){const bx=x+rnd(-1.3,1.3),by=pick([.08,.75,1.4]),w=rnd(.3,.55);Bk(bx-w/2,by,z-.25,bx+w/2,by+rnd(.25,.45),z+.25,hsl(32,.45,rnd(.45,.6)),{solid:false})}}
+ for(let k=0;k<8;k++)M('wooden_crate_01',rnd(78,95),0,rnd(33,34),rnd(0,.3),1,{solid:true});
+ for(let k=0;k<3;k++)M('wooden_crate_01',94,.7*k,21,.2*k,1,{solid:true});
+ for(const[x,z]of[[95,24],[95.2,25.2],[94,24.6]])M('Barrel_01',x,0,z,rnd(0,6),1,{solid:true});
+ for(const[x,z]of[[93,29],[90,20.5]]){Bk(x-.6,0,z-.5,x+.6,.14,z+.5,C.wood,{pat:23});for(let j=0;j<4;j++)Bk(x-.55+(j%2)*.55,.14+Math.floor(j/2)*.45,z-.45,x+(j%2)*.55,.58+Math.floor(j/2)*.45,z+.45,hsl(32,.45,.5))}
+ for(let k=0;k<3;k++){const x=80+k*6.5,z=26.5;M('hanging_industrial_lamp',x,CY-1.2,z,0,1);light(X(x),CY-1.4,Z(z),hsl(40,.5,.85),4,9,{f:k===1})}
+ stand(X(87),Z(32),yw(Math.PI/2));stand(X(101),Z(28),yw(-Math.PI/2))}
 // living walls facing the food court: photo leaf cards
 for(const sd of[-1,1])for(const sz of[-1,1])for(let z=17.6;z<25.6;z+=.85)for(let y=.2;y<11.2;y+=.8)model(chance(.7)?'card_shrub_flat':'card_fern_flat',16*sd-sd*rnd(.04,.2),y+rnd(-.15,.15),z*sz+rnd(-.2,.2),(sd>0?-1:1)*Math.PI/2+rnd(-.3,.3),rnd(.8,1.15),{tint:leafTint(),pitch:rnd(-.25,.25),roll:rnd(-.4,.4),sway:.1});
 // birds wheeling above the glass
@@ -378,11 +432,11 @@ for(const sd of[-1,1]){
 return{name:'Skylight Galleria'};
 }
 function region(theme,build,xf,gs,seed){
- R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};stores=0;NK=new Map();
+ R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};slides=[];stores=0;NK=new Map();
  NAV={n:[],l:[]};G={...gs,d:new Uint8Array(gs.nx*gs.ny*gs.nz)};
  const info=build()||{};
  return{theme,xf,gs:G,inst:new Float32Array(inst),glass:new Float32Array(glass),fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),
-  shops,seats,fountains,lights,names,ESC,doors,idle,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
+  shops,seats,fountains,lights,names,ESC,doors,idle,slides,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
 return{hub:()=>region('hub',buildHub,{q:0,ox:0,oz:0},HUBG,19870611),
  district:(n,theme,xf)=>region(theme,()=>DISTRICTS[theme](K),xf,DISTG,1000+n*7919),themes:Object.keys(DISTRICTS)};
 }

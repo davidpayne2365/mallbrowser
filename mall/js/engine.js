@@ -19,7 +19,7 @@ const SNAP=QS.has('snap'),SK=new Set((QS.get('skip')||'').split(',')),ctx=SNAP?n
 const GU=GPUBufferUsage,TU=GPUTextureUsage,TB=TU.TEXTURE_BINDING,RA=TU.RENDER_ATTACHMENT,CD=TU.COPY_DST;
 
 // photographs: sky + fifteen scanned materials, fetched while the mall is built
-const NMAT=15,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
+const NMAT=19,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
 let loaded=0;const IMG=n=>fetch('assets/'+n).then(r=>{if(!r.ok)throw Error(n);return r.blob()}).then(b=>createImageBitmap(b,{colorSpaceConversion:'none'})).then(b=>{prog(.05+.3*(++loaded/FILES.length));return b});
 const assetP=Promise.all(FILES.map(IMG));
 const MODEL_FILES=[...Array(MODELS.layers).keys()].flatMap(i=>[`../models/tex/L${i}_a.webp`,`../models/tex/L${i}_n.jpg`]);
@@ -74,7 +74,12 @@ const MESH={unit:partMesh([[0,0,0,1,1,1,0]]),
  tube:partMesh(ringParts(12,.6,0,0,.26,0,'y')),
  jelly:roundMesh([[0,0,0,.28,.18,.28,1],[0,-.25,0,.05,.35,.05,1],[.12,-.3,0,.03,.3,.03,1],[-.12,-.3,0,.03,.3,.03,1],[0,-.3,.12,.03,.3,.03,1]]),
  fish:roundMesh([[0,0,0,.07,.11,.26,0],[0,0,-.27,.015,.1,.09,1],[0,.09,-.02,.01,.06,.1,0],[.05,.03,.17,.02,.02,.02,2,1],[-.05,.03,.17,.02,.02,.02,2,1]])};
-const RIDEKIND=['ferris','gondola','carousel','horse','car','drop','tube','jelly','fish'];
+MESH.mermaid=roundMesh([[0,.05,.95,.11,.13,.12,3],[0,.09,.86,.14,.13,.2,4],[0,.06,.55,.12,.06,.38,4],[0,0,.82,.05,.05,.06,3],[0,0,.5,.17,.12,.28,3],[0,-.06,.6,.16,.07,.08,5],
+  [-.21,0,.6,.05,.05,.3,3],[.21,0,.6,.05,.05,.3,3],[0,0,.15,.16,.11,.22,0],[0,0,-.25,.12,.09,.26,0],[0,0,-.55,.08,.06,.2,1],[0,0,-.8,.26,.02,.15,1]]);
+MESH.narwhal=roundMesh([[0,0,0,.45,.42,1.4,0],[0,.02,1.25,.36,.33,.4,0],[0,.06,2.25,.03,.03,.95,2],[-.42,-.15,.7,.26,.04,.15,0],[.42,-.15,.7,.26,.04,.15,0],[0,0,-1.45,.18,.15,.35,1],[0,0,-1.78,.52,.04,.2,1],[.2,.12,1.45,.04,.04,.04,2,1],[-.2,.12,1.45,.04,.04,.04,2,1]]);
+MESH.turtle=roundMesh([[0,0,0,.45,.18,.55,0],[0,-.05,0,.42,.08,.5,5],[0,0,.62,.12,.1,.16,3],[-.45,-.05,.25,.35,.03,.15,1],[.45,-.05,.25,.35,.03,.15,1],[-.3,-.05,-.4,.15,.03,.1,3],[.3,-.05,-.4,.15,.03,.1,3]]);
+MESH.manta=roundMesh([[0,0,0,1.25,.07,.75,0],[-1,0,-.1,.5,.04,.4,1],[1,0,-.1,.5,.04,.4,1],[0,0,-1,.03,.03,.7,0],[0,-.04,.6,.4,.03,.15,2]]);
+const RIDEKIND=['ferris','gondola','carousel','horse','car','drop','tube','jelly','fish','mermaid','narwhal','turtle','manta'];
 
 /* ---------- regions: the hub plus districts that stream in and out ---------- */
 const PR=rng(4242),rn=(a,b)=>a+(b-a)*PR(),pk=a=>a[Math.floor(PR()*a.length)];
@@ -90,6 +95,7 @@ function prepRegion(r){
  else{const c=[[-60,0],[60,0],[-60,140],[60,140]].map(([x,z])=>{const[a,b]=XD(r.xf.q,x,z);return[a+r.xf.ox,b+r.xf.oz]});
   r.bb=[Math.min(...c.map(v=>v[0])),Math.max(...c.map(v=>v[0])),Math.min(...c.map(v=>v[1])),Math.max(...c.map(v=>v[1]))]}
  r.doors.forEach(d=>d.link=null);r.loadedOnce=true;
+ r.slides=(r.slides||[]).map(p=>{const L=[0];for(let i=1;i<p.length;i++)L.push(L[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1],p[i][2]-p[i-1][2]));return{p,L}});
  buildCrowd(r);return r}
 // crowd for a region: a walking map (nodes + links), wanderers, diners/seated, shoppers in stores, staff
 function buildCrowd(r){const N=[],P=[];r.N=N;r.P=P;
@@ -123,6 +129,9 @@ for(const e of r.ESC){const b=nd(e.bx,0,e.z),t=nd(e.tx,6,e.z);lk(b,t,1);
   const n=N[a],p=person(P,n.x,n.y,n.z,0,0,ice?rn(2.2,3.4):rn(1,1.45),pal);p.g={from:a,to:e.to,esc:e.esc,t:PR()};p.off=rn(-.45,.45)}
  for(let k=0;k<r.seats.length;k+=4)if(PR()<(r.theme==='hub'?.45:.6))person(P,r.seats[k],r.seats[k+3],r.seats[k+1],r.seats[k+2],2,0,pal);
  for(let k=0;k<r.idle.length;k+=4)person(P,r.idle[k],r.idle[k+1],r.idle[k+2],r.idle[k+3],1,0,pal);
+ // the rare Bigfoot walks a hidden loop
+ if(r.bigfoot){const pts=r.bigfoot,first=N.length;for(const[x,z]of pts)N.push({x,y:0,z,nb:[],shop:null});for(let i=0;i<pts.length;i++)lk(first+i,first+(i+1)%pts.length);
+  const b=person(P,pts[0][0],0,pts[0][1],0,0,.55);b.fur=true;b.c=[.11,.07,.045];b.s=[1.3,1.38,1.3];b.g={from:first,to:first+1,esc:0,t:0};b.off=0}
  for(const sh of r.shops){if(sh.closed)continue;const n=sh.big?Math.floor(rn(4,9)):Math.floor(rn(0,3.2));
   for(let k=0;k<n;k++){const[x,z]=sh.w(rn(-sh.hw+1.3,sh.hw-1.3),rn(1,sh.D*(sh.big?.8:.55)));person(P,x,sh.fy,z,rn(0,6.283),1,0)}
   if(sh.counter){const[x,z]=sh.w(0,sh.D-1.15);person(P,x,sh.fy,z,Math.atan2(-sh.nx,-sh.nz),1,0)}}}
@@ -192,7 +201,7 @@ function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p
    p.x=A.x+dx*k+dz/lh*o;p.z=A.z+dz*k-dx/lh*o;p.y=A.y+(Bn.y-A.y)*k+(g.esc?.2:0);
    if(!(p.wait>0))p.ty=Math.atan2(dx,dz);p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*5))}
   else if(p.pose===1){p.turn-=dt;if(p.turn<0){p.turn=rn(3,12);p.ty=p.yaw+rn(-1.6,1.6)}p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*2))}
-  pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,0,0,p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i*16);i++}}
+  pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,p.fur?1:0,0,p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i*16);i++}}
  if(NP)device.queue.writeBuffer(pplB.b,0,pplData)}
 
 // photo textures
@@ -202,7 +211,7 @@ async function texArray(list,format,TS){const TM=Math.log2(TS)+1,t=device.create
  for(let l=0;l<list.length;l++)for(let m=0;m<TM;m++){const s=Math.max(1,TS>>m),b=await createImageBitmap(list[l],{resizeWidth:s,resizeHeight:s,resizeQuality:'high'});
   device.queue.copyExternalImageToTexture({source:b},{texture:t,mipLevel:m,origin:[0,0,l]},[s,s]);b.close()}
  return t}
-const albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',detail===2?2048:1024),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',1024);
+const albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',1024),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',1024);
 // Poly Haven models and foliage cards
 let mres;try{mres=await modelP}catch(e){return fail('Could not load the 3D models ('+e.message+'). Check your connection and reload.')}
 const MS_=detail===2?512:256,mAlbT=await texArray(mres.slice(1).filter((_,i)=>i%2===0),'rgba8unorm-srgb',MS_),mNrT=await texArray(mres.slice(1).filter((_,i)=>i%2===1),'rgba8unorm',MS_);
@@ -284,7 +293,7 @@ const VBUF3=[{arrayStride:36,attributes:[{shaderLocation:0,offset:0,format:'floa
 const[modelPipe,modelShPipe]=await Promise.all([
  device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:'vsModel',buffers:VBUF3},fragment:{module:sceneMod,entryPoint:'fsModel',targets:TG},
   primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
- device.createRenderPipelineAsync({layout:'auto',vertex:{module:shMod,entryPoint:'vsModel',buffers:VBUF3},primitive:{topology:'triangle-list',cullMode:'none'},
+ device.createRenderPipelineAsync({layout:'auto',vertex:{module:shMod,entryPoint:'vsModelA',buffers:VBUF3},fragment:{module:shMod,entryPoint:'fsModelA',targets:[]},primitive:{topology:'triangle-list',cullMode:'none'},
   depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:3,depthBiasSlopeScale:3}})]);
 // every model's instances live in one buffer, in runs per model
 const modelB=gbuf(GU.VERTEX);let MRUNS=[];
@@ -293,7 +302,7 @@ function buildModels(){const names=new Set();for(const r of LOADED)for(const k i
  const out=new Float32Array(total*16);for(const R of runs){let o=R.first*16;for(const r of LOADED){const a=r.models?.[R.k];if(a){out.set(a,o);o+=a.length}}}
  modelB.set(out);MRUNS=runs}
 const drawModels=(p,shadow)=>{if(!modelB.n)return;p.setVertexBuffer(0,mVB);p.setVertexBuffer(1,modelB.b);p.setIndexBuffer(mIB,'uint32');
- for(const R of MRUNS){if(shadow&&R.card)continue;p.drawIndexed(R.m.in,R.n,R.m.i0,R.m.v0,R.first)}};
+ for(const R of MRUNS){p.drawIndexed(R.m.in,R.n,R.m.i0,R.m.v0,R.first)}};
 const[dynPipe,dynShPipe]=await Promise.all([
  device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:'vsDyn',buffers:VBUF2},fragment:{module:sceneMod,entryPoint:'fs',targets:TG},
   primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
@@ -307,7 +316,7 @@ const[fxPipe,combPipe,down0Pipe,downPipe,upPipe,finalPipe]=await Promise.all([fs
 
 
 const SHW=detail?4096:2048,shTex=device.createTexture({size:[SHW,SHW/2],format:'depth32float',usage:TB|RA}),shV=shTex.createView();
-const modelShBG=device.createBindGroup({layout:modelShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]});
+const modelShBG=device.createBindGroup({layout:modelShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}},{binding:1,resource:mAlbT.createView({dimension:'2d-array'})},{binding:2,resource:rep}]});
 const shBG=device.createBindGroup({layout:shPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]}),dynShBG=device.createBindGroup({layout:dynShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]});
 function shadowPass(){ub.set(lightMat(),48);if(SK.has('shadow'))return;device.queue.writeBuffer(ubuf,0,ub);const e=device.createCommandEncoder(),p=e.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
  p.setPipeline(shPipe);p.setBindGroup(0,shBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(instB.n)p.drawIndexed(36,instB.n);
@@ -383,12 +392,21 @@ addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{ke
 
 
 function settle(){P.feet=P.y-EYE;const g=groundAt(P.x,P.feet+STEP,P.z);if(g>-50)P.feet=g;P.ey=P.feet+EYE;P.vy=0}
+// water slides: walk into the top and ride to the splash pool
+function rideStart(){for(const r of LOADED)for(const s of r.slides||[]){const a=s.p[0];if(Math.hypot(P.x-a[0],P.z-a[2])<1.2&&Math.abs(P.feet-a[1])<1.4){P.ride={s,d:0,v:3};return true}}return false}
+function rideStep(dt){const R=P.ride,s=R.s,p=s.p,L=s.L;let i=0;while(i<L.length-2&&L[i+1]<R.d)i++;
+ const a=p[i],b=p[i+1],seg=Math.max(.01,L[i+1]-L[i]),k=Math.min(1,(R.d-L[i])/seg),slope=(a[1]-b[1])/seg;
+ R.v=Math.max(3,Math.min(13,R.v+dt*(slope*14-.8)));R.d+=R.v*dt;
+ P.x=a[0]+(b[0]-a[0])*k;P.z=a[2]+(b[2]-a[2])*k;P.feet=a[1]+(b[1]-a[1])*k+.05;P.ey=P.feet+1.05;P.y=P.ey;
+ const ty=Math.atan2(-(b[0]-a[0]),-(b[2]-a[2]));P.yaw=angLerp(P.yaw,ty,Math.min(1,dt*6));P.pitch+=(-.35-P.pitch)*Math.min(1,dt*2);
+ if(R.d>=L[L.length-1]){const dx=b[0]-a[0],dz=b[2]-a[2],l=Math.hypot(dx,dz)||1;P.vx=dx/l*R.v*.5;P.vz=dz/l*R.v*.5;P.vy=2;grounded=false;P.ride=null;footstep(true)}}
 function update(dt){
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
  if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true}
  f=Math.max(-1,Math.min(1,f));
+ if(P.ride&&!fly){rideStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(fly){
   let wx=fwd[0]*f+rt[0]*s,wy=fwd[1]*f+vu,wz=fwd[2]*f+rt[2]*s;const l=Math.hypot(wx,wy,wz);
   const spd=fast?11:4.2;if(l>1){wx/=l;wy/=l;wz/=l}
@@ -409,6 +427,7 @@ function update(dt){
  if(grounded&&P.feet-g<STEP+.05&&P.feet-g>-STEP-.05){P.feet=g;P.vy=0}
  else{P.vy-=18*dt;P.feet+=P.vy*dt;if(P.feet<=g){P.feet=g;P.vy=0}}
  grounded=P.feet-g<.03;
+ if(grounded&&playing&&rideStart())return{fwd};
  if(grounded&&playing&&keys.has('Space')&&!P.jumped){P.vy=4.6;P.feet+=.02;grounded=false;P.jumped=true}if(!keys.has('Space'))P.jumped=false;
  // eye height eases over steps; a light bob while walking; footsteps
  const moved=Math.hypot(P.x-ox,P.z-oz);if(grounded){bobPh+=moved*Math.PI/.75;stepDist+=moved;if(stepDist>.75){stepDist=0;footstep(fast)}}

@@ -8,7 +8,7 @@ A two-level shopping mall you can walk through in the browser, under a glass bar
 
 ## Live site
 
-https://skylight-galleria.netlify.app opens it full screen. To redeploy, upload the contents of this folder (`index.html`, `assets/`, `_headers`) to the `skylight-galleria` Netlify site.
+https://skylight-galleria.netlify.app opens an earlier version full screen. To redeploy, upload the contents of this folder (`index.html`, `js/`, `models/`, `assets/`, `_headers`) to the `skylight-galleria` Netlify site.
 
 ## Running it
 
@@ -35,6 +35,7 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 - **Escalators:** twelve in all. Four are in the food court, and two run up to and down from each of the four bridges.
 - **Floors:** every area has its own stone or tile, with granite inlays.
 - **Stores:** about 200 shops with made-up names.
+- **Backrooms:** a small "Staff · Restrooms" door off each loop corridor leads down a flickering hallway to restrooms and a stockroom.
 
 ## Endless districts
 
@@ -42,15 +43,15 @@ Every department store in the hub has a glowing **Explore →** gate at the back
 
 | District | What's there |
 |---|---|
-| The Arboretum | A giant glass conservatory with a lily pond and footbridge, a palm house, rose gardens and tall trees |
-| Deep Blue Aquarium | A walk-through glass tunnel with schools of fish and a shark overhead, wall tanks and glowing jellyfish |
-| Starlight Fair | A night-time fair with a turning Ferris wheel, a carousel, a roller coaster, a drop tower and game booths |
-| Old Town Market | An open-air market with striped stalls, cafe umbrellas, a fountain and string lights between brick buildings |
-| Whispering Pines | A raised boardwalk through a pine forest, with a stream, lanterns and fireflies |
-| Hartwell & Co. | A three-floor department store around a skylit atrium, with escalators and chandeliers |
-| Glacier Ice Rink | Skaters circling a glossy ice rink under glass, with a lit-up tree, a cafe and bleachers |
-| Paramount Lights | A cinema lobby with a concession stand and two auditoriums you can walk into |
-| Lagoon Splash | A waterpark with a wave pool, a splash pad full of jets, a lazy river and twisting slides |
+| The Arboretum | A glass conservatory with a lily pond, footbridge, palm house, rose gardens and tall photo-leaf trees. Somewhere in the back a Bigfoot wanders, rarely seen |
+| Deep Blue Aquarium | A walk-through glass tunnel with schools of fish, manta rays, turtles, narwhals and a mermaid, plus coral wall tanks, glowing jellyfish, a bronze shark and a gift shop |
+| Starlight Fair | A night-time fair with a turning Ferris wheel, a carousel, a roller coaster, a drop tower, game booths and food stands |
+| Old Town Market | An open-air market with lanes of stalls (bread, fruit, flowers, fish, cheese, crafts), cafe tables, a busker and string lights between brick buildings |
+| Whispering Pines | A boardwalk through walls of tall pines, with a stream, ferns, fallen logs, mushrooms, a lookout tower you can climb and a picnic clearing |
+| Hartwell & Co. | A three-floor department store around a skylit atrium, with named departments, escalators, chandeliers and a fountain |
+| Glacier Ice Rink | Skaters circling a marked ice rink inside dasher boards, a scoreboard, skate rental, a cocoa cart, a giant decorated tree and a snowy village of chalets |
+| Paramount Lights | A cinema with a concession hall, an arcade, a lounge, and two auditoriums you can walk into |
+| Lagoon Splash | A waterpark with seven slides you can ride (walk onto the top of one), a sandy wave pool, a lazy river around an island, a kids' splash zone and cabanas |
 
 The first nine districts you reach are all different. After that the themes repeat with new layouts. Press R at any time to go back to the hub.
 
@@ -72,6 +73,7 @@ No build step: `index.html` loads plain script files in order.
 | `js/shaders.js` | All WebGPU shaders: surfaces, sky, glass and water, people and rides, reflections, light shafts, tone mapping |
 | `js/world.js` | Building blocks (boxes, shops, trees, fountains, escalators…), the hub mall, and the toolkit `K` handed to districts |
 | `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z, exits at (0,140), (−60,70) and (60,70) |
+| `js/models.js`, `models/` | Poly Haven props and leaf cards, built by `tools/build_models.py` into one geometry file and texture layers |
 | `js/engine.js` | Loading, streaming districts in and out, collision, walking, the crowd, audio, controls and the render loop |
 
 To add a new area (for example a grand exit with a parking lot), copy a district file, rename the function, add a `<script>` tag for it in `index.html`, and it joins the rotation.
@@ -90,3 +92,6 @@ Sky and textures are from [Poly Haven](https://polyhaven.com) under CC0:
 - weathered_brown_planks (Dimitrios Savva, Rico Cilliers)
 - granite_tile_03 (Charlotte Baglioni)
 - herringbone_parquet (Jenelle van Heerden, Sergej Majboroda)
+- sand_01, snow_02 (Rob Tuytel), rock_wall_08 (Amal Kumar), coral_ground_02 (Rob Tuytel)
+
+3D models and leaf textures are also from Poly Haven (CC0): WoodenChair_01, ArmChair_01, Sofa_01, Ottoman_01, CoffeeTable_01, WoodenTable_02, bar_chair_round_01, modern_coffee_table_01, Barrel_01, barrel_03, wooden_crate_01, planter_pot_clay, ceramic_vase_02, Chandelier_01, hanging_industrial_lamp, steel_frame_shelves_01/02, Shelf_01, wooden_bookshelf_worn, CashRegister_01, CoffeeCart_01, WetFloorSign_01, Television_01, boombox, lifebuoy, croissant, lemon, Ukulele_01, bronze_whale_statue, bronze_shark_statue, fern_02, moss_01, and leaves and bark from fir_tree_01, pine_tree_01, island_tree_01, jacaranda_tree, shrub_01 and grass_medium_01.

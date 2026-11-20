@@ -43,6 +43,7 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   if((pt==2||pt==3)&&p0.y<.1){o.col=select(vec3f(.012),vec3f(.5,.48,.45),hs1(h+6.)>.65);}
   if(pt==1){o.col=skin;}
   if(pt==6||pt==11||pt==12){o.col=hair;}
+  if(d.x>.5){o.col=c.rgb*(.8+.4*hs1(h+f32(pt)));if(pt==1){o.col=vec3f(.12,.08,.06);}if(pt==8||pt==9){o.col=vec3f(.02);}if(pt==10){o.col=vec3f(.15,.05,.04);}}
   if(pt==8){o.col=vec3f(.62,.6,.58);}
   if(pt==9){let ei=hs1(h+8.);o.col=select(select(vec3f(.025,.012,.006),vec3f(.03,.08,.16),ei>.75),vec3f(.04,.07,.03),ei>.9);}
   if(pt==10){o.col=skin*vec3f(.78,.45,.45);}
@@ -199,7 +200,7 @@ fn shade(wp:vec3f,Ng:vec3f,N:vec3f,V:vec3f,dist:f32,base:vec3f,rough:f32,metal:f
  let kind=i32(b.w+.5);var em=0.;var sp=.12;
  if(kind==3){em=.5;sp=.97;}else if(kind==4){sp=.3;}else if(kind==1){sp=.2;}
  var col=r.col;
- if(kind>=5&&kind<=7){sp=.5;if(part>.5&&part<1.5&&kind!=5){em=3.;col=mix(r.col,vec3f(1.,.7,.3),.5)*(.6+.4*sin(u.cam.w*3.+p.x*2.+p.y*3.+p.z*2.));}if(part>1.5&&part<2.5){col=vec3f(.9,.88,.85);sp=.7;}}
+ if(kind>=5&&kind<=7){sp=.5;if(part>.5&&part<1.5&&kind!=5){em=3.;col=mix(r.col,vec3f(1.,.7,.3),.5)*(.6+.4*sin(u.cam.w*3.+p.x*2.+p.y*3.+p.z*2.));}if(part>1.5&&part<2.5){col=vec3f(.9,.88,.85);sp=.7;}if(part>2.5&&part<3.5){col=vec3f(.62,.43,.34);}if(part>3.5&&part<4.5){col=vec3f(.42,.06,.03);}if(part>4.5&&part<5.5){col=vec3f(.5,.25,.6);sp=.9;}}
  o.wp=r.p;o.n=r.n;o.col=col;o.m=vec4f(em,sp,0.,0.);o.lp=p;o.ln=n;o.sg=vec4f(-1.,0.,0.,0.);
  o.pos=u.vp*vec4f(r.p,1.);if(r.hide>.5){o.pos=vec4f(2.,2.,2.,1.);}
  return o;
@@ -221,6 +222,10 @@ fn matOf(p:i32)->vec4f{
  if(p==23){return vec4f(12.,2.4,1.,1.);}
  if(p==24){return vec4f(13.,2.,1.,.45);}
  if(p==25){return vec4f(14.,2.2,1.,1.1);}
+ if(p==26){return vec4f(15.,2.5,1.,1.1);}
+ if(p==27){return vec4f(16.,2.6,1.,1.);}
+ if(p==28){return vec4f(17.,3.,1.,1.);}
+ if(p==29){return vec4f(18.,2.6,1.,1.);}
  if(p==2){return vec4f(2.,1.7,1.,.55);}
  if(p==10){return vec4f(1.,2.3,1.,.32);}
  if(p==11){return vec4f(3.,2.,.5,1.);}
@@ -377,6 +382,11 @@ struct MO{@builtin(position)pos:vec4f,@location(0)wp:vec3f,@location(1)n:vec3f,@
  return vec4f(refl*F+vec3f(.012,.013,.012)*dirt+i.col*i.m.x*.35,a*(1.-.55*min(i.m.x,1.)));
 }`;
 const SHADOW_WGSL=COMMON+`
+@group(0)@binding(1)var mAlbS:texture_2d_array<f32>;@group(0)@binding(2)var smS:sampler;
+struct SO{@builtin(position)pos:vec4f,@location(0)uv:vec2f,@location(1)@interpolate(flat)lay:f32};
+@vertex fn vsModelA(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->SO{
+ var o:SO;o.pos=u.lvp*vec4f(modelXf(p,n,a,b,c,d).p,1.);o.uv=uv;o.lay=lay;return o;}
+@fragment fn fsModelA(i:SO){if(textureSampleLevel(mAlbS,smS,i.uv,i32(i.lay+.5),0.).a<.45){discard;}}
 @vertex fn vsModel(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->@builtin(position)vec4f{
  return u.lvp*vec4f(modelXf(p,n,a,b,c,d).p,1.);}
 @vertex fn vsDyn(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)part:f32,@location(3)a:vec4f,@location(4)b:vec4f,@location(5)c:vec4f,@location(6)d:vec4f)->@builtin(position)vec4f{
