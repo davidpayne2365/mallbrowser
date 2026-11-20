@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A quiet, real-time saltwater aquarium.">
+  <link rel="stylesheet" href="./aquarium.css">
+  <title>Aquarium</title>
+</head>
+<body>
+  <main id="aquarium" class="aquarium" aria-label="Saltwater aquarium">
+    <canvas id="tank" role="img" aria-label="Fixed front view of a saltwater reef aquarium"></canvas>
+    <section id="status" class="status" aria-live="polite">
+      <h1 id="status-title">Aquarium</h1>
+      <p id="status-detail">Preparing the tank…</p>
+      <button id="retry" type="button" hidden>Retry</button>
+    </section>
+    <nav id="controls" class="controls" aria-label="Viewing controls" hidden>
+      <button id="tank-contents" type="button" aria-expanded="false" aria-controls="tank-panel">Tank</button>
+      <button id="quality" type="button" aria-expanded="false" aria-controls="quality-panel">Quality</button>
+      <button id="fullscreen" type="button">Fullscreen</button>
+    </nav>
+    <section id="tank-panel" class="viewing-panel tank-panel" aria-label="Tank contents" hidden>
+      <label>Yellow tangs <input type="checkbox" name="tangs" role="switch"></label>
+      <label>Pufferfish <input type="checkbox" name="puffer" role="switch"></label>
+      <label>Snail <input type="checkbox" name="snail" role="switch"></label>
+      <label>Mermaid <input type="checkbox" name="mermaid" role="switch"></label>
+      <label>Treasure chest animation <input type="checkbox" name="chest" role="switch"></label>
+    </section>
+    <section id="quality-panel" class="viewing-panel quality-panel" aria-label="Rendering quality" hidden>
+      <label for="quality-mode">Render scale</label>
+      <select id="quality-mode">
+        <option value="auto">Auto</option>
+        <option value="0.5">50%</option>
+        <option value="0.6666666666666666">67%</option>
+        <option value="0.75">75%</option>
+        <option value="1">100%</option>
+      </select>
+      <button id="show-stats" type="button" aria-pressed="false">Show performance</button>
+    </section>
+    <pre id="stats" class="stats" aria-label="Performance statistics" hidden></pre>
+    <p id="notice" class="notice" role="status" hidden></p>
+    <noscript>Enable JavaScript in Chrome or Edge to run the aquarium.</noscript>
+  </main>
+  <script defer src="./aquarium.js"></script>
+</body>
+</html>
