@@ -62,6 +62,20 @@ The first nine districts you reach are all different. After that the themes repe
 - **Reflections:** the polished floors pick up reflections of what's on screen.
 - **Ambient light:** a GPU pass works out how much sky each spot in the mall can see, so daylight fades naturally into the shops.
 
+## How the code is organized
+
+No build step: `index.html` loads plain script files in order.
+
+| File | What it does |
+|---|---|
+| `js/sky.js` | Sun direction and sky lighting measured from the two sky photos |
+| `js/shaders.js` | All WebGPU shaders: surfaces, sky, glass and water, people and rides, reflections, light shafts, tone mapping |
+| `js/world.js` | Building blocks (boxes, shops, trees, fountains, escalators…), the hub mall, and the toolkit `K` handed to districts |
+| `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z, exits at (0,140), (−60,70) and (60,70) |
+| `js/engine.js` | Loading, streaming districts in and out, collision, walking, the crowd, audio, controls and the render loop |
+
+To add a new area (for example a grand exit with a parking lot), copy a district file, rename the function, add a `<script>` tag for it in `index.html`, and it joins the rotation.
+
 ## Credits
 
 Sky and textures are from [Poly Haven](https://polyhaven.com) under CC0:
