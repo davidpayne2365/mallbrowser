@@ -9,7 +9,7 @@ function hsl(h,s,l){h=(((h%360)+360)%360)/360;const f=n=>{const k=(n+h*12)%12,a=
 function genWorld(){
 let R=rng(19870611);const rnd=(a,b)=>a+(b-a)*R(),pick=a=>a[Math.floor(R()*a.length)],chance=p=>R()<p;
 // state of the region being built
-let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
+let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,models,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
 const cl=(v,n)=>v<0?0:v>n-1?n-1:v;
 // local -> world: XF.q quarter turns about +y (same sense as the shader's ry), then the offset
 const xd=(x,z)=>{const q=XF.q;return q===0?[x,z]:q===1?[z,-x]:q===2?[-x,-z]:[-z,x]};
@@ -44,20 +44,27 @@ const stick=(x0,y0,z0,x1,y1,z1,w,col,kind=0)=>{const dx=x1-x0,dy=y1-y0,dz=z1-z0,
 const BARK=hsl(25,.28,.2);
 const seat=(x,z,yaw,y=0)=>{const[a,b]=xp(x,z);seats.push(a,b,yaw+XF.q*Math.PI/2,y)};
 const fpush=(x,y,z,big)=>{const[a,b]=xp(x,z);fountains.push({x:a,y,z:b,big})};
-const crown=(x,y,z,rx,ry,n,hue,big=1)=>{for(let k=0;k<n;k++){let px,py,pz;do{px=rnd(-1,1);py=rnd(-1,1);pz=rnd(-1,1)}while(px*px+py*py+pz*pz>1);
- const l=rnd(.16,.28)*big;part(x+px*rx,y+py*ry,z+pz*rx,l*.8,l*.3,l,hsl(hue+rnd(-14,14),rnd(.35,.62),rnd(.13,.32)),rnd(0,6.283),rnd(-1.2,1.2),rnd(-.7,.7),4)}};
-const tree=(x,y,z,h)=>{const tx=x+rnd(-.15,.15),tz=z+rnd(-.15,.15);stick(x,y,z,tx,y+h*.7,tz,.2,BARK);
- for(let k=0;k<5;k++){const a=k*1.26+rnd(0,.6),r=rnd(.6,1.1);stick(tx,y+h*rnd(.45,.65),tz,tx+Math.sin(a)*r,y+h*rnd(.75,.95),tz+Math.cos(a)*r,.08,BARK)}
- crown(tx,y+h*.85,tz,h*.42,h*.28,950,rnd(95,125),1.2)};
-const shrubs=(x,y,z,rx,rz,n)=>{for(let k=0;k<n*2;k++){const px=x+rnd(-rx,rx),pz=z+rnd(-rz,rz),l=rnd(.09,.18);
- part(px,y+rnd(.02,.3)*(1-Math.hypot((px-x)/rx,(pz-z)/rz)*.5),pz,l*.75,l*.3,l,chance(.07)?hsl(pick([340,45,280,10]),.75,.55):hsl(rnd(90,135),rnd(.4,.65),rnd(.12,.3)),rnd(0,6.283),rnd(-1.4,-.2),rnd(-.5,.5),4)}};
-const palm=(x,z,h)=>{let px=x,py=.6,pz=z;const lean=rnd(0,6.283),bend=rnd(.03,.08);
- for(let k=0;k<14;k++){const t=(k+1)/14,nx=x+Math.sin(lean)*bend*h*t*t,ny=.6+h*t,nz=z+Math.cos(lean)*bend*h*t*t;stick(px,py,pz,nx,ny,nz,.34-.1*t,hsl(30,.2,.26+.04*(k%2)));px=nx;py=ny;pz=nz}
- for(let f=0;f<11;f++){const az=f/11*6.283+rnd(-.2,.2);let fx=px,fy=py,fz=pz;const L=rnd(2.6,3.4);
-  for(let s=0;s<7;s++){const el=.55-s*.24,sl=L/7,nx=fx+Math.sin(az)*Math.cos(el)*sl,ny=fy+Math.sin(el)*sl,nz=fz+Math.cos(az)*Math.cos(el)*sl;
-   stick(fx,fy,fz,nx,ny,nz,.06,hsl(80,.35,.22),0);const ll=.9*Math.sin((s+1)/8*Math.PI);
-   for(const sd of[-1,1])part((fx+nx)/2+Math.sin(az+sd*1.3)*ll*.45,(fy+ny)/2-.08,(fz+nz)/2+Math.cos(az+sd*1.3)*ll*.45,.34,.08,ll,hsl(rnd(95,120),.5,rnd(.17,.27)),az+sd*1.3,.35,0,4);
-   fx=nx;fy=ny;fz=nz}}};
+// Poly Haven models (js/models.js): yaw about +y, s = scale (number or [x,y,z]); o: tint, sway, pitch, roll, glow, solid
+const model=(name,x,y,z,yaw=0,s=1,o={})=>{const m=MODELS.models[name];if(!m)return;const S=typeof s==='number'?[s,s,s]:s,[wx,wz]=xp(x,z),t=o.tint||[1,1,1];
+ (models[name]=models[name]||[]).push(wx,y,wz,yaw+XF.q*Math.PI/2,S[0],S[1],S[2],0,t[0],t[1],t[2],o.sway||0,o.pitch||0,o.roll||0,0,o.glow||0);
+ if(o.solid){const bb=m.bb,c=Math.abs(Math.cos(yaw)),sn=Math.abs(Math.sin(yaw)),hx=(bb[3]-bb[0])/2*S[0],hz=(bb[5]-bb[2])/2*S[2],ex=hx*c+hz*sn,ez=hx*sn+hz*c;
+  mark(x-ex,y+bb[1]*S[1],z-ez,x+ex,y+bb[4]*S[1],z+ez)}};
+// foliage is built from photo-textured cards: a trunk plus clusters of leaves, needles or fronds
+const leafTint=(k=1)=>[rnd(.78,1.08)*k,rnd(.85,1.1)*k,rnd(.7,1)*k];
+const trunk=(x,y,z,h,r,kind='trunk_broad',o={})=>{model(kind,x,y,z,rnd(0,6.28),[r,h,r],o);if(!o.pitch)mark(x-r*.8,y,z-r*.8,x+r*.8,y+h,z+r*.8)};
+const crown=(x,y,z,rx,ry,n,hue,big=1,card)=>{const cnt=Math.min(150,Math.round(rx*rx*ry*5)+10),sz=Math.max(1,rx/2.2);
+ const kind=card||(hue%3<1.5?'card_broad':'card_jacaranda');
+ for(let k=0;k<cnt;k++){let px,py,pz;do{px=rnd(-1,1);py=rnd(-1,1);pz=rnd(-1,1)}while(px*px+py*py+pz*pz>1);
+  const sc=rnd(.75,1.25)*sz;model(kind,x+px*rx*.85,y+py*ry*.85-sc*.6,z+pz*rx*.85,rnd(0,6.28),sc,{tint:leafTint(),sway:.5,pitch:rnd(-.35,.35),roll:rnd(-.35,.35)})}};
+const tree=(x,y,z,h)=>{const tx=x+rnd(-.15,.15),tz=z+rnd(-.15,.15);trunk(x,y,z,h*.72,.11);
+ for(let k=0;k<4;k++){const a=k*1.57+rnd(0,.6);model('trunk_broad',tx,y+h*rnd(.42,.6),tz,a,[.05,h*.35,.05],{pitch:rnd(.6,.9)})}
+ crown(tx,y+h*.82,tz,h*.4,h*.27,0,rnd(95,125))};
+const shrubs=(x,y,z,rx,rz,n)=>{const cnt=Math.max(2,Math.round(n/22));for(let k=0;k<cnt;k++){const px=x+rnd(-rx,rx)*.8,pz=z+rnd(-rz,rz)*.8;
+ model(chance(.75)?'card_shrub':'card_fern',px,y,pz,rnd(0,6.28),rnd(.55,1)*Math.min(1.4,(rx+rz)/1.6+.4),{tint:leafTint(),sway:.4})}};
+const palm=(x,z,h)=>{const lean=rnd(0,6.283),tilt=rnd(.03,.09);model('trunk_broad',x,.55,z,lean,[.2,h,.2],{pitch:tilt,tint:[1.05,.95,.85]});mark(x-.25,0,z-.25,x+.25,h,z+.25);
+ const tx=x+Math.sin(lean)*Math.sin(tilt)*h,tz=z+Math.cos(lean)*Math.sin(tilt)*h,ty=.55+h*Math.cos(tilt);
+ for(let f=0;f<12;f++){const az=f/12*6.283+rnd(-.15,.15);model('card_jacaranda_flat',tx,ty-.2,tz,az,[rnd(1.3,1.7),rnd(1.6,2),1],{pitch:rnd(1.75,2.15),roll:rnd(-.2,.2),tint:leafTint(1.05),sway:.35})}
+ for(let f=0;f<5;f++)model('card_jacaranda',tx,ty-.3,tz,rnd(0,6.28),.9,{tint:leafTint(),sway:.3})};
 // water: each droplet arcs from a nozzle with its own velocity; level = where it disappears
 const jet=(x,y,z,vx,vy,vz,level,n,spread)=>{const[wx,wz]=xp(x,z);for(let k=0;k<n;k++){const[a,b]=xd(vx+rnd(-spread,spread),vz+rnd(-spread,spread));drops.push(wx,y,wz,level,.035,.06,.035,3,.55,.72,.85,k/n+rnd(0,.02),a,b,vy*rnd(.96,1.04),0)}};
 const bird=(cx,cy,cz,r,amp,w,col=[.025,.025,.03],sc=0)=>{const[wx,wz]=xp(cx,cz);birds.push(wx,cy,wz,0,r,amp,sc,2,col[0],col[1],col[2],R(),0,0,w,0)};
@@ -257,17 +264,18 @@ const lamp=(x,z,h=4,col=C.warm,I=5)=>{B(x-.06,0,z-.06,x+.06,h,z+.06,C.dark);B(x-
 const bulbs=(x0,z0,x1,z1,y,n,sag=.8)=>{for(let k=0;k<=n;k++){const t=k/n,x=x0+(x1-x0)*t,z=z0+(z1-z0)*t,yy=y-sag*4*t*(1-t);B(x-.06,yy-.06,z-.06,x+.06,yy+.06,z+.06,hsl([45,0,120,200,300][k%5],.9,.6),{e:4,solid:false})}};
 const umbrella=(x,z,col)=>{B(x-.04,0,z-.04,x+.04,2.3,z+.04,C.steel,{solid:false});for(let k=0;k<10;k++){const a=k/10*6.283;part(x+Math.sin(a)*.62,2.25,z+Math.cos(a)*.62,.7,.02,1.25,k%2?col:C.white,a,.32,0,0)}};
 const rock=(x,z,s)=>{for(let k=0;k<3;k++)part(x+rnd(-s,s)*.4,s*.25,z+rnd(-s,s)*.4,s*rnd(.6,1),s*rnd(.4,.7),s*rnd(.6,1),hsl(30,.06,rnd(.25,.4)),rnd(0,6.28),rnd(-.3,.3),rnd(-.3,.3),0)};
-const conifer=(x,z,h)=>{stick(x,0,z,x,h*.92,z,.24,BARK);const hue=rnd(120,150);
- for(let l=0;l<13;l++){const t=l/13,y=h*(.18+.78*t),r=h*.3*(1-t)+.35,n=Math.round(7+r*5);
-  for(let k=0;k<n;k++){const a=k/n*6.283+rnd(0,.5)+l*.4,rr=r*rnd(.45,.6);part(x+Math.sin(a)*rr,y-r*.12,z+Math.cos(a)*rr,r*rnd(.45,.6),r*.25,r*rnd(.9,1.1),hsl(hue+rnd(-8,8),.42,rnd(.1,.2)),a,.32,rnd(-.25,.25),4)}}};
-const bigTree=(x,z,h)=>{const tx=x+rnd(-.3,.3),tz=z+rnd(-.3,.3);stick(x,0,z,tx,h*.62,tz,.32*h/8,BARK);
- for(let k=0;k<6;k++){const a=k*1.05+rnd(0,.5),r=rnd(1.2,2.4)*h/8;stick(tx,h*rnd(.4,.55),tz,tx+Math.sin(a)*r,h*rnd(.68,.82),tz+Math.cos(a)*r,.12*h/8,BARK)}
- crown(tx,h*.78,tz,h*.4,h*.26,1300,rnd(90,128),h/4.5)};
-const flowers=(x,z,rx,rz,n,hue)=>{for(let k=0;k<n;k++){const px=x+rnd(-rx,rx),pz=z+rnd(-rz,rz),l=rnd(.08,.15);part(px,rnd(.05,.4),pz,l*.8,l*.3,l,rnd(0,1)<.35?hsl(hue+rnd(-25,25),.8,.55):hsl(rnd(95,130),.5,rnd(.12,.25)),rnd(0,6.28),rnd(-1.4,-.3),rnd(-.4,.4),4)}};
+const conifer=(x,z,h,kind)=>{const card=kind||(rnd(0,1)<.5?'card_fir':'card_pine');trunk(x,0,z,h*.95,h*.02+.12,'trunk_fir');
+ for(let l=0;l<11;l++){const t=l/11,y=h*(.16+.8*t),r=h*.27*(1-t)+.5,n=Math.round(5+r*2.2);
+  for(let k=0;k<n;k++){const a=k/n*6.283+rnd(0,.5)+l*.7;model(card,x,y,z,a,r/2*rnd(.85,1.15),{pitch:rnd(1.05,1.35),roll:rnd(-.25,.25),tint:leafTint(.95),sway:.25})}}
+ model(card,x,h*.94,z,rnd(0,6),.7,{tint:leafTint()})};
+const bigTree=(x,z,h,card)=>{const tx=x+rnd(-.3,.3),tz=z+rnd(-.3,.3);trunk(x,0,z,h*.66,.05*h);
+ for(let k=0;k<5;k++){const a=k*1.26+rnd(0,.5);model('trunk_broad',tx,h*rnd(.38,.52),tz,a,[.022*h,h*.42,.022*h],{pitch:rnd(.55,.85)})}
+ crown(tx,h*.74,tz,h*.42,h*.27,0,rnd(90,128),1,card)};
+const flowers=(x,z,rx,rz,n,hue)=>{model('card_grass',x,0,z,rnd(0,6),Math.max(rx,rz)*.9,{tint:leafTint()});for(let k=0;k<n*.35;k++){const px=x+rnd(-rx,rx),pz=z+rnd(-rz,rz),l=rnd(.08,.15);part(px,rnd(.05,.4),pz,l*.8,l*.3,l,rnd(0,1)<.35?hsl(hue+rnd(-25,25),.8,.55):hsl(rnd(95,130),.5,rnd(.12,.25)),rnd(0,6.28),rnd(-1.4,-.3),rnd(-.4,.4),4)}};
 const bed=(x,z,w,d,hue)=>{B(x-w,0,z-d,x+w,.35,z+d,hsl(25,.15,.35),{pat:22});B(x-w+.15,.35,z-d+.15,x+w-.15,.38,z+d-.15,hsl(25,.4,.12),{solid:false});flowers(x,z+0,w-.3,d-.3,Math.round(w*d*14),hue)};
 const people=(x0,z0,x1,z1,n)=>{for(let k=0;k<n;k++)stand(rnd(x0,x1),rnd(z0,z1),rnd(0,6.28))};
 // everything a district file may use (see js/districts/*.js)
-const K={B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
+const K={model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
 
 /* ---------- the hub ---------- */
 function buildHub(){
@@ -347,9 +355,8 @@ for(const sx of[-1,1])for(const sz of[-1,1]){
  for(const y of[5.55,11.55]){for(let x=68;x<=124;x+=8){B(X(x)-.9,y,Z(53)-.35,X(x)+.9,y+.05,Z(53)+.35,C.white,{e:2.2,solid:false});light(X(x),y-.4,Z(53),C.warm,7,10)}
   for(let z=21;z<=45;z+=8){B(X(126)-.35,y,Z(z)-.9,X(126)+.35,y+.05,Z(z)+.9,C.white,{e:2.2,solid:false});light(X(126),y-.4,Z(z),C.warm,7,10)}}
  planter(X(96),Z(50.3));planter(X(112),Z(50.3));planter(X(128.5),Z(33))}
-// living walls facing the food court
-for(const sd of[-1,1])for(const sz of[-1,1])for(let z=17.2;z<25.9;z+=.17)for(let y=.3;y<11.6;y+=.17){if(chance(.12))continue;
- const l=rnd(.13,.24);part(16*sd-sd*rnd(.03,.14),y+rnd(-.05,.05),z*sz+rnd(-.05,.05),l*.85,l*.3,l,chance(.05)?hsl(pick([330,50,280,15]),.7,.5):hsl(rnd(85,135),rnd(.35,.65),rnd(.1,.3)),(sd>0?-1:1)*1.57+rnd(-.5,.5),rnd(-1.95,-.9),rnd(-.8,.8),4)}
+// living walls facing the food court: photo leaf cards
+for(const sd of[-1,1])for(const sz of[-1,1])for(let z=17.6;z<25.6;z+=.85)for(let y=.2;y<11.2;y+=.8)model(chance(.7)?'card_shrub_flat':'card_fern_flat',16*sd-sd*rnd(.04,.2),y+rnd(-.15,.15),z*sz+rnd(-.2,.2),(sd>0?-1:1)*Math.PI/2+rnd(-.3,.3),rnd(.8,1.15),{tint:leafTint(),pitch:rnd(-.25,.25),roll:rnd(-.4,.4),sway:.1});
 // birds wheeling above the glass
 for(const[cx,cz,n]of[[-70,0,14],[45,4,16],[0,0,12],[-20,8,8]]){const cy=rnd(24,34),w=(chance(.5)?1:-1)*rnd(.12,.22);for(let k=0;k<n;k++)bird(cx+rnd(-4,4),cy+rnd(-2,2),cz+rnd(-4,4),rnd(8,24),rnd(1,3),w*rnd(.85,1.15))}
 // anchor department stores
@@ -371,11 +378,11 @@ for(const sd of[-1,1]){
 return{name:'Skylight Galleria'};
 }
 function region(theme,build,xf,gs,seed){
- R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};stores=0;NK=new Map();
+ R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};stores=0;NK=new Map();
  NAV={n:[],l:[]};G={...gs,d:new Uint8Array(gs.nx*gs.ny*gs.nz)};
  const info=build()||{};
  return{theme,xf,gs:G,inst:new Float32Array(inst),glass:new Float32Array(glass),fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),
-  shops,seats,fountains,lights,names,ESC,doors,idle,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
+  shops,seats,fountains,lights,names,ESC,doors,idle,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
 return{hub:()=>region('hub',buildHub,{q:0,ox:0,oz:0},HUBG,19870611),
  district:(n,theme,xf)=>region(theme,()=>DISTRICTS[theme](K),xf,DISTG,1000+n*7919),themes:Object.keys(DISTRICTS)};
 }

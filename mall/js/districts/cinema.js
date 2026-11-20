@@ -1,6 +1,6 @@
 // cinema: lobby and two auditoriums
 DISTRICTS.cinema=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 const RED=hsl(350,.6,.25);
  shell({title:'Paramount Lights',floorPat:3,floor:hsl(350,.6,.25),roof:'flat',h:10,wallCol:hsl(350,.3,.12),wallPat:0,ceil:hsl(240,.2,.05),panels:false,titleCol:hsl(45,.95,.6)});
  for(let k=0;k<200;k++){const x=rnd(-58,58),z=rnd(2,138);B(x-.03,9.9,z-.03,x+.03,9.95,z+.03,hsl(45,.4,.9),{e:6,solid:false})}

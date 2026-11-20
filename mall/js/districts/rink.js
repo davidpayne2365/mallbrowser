@@ -1,6 +1,6 @@
 // ice rink under glass
 DISTRICTS.rink=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'Glacier Ice Rink',floorPat:0,floor:hsl(220,.1,.3),roof:'glass',h:8,rise:12,glassWalls:1,wallCol:hsl(210,.2,.3),titleCol:hsl(195,.9,.65)});
  const cx=0,cz=40,rx=24,rz=30;
  B(-rx,0,cz-rz,rx,.04,cz+rz,hsl(200,.15,.95),{pat:13,solid:false});

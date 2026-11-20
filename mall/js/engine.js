@@ -22,6 +22,8 @@ const GU=GPUBufferUsage,TU=GPUTextureUsage,TB=TU.TEXTURE_BINDING,RA=TU.RENDER_AT
 const NMAT=15,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
 let loaded=0;const IMG=n=>fetch('assets/'+n).then(r=>{if(!r.ok)throw Error(n);return r.blob()}).then(b=>createImageBitmap(b,{colorSpaceConversion:'none'})).then(b=>{prog(.05+.3*(++loaded/FILES.length));return b});
 const assetP=Promise.all(FILES.map(IMG));
+const MODEL_FILES=[...Array(MODELS.layers).keys()].flatMap(i=>[`../models/tex/L${i}_a.webp`,`../models/tex/L${i}_n.jpg`]);
+const modelP=Promise.all([fetch('models/geometry.bin').then(r=>{if(!r.ok)throw Error('models/geometry.bin');return r.arrayBuffer()}),...MODEL_FILES.map(IMG)]);modelP.catch(()=>{});
 assetP.catch(()=>{});
 prog(.05);await tick();
 
@@ -171,6 +173,7 @@ function rebuildWorld(){
  instB.set(cat('inst',(out,o,len,r)=>{for(let i=o+12;i<o+len;i+=16)if(out[i]>=0)out[i]=Math.min(NAMECAP-1,out[i]+r.signBase)}));
  glassB.set(cat('glass'));folB.set(cat('fol'));leafB.set(cat('leaves'));dropB.set(cat('drops'));birdB.set(cat('birds'));
  for(const k of RIDEKIND)rideB[k].set(cat2(k));
+ buildModels();
  PPL=LOADED.flatMap(r=>r.P);NP=PPL.length;pplData=new Float32Array(NP*16);pplB.set(pplData);
  NLIGHTS=buildLights();makeSceneBG();shadowPass();for(const r of LOADED)addWater(r);dirty=false}
 const cat2=k=>{const n=LOADED.reduce((s,r)=>s+(r.rides?.[k]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r.rides?.[k];if(a){out.set(a,o);o+=a.length}}return out};
@@ -200,6 +203,10 @@ async function texArray(list,format,TS){const TM=Math.log2(TS)+1,t=device.create
   device.queue.copyExternalImageToTexture({source:b},{texture:t,mipLevel:m,origin:[0,0,l]},[s,s]);b.close()}
  return t}
 const albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',detail===2?2048:1024),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',1024);
+// Poly Haven models and foliage cards
+let mres;try{mres=await modelP}catch(e){return fail('Could not load the 3D models ('+e.message+'). Check your connection and reload.')}
+const MS_=detail===2?512:256,mAlbT=await texArray(mres.slice(1).filter((_,i)=>i%2===0),'rgba8unorm-srgb',MS_),mNrT=await texArray(mres.slice(1).filter((_,i)=>i%2===1),'rgba8unorm',MS_);
+const mVB=buf(new Float32Array(mres[0],0,MODELS.vbytes/4),GU.VERTEX),mIB=buf(new Uint32Array(mres[0],MODELS.vbytes,MODELS.ibytes/4),GU.INDEX);
 const skyBm=bms[0],skyTex=device.createTexture({size:[skyBm.width,skyBm.height],format:'rgba8unorm',usage:TB|CD|RA});
 device.queue.copyExternalImageToTexture({source:skyBm},{texture:skyTex},[skyBm.width,skyBm.height]);
 prog(.5);msg.textContent='Letting the daylight in…';await tick();
@@ -256,7 +263,7 @@ const BGL=device.createBindGroupLayout({entries:[
  {binding:0,visibility:VSF,buffer:{type:'uniform'}},{binding:1,visibility:FSS,buffer:{type:'read-only-storage'}},{binding:2,visibility:FSS,buffer:{type:'read-only-storage'}},
  {binding:3,visibility:FSS,texture:{}},{binding:4,visibility:FSS,sampler:{}},{binding:5,visibility:FSS,texture:{viewDimension:'2d-array'}},{binding:6,visibility:FSS,texture:{viewDimension:'2d-array'}},
  {binding:7,visibility:FSS,texture:{sampleType:'depth'}},{binding:8,visibility:FSS,sampler:{type:'comparison'}},{binding:9,visibility:FSS,texture:{viewDimension:'3d'}},
- {binding:10,visibility:FSS,texture:{}},{binding:11,visibility:FSS,sampler:{}}]});
+ {binding:10,visibility:FSS,texture:{}},{binding:11,visibility:FSS,sampler:{}},{binding:12,visibility:FSS,texture:{viewDimension:'2d-array'}},{binding:13,visibility:FSS,texture:{viewDimension:'2d-array'}}]});
 const PL=device.createPipelineLayout({bindGroupLayouts:[BGL]});
 const sceneMod=device.createShaderModule({code:SCENE_WGSL}),shMod=device.createShaderModule({code:SHADOW_WGSL});
 const TG=[{format:'rgba16float'},{format:'rgba16float'},{format:'rgba8unorm'}],MS={count:4};
@@ -272,6 +279,21 @@ const[scenePipe,skyPipe,glassPipe,shPipe]=await Promise.all([
   depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:3,depthBiasSlopeScale:3}})]);
 const VBUF2=[{arrayStride:28,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'},{shaderLocation:2,offset:24,format:'float32'}]},
  {arrayStride:64,stepMode:'instance',attributes:[0,1,2,3].map(k=>({shaderLocation:3+k,offset:k*16,format:'float32x4'}))}];
+const VBUF3=[{arrayStride:36,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'},{shaderLocation:2,offset:24,format:'float32x2'},{shaderLocation:3,offset:32,format:'float32'}]},
+ {arrayStride:64,stepMode:'instance',attributes:[0,1,2,3].map(k=>({shaderLocation:4+k,offset:k*16,format:'float32x4'}))}];
+const[modelPipe,modelShPipe]=await Promise.all([
+ device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:'vsModel',buffers:VBUF3},fragment:{module:sceneMod,entryPoint:'fsModel',targets:TG},
+  primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
+ device.createRenderPipelineAsync({layout:'auto',vertex:{module:shMod,entryPoint:'vsModel',buffers:VBUF3},primitive:{topology:'triangle-list',cullMode:'none'},
+  depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:3,depthBiasSlopeScale:3}})]);
+// every model's instances live in one buffer, in runs per model
+const modelB=gbuf(GU.VERTEX);let MRUNS=[];
+function buildModels(){const names=new Set();for(const r of LOADED)for(const k in r.models||{})names.add(k);
+ let total=0;const runs=[];for(const k of names){const n=LOADED.reduce((s,r)=>s+(r.models?.[k]?.length||0),0)/16;if(n&&MODELS.models[k]){runs.push({k,m:MODELS.models[k],first:total,n,card:k.startsWith('card_')});total+=n}}
+ const out=new Float32Array(total*16);for(const R of runs){let o=R.first*16;for(const r of LOADED){const a=r.models?.[R.k];if(a){out.set(a,o);o+=a.length}}}
+ modelB.set(out);MRUNS=runs}
+const drawModels=(p,shadow)=>{if(!modelB.n)return;p.setVertexBuffer(0,mVB);p.setVertexBuffer(1,modelB.b);p.setIndexBuffer(mIB,'uint32');
+ for(const R of MRUNS){if(shadow&&R.card)continue;p.drawIndexed(R.m.in,R.n,R.m.i0,R.m.v0,R.first)}};
 const[dynPipe,dynShPipe]=await Promise.all([
  device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:'vsDyn',buffers:VBUF2},fragment:{module:sceneMod,entryPoint:'fs',targets:TG},
   primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
@@ -285,13 +307,14 @@ const[fxPipe,combPipe,down0Pipe,downPipe,upPipe,finalPipe]=await Promise.all([fs
 
 
 const SHW=detail?4096:2048,shTex=device.createTexture({size:[SHW,SHW/2],format:'depth32float',usage:TB|RA}),shV=shTex.createView();
+const modelShBG=device.createBindGroup({layout:modelShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]});
 const shBG=device.createBindGroup({layout:shPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]}),dynShBG=device.createBindGroup({layout:dynShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]});
 function shadowPass(){ub.set(lightMat(),48);if(SK.has('shadow'))return;device.queue.writeBuffer(ubuf,0,ub);const e=device.createCommandEncoder(),p=e.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
  p.setPipeline(shPipe);p.setBindGroup(0,shBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(instB.n)p.drawIndexed(36,instB.n);
- p.setPipeline(dynShPipe);p.setBindGroup(0,dynShBG);drawDyn(p,MESH.unit,folB);drawDyn(p,MESH.leaf,leafB);p.end();device.queue.submit([e.finish()])}
+ p.setPipeline(dynShPipe);p.setBindGroup(0,dynShBG);drawDyn(p,MESH.unit,folB);drawDyn(p,MESH.leaf,leafB);p.setPipeline(modelShPipe);p.setBindGroup(0,modelShBG);drawModels(p,true);p.end();device.queue.submit([e.finish()])}
 function makeSceneBG(){sceneBG=device.createBindGroup({layout:BGL,entries:[{binding:0,resource:{buffer:ubuf}},{binding:1,resource:{buffer:lightBuf}},{binding:2,resource:{buffer:gridBuf}},
  {binding:3,resource:atlas.createView()},{binding:4,resource:lin},{binding:5,resource:albT.createView({dimension:'2d-array'})},{binding:6,resource:nrT.createView({dimension:'2d-array'})},
- {binding:7,resource:shV},{binding:8,resource:cmpS},{binding:9,resource:visTex.createView()},{binding:10,resource:skyTex.createView()},{binding:11,resource:rep}]})}
+ {binding:7,resource:shV},{binding:8,resource:cmpS},{binding:9,resource:visTex.createView()},{binding:10,resource:skyTex.createView()},{binding:11,resource:rep},{binding:12,resource:mAlbT.createView({dimension:'2d-array'})},{binding:13,resource:mNrT.createView({dimension:'2d-array'})}]})}
 const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((r,i)=>({binding:i,resource:r}))});
 
 let T=null;
@@ -530,6 +553,7 @@ function frame(now){
  p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')&&instB.n){p.setPipeline(scenePipe);p.drawIndexed(36,instB.n)}
  p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);drawDyn(p,MESH.bird,birdB);
  for(const k of RIDEKIND)drawDyn(p,MESH[k],rideB[k]);
+ p.setPipeline(modelPipe);drawModels(p,false);
  if(!SK.has('sky')){p.setPipeline(skyPipe);p.draw(3)}
  if(glassB.n&&!SK.has('glass')){p.setPipeline(glassPipe);p.setVertexBuffer(0,cubeVB);p.setIndexBuffer(cubeIB,'uint16');p.setVertexBuffer(1,glassB.b);p.drawIndexed(36,glassB.n)}
  p.end();
@@ -546,7 +570,7 @@ function frame(now){
  if(snapBuf){const W=T.W,H=T.H;snapBuf.mapAsync(GPUMapMode.READ).then(()=>{const src=new Uint8Array(snapBuf.getMappedRange()),c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),im=g.createImageData(W,H);
   const bgr=fmt.startsWith('bgra');for(let y=0;y<H;y++)for(let x=0;x<W;x++){const s=y*bpr+x*4,d=(y*W+x)*4;im.data[d]=src[s+(bgr?2:0)];im.data[d+1]=src[s+1];im.data[d+2]=src[s+(bgr?0:2)];im.data[d+3]=255}
   g.putImageData(im,0,0);window.__snap=c.toDataURL('image/png')})}
- if(stats)$('i').textContent=`${fps} fps · ${T.W}×${T.H}\n${CUR?(CUR===HUB?'Skylight Galleria':CUR.title):'—'} · ${LOADED.length} areas loaded · ${districtCount} districts found\n${NP} people · ${instB.n+glassB.n+folB.n+leafB.n+dropB.n} objects · ${NLIGHTS} lights\nx ${P.x.toFixed(1)}  y ${P.y.toFixed(1)}  z ${P.z.toFixed(1)}`;
+ if(stats)$('i').textContent=`${fps} fps · ${T.W}×${T.H}\n${CUR?(CUR===HUB?'Skylight Galleria':CUR.title):'—'} · ${LOADED.length} areas loaded · ${districtCount} districts found\n${NP} people · ${instB.n+glassB.n+folB.n+leafB.n+dropB.n} objects · ${modelB.n} models · ${NLIGHTS} lights\nx ${P.x.toFixed(1)}  y ${P.y.toFixed(1)}  z ${P.z.toFixed(1)}`;
  window.__dbg={inst:instB.n,glass:glassB.n,fol:folB.n,leaf:leafB.n,drop:dropB.n,bird:birdB.n,ppl:pplB.n,regions:LOADED.map(r=>r.theme+':'+(r.leaves?.length/16))};window.__frames=++frames;window.__where=CUR?(CUR===HUB?'hub':CUR.theme):'none';window.__found=districtCount;
  requestAnimationFrame(frame)}
 // first build

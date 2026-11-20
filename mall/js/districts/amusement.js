@@ -1,6 +1,6 @@
 // amusement park at night
 DISTRICTS.amusement=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'Starlight Fair',floorPat:22,floor:hsl(30,.1,.5),h:3,wallCol:hsl(0,.5,.3),wallPat:0,titleCol:hsl(330,.9,.6),titleY:5,signY:4});
  for(const sx of[-1,1])for(let z=4;z<DD;z+=8)if(Math.abs(z-MID)>5){const X=sx*(DW-.3);B(X-.1,3,z-.1,X+.1,5,z+.1,C.steel);B(X-.25,5,z-.25,X+.25,5.4,z+.25,hsl(z*7,.9,.6),{e:4,solid:false})}
  for(let z=6;z<DD;z+=10)if(Math.abs(z-MID)>6){bulbs(-3.4,z,3.4,z,5.4,6,.5);lamp(-4,z,4.5,hsl(45,.9,.6),5);lamp(4,z,4.5,hsl(45,.9,.6),5)}

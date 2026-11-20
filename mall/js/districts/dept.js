@@ -1,6 +1,6 @@
 // grand department store: three floors around an atrium
 DISTRICTS.dept=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 const H=18;shell({title:'Hartwell & Co.',floorPat:7,floor:hsl(35,.1,.85),roof:'flat',h:H,panels:false,titleCol:hsl(45,.8,.62),font:'400 {s} Didot,"Bodoni 72",Georgia,serif'});
  const AX=14,AZ0=48,AZ1=92;
  for(const y of[6,12]){B(-DW,y-.4,0,DW,y,AZ0,C.floor,{pat:12});B(-DW,y-.4,AZ1,DW,y,DD,C.floor,{pat:12});B(-DW,y-.4,AZ0,-AX,y,AZ1,C.floor,{pat:12});B(AX,y-.4,AZ0,DW,y,AZ1,C.floor,{pat:12});

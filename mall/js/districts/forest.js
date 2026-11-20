@@ -1,6 +1,6 @@
 // forest boardwalk
 DISTRICTS.forest=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'Whispering Pines',floorPat:21,floor:hsl(30,.3,.5),h:2.4,wallCol:hsl(28,.3,.25),wallPat:23,titleCol:hsl(100,.6,.55),titleY:4.2,signY:3.4});
  const bw=(x0,z0,x1,z1)=>{B(x0,0,z0,x1,.45,z1,C.wood,{pat:23})};
  bw(-2.2,0,2.2,DD);bw(-DW,MID-2.2,DW,MID+2.2);

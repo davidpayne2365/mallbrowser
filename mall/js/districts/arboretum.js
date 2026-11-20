@@ -1,6 +1,6 @@
 // arboretum: a giant glass conservatory
 DISTRICTS.arboretum=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'The Arboretum',floorPat:20,floor:hsl(95,.35,.5),roof:'glass',h:9,rise:16,glassWalls:1,wallCol:hsl(30,.2,.35),wallPat:22,titleCol:hsl(120,.7,.55)});
  for(const[x0,z0,x1,z1]of[[-3.2,0,3.2,DD],[-DW,MID-3.2,DW,MID+3.2]])B(x0,0,z0,x1,.03,z1,C.floor,{pat:22,solid:false});
  const quads=[[-31,35],[31,35],[-31,105],[31,105]];

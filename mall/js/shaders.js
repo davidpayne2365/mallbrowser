@@ -84,6 +84,10 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
  }
  o.p=p+pos;o.n=n;return o;
 }
+// models: a=(pos,yaw) b=(scale xyz, unused) c=(tint rgb, sway) d=(pitch,roll,unused,glow)
+fn modelXf(p0:vec3f,n0:vec3f,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{var o:DV;var q=p0*b.xyz;
+ if(c.w>0.){let w=sin(u.cam.w*1.1+a.x*.31+a.z*.17)*c.w*q.y*.05;q.x+=w*q.y;q.z+=w*.6*q.y;}
+ o.p=ry(rx(rz(q,d.y),d.x),a.w)+a.xyz;o.n=ry(rx(rz(normalize(n0/b.xyz),d.y),d.x),a.w);o.col=c.rgb;o.hide=0.;return o;}
 fn skyDir(d:vec3f)->vec3f{return vec3f(u.skyp.z*d.x-u.skyp.w*d.z,d.y,u.skyp.w*d.x+u.skyp.z*d.z);}
 fn shIrr(n0:vec3f)->vec3f{let n=skyDir(n0);let x=n.x;let y=n.y;let z=n.z;
  return max(vec3f(0.),u.sh[0].rgb*.282095+u.sh[1].rgb*(.488603*y)+u.sh[2].rgb*(.488603*z)+u.sh[3].rgb*(.488603*x)
@@ -119,6 +123,8 @@ struct Lt{p:vec4f,c:vec4f};
 @group(0)@binding(9)var visT:texture_3d<f32>;
 @group(0)@binding(10)var skyT:texture_2d<f32>;
 @group(0)@binding(11)var smpR:sampler;
+@group(0)@binding(12)var mAlb:texture_2d_array<f32>;
+@group(0)@binding(13)var mNr:texture_2d_array<f32>;
 const STRIDE=33u;
 struct VO{
  @builtin(position)pos:vec4f,
@@ -131,6 +137,56 @@ struct VO{
  @location(6)@interpolate(flat)sg:vec4f,
 };
 struct FO{@location(0)c:vec4f,@location(1)g:vec4f,@location(2)a:vec4f};
+fn shade(wp:vec3f,Ng:vec3f,N:vec3f,V:vec3f,dist:f32,base:vec3f,rough:f32,metal:f32,emis:vec3f)->FO{
+ let t=u.cam.w;
+ let F0=mix(vec3f(.04),base,metal);let dif=base*(1.-metal);
+ let NV=max(dot(N,V),1e-3);
+ // baked sky visibility + ambient occlusion (from the compute pass)
+ let wq=wp+Ng*.55;let qx=wq.x-u.rgn.z;let qz=wq.z-u.rgn.w;
+ let vc=(vec3f(u.rgn.x*qx+u.rgn.y*qz,wq.y,-u.rgn.y*qx+u.rgn.x*qz)-u.vis.xyz)*u.vis.w/vec3f(textureDimensions(visT));
+ var skyV=.6;var ao=1.;
+ if(all(vc>vec3f(0.))&&all(vc<vec3f(1.))){let vv=textureSampleLevel(visT,smp,vc,0.);skyV=vv.r;ao=vv.g;}
+ var acc=dif*shIrr(N)/PI*skyV;
+ acc+=dif*mix(vec3f(.09,.075,.065),vec3f(.15,.145,.15),N.y*.5+.5)*u.misc.y*ao;
+ let R=reflect(-V,N);
+ let Fv=F0+(1.-F0)*pow(1.-NV,5.);
+ acc+=Fv*shIrr(R)/PI*skyV*ss(.3,.55,rough)*ao;
+ // the sun, through the glass roof
+ let Ls=u.sun.xyz;let nlg=dot(Ng,Ls);
+ if(nlg>0.){
+  var sh=shadow(wp+Ng*.05,1.3);
+  if(sh>0.){let cp=wp.xz+Ls.xz/max(Ls.y,.2)*(600.-wp.y);sh*=mix(1.,.22,ss(.48,.72,cloudAt(cp)));}
+  if(sh>0.){acc+=u.sunC.rgb*sh*max(dot(N,Ls),0.)*(dif/PI+ggx(N,V,Ls,rough,F0));}
+ }
+ // shop and concourse lights
+ let lvl=select(0u,1u,wp.y>5.99);
+ let gc=floor((wp.xz-u.grid.xy)/u.grid.z);
+ if(gc.x>=0.&&gc.y>=0.&&gc.x<u.grid.w&&gc.y<u.misc.x){
+  let bi=(lvl*u32(u.grid.w*u.misc.x)+u32(gc.y*u.grid.w+gc.x))*STRIDE;
+  let cnt=GR[bi];
+  for(var k=1u;k<=cnt;k++){
+   let L=LS[GR[bi+k]];
+   let d=L.p.xyz-wp;let d2=dot(d,d);let r2=L.p.w*L.p.w;
+   if(d2>=r2){continue;}
+   let Ld=d*inverseSqrt(max(d2,1e-4));
+   let x=d2/r2;let win=1.-x*x;
+   var att=win*win/(1.+d2*.25);
+   if(L.c.w>0.){if(h31(vec3f(floor(t*13.),L.c.w,7.))<.14){att*=.06;}}
+   let nd=max(dot(N,Ld),0.);
+   if(nd<=0.){continue;}
+   acc+=L.c.rgb*att*nd*(dif*(.4+.6*ao)+ggx(N,V,Ld,max(rough,.12),F0)*PI*.6);
+  }
+ }
+ var col=acc+emis;
+ col=mix(col,u.fog.yzw,1.-exp(-dist*u.fog.x));
+ let vn3=(u.view*vec4f(N,0.)).xyz;
+ let vd=-(u.view*vec4f(wp,1.)).z;
+ var o:FO;
+ o.c=vec4f(col,1.);
+ o.g=vec4f(octE(normalize(vn3)),vd,0.);
+ o.a=vec4f(rough,metal,skyV,1.);
+ return o;
+}
 @vertex fn vs(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)a:vec4f,@location(3)b:vec4f,@location(4)c:vec4f,@location(5)d:vec4f)->VO{
  var o:VO;
  o.wp=rot(p*b.xyz,a.w,d.w)+a.xyz;o.n=rot(n,a.w,d.w);
@@ -264,53 +320,24 @@ fn inlay(wp:vec3f,w:f32)->f32{
   let bc=.5+.5*cos(6.2831*(h+vec3f(0.,.33,.67)));let sh=fract(wp.y*2.2);
   base=mix(bc*bc*.7*(.7+.3*h31(vec3f(floor(wp.x*40.),floor(wp.z*40.),3.))),i.col*.5,step(sh,.1));
  }
- let F0=mix(vec3f(.04),base,metal);let dif=base*(1.-metal);
- let NV=max(dot(N,V),1e-3);
- // baked sky visibility + ambient occlusion (from the compute pass)
- let wq=wp+Ng*.55;let qx=wq.x-u.rgn.z;let qz=wq.z-u.rgn.w;
- let vc=(vec3f(u.rgn.x*qx+u.rgn.y*qz,wq.y,-u.rgn.y*qx+u.rgn.x*qz)-u.vis.xyz)*u.vis.w/vec3f(textureDimensions(visT));
- var skyV=.6;var ao=1.;
- if(all(vc>vec3f(0.))&&all(vc<vec3f(1.))){let vv=textureSampleLevel(visT,smp,vc,0.);skyV=vv.r;ao=vv.g;}
- var acc=dif*shIrr(N)/PI*skyV;
- acc+=dif*mix(vec3f(.09,.075,.065),vec3f(.15,.145,.15),N.y*.5+.5)*u.misc.y*ao;
- let R=reflect(-V,N);
- let Fv=F0+(1.-F0)*pow(1.-NV,5.);
- acc+=Fv*shIrr(R)/PI*skyV*ss(.3,.55,rough)*ao;
- // the sun, through the glass roof
- let Ls=u.sun.xyz;let nlg=dot(Ng,Ls);
- if(nlg>0.){
-  var sh=shadow(wp+Ng*.05,1.3);
-  if(sh>0.){let cp=wp.xz+Ls.xz/max(Ls.y,.2)*(600.-wp.y);sh*=mix(1.,.22,ss(.48,.72,cloudAt(cp)));}
-  if(sh>0.){acc+=u.sunC.rgb*sh*max(dot(N,Ls),0.)*(dif/PI+ggx(N,V,Ls,rough,F0));}
- }
- // shop and concourse lights
- let lvl=select(0u,1u,wp.y>5.99);
- let gc=floor((wp.xz-u.grid.xy)/u.grid.z);
- if(gc.x>=0.&&gc.y>=0.&&gc.x<u.grid.w&&gc.y<u.misc.x){
-  let bi=(lvl*u32(u.grid.w*u.misc.x)+u32(gc.y*u.grid.w+gc.x))*STRIDE;
-  let cnt=GR[bi];
-  for(var k=1u;k<=cnt;k++){
-   let L=LS[GR[bi+k]];
-   let d=L.p.xyz-wp;let d2=dot(d,d);let r2=L.p.w*L.p.w;
-   if(d2>=r2){continue;}
-   let Ld=d*inverseSqrt(max(d2,1e-4));
-   let x=d2/r2;let win=1.-x*x;
-   var att=win*win/(1.+d2*.25);
-   if(L.c.w>0.){if(h31(vec3f(floor(t*13.),L.c.w,7.))<.14){att*=.06;}}
-   let nd=max(dot(N,Ld),0.);
-   if(nd<=0.){continue;}
-   acc+=L.c.rgb*att*nd*(dif*(.4+.6*ao)+ggx(N,V,Ld,max(rough,.12),F0)*PI*.6);
-  }
- }
- var col=acc+emis;
- col=mix(col,u.fog.yzw,1.-exp(-dist*u.fog.x));
- let vn3=(u.view*vec4f(N,0.)).xyz;
- let vd=-(u.view*vec4f(wp,1.)).z;
- var o:FO;
- o.c=vec4f(col,1.);
- o.g=vec4f(octE(normalize(vn3)),vd,0.);
- o.a=vec4f(rough,metal,skyV,1.);
- return o;
+ return shade(wp,Ng,N,V,dist,base,rough,metal,emis);
+}
+// ---- Poly Haven models and foliage cards: textured meshes, instanced ----
+struct MO{@builtin(position)pos:vec4f,@location(0)wp:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)@interpolate(flat)m:vec4f,@location(4)tint:vec3f};
+@vertex fn vsModel(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->MO{
+ let r=modelXf(p,n,a,b,c,d);var o:MO;o.wp=r.p;o.n=r.n;o.uv=uv;o.m=vec4f(lay,b.w,d.z,d.w);o.tint=c.rgb;o.pos=u.vp*vec4f(r.p,1.);return o;}
+@fragment fn fsModel(i:MO,@builtin(front_facing)ff:bool)->FO{
+ let lay=i32(i.m.x+.5);
+ let ta=textureSample(mAlb,smpR,i.uv,lay);let tn=textureSample(mNr,smpR,i.uv,lay);
+ let dp1=dpdx(i.wp);let dp2=dpdy(i.wp);let du1=dpdx(i.uv);let du2=dpdy(i.uv);
+ if(ta.a<.45){discard;}
+ let V0=u.cam.xyz-i.wp;let dist=length(V0);let V=V0/max(dist,1e-4);
+ var Ng=normalize(i.n);if(!ff){Ng=-Ng;}
+ let pT=cross(dp2,Ng);let pB=cross(Ng,dp1);let Tt=pT*du1.x+pB*du2.x;let Bb=pT*du1.y+pB*du2.y;let ivm=inverseSqrt(max(max(dot(Tt,Tt),dot(Bb,Bb)),1e-12));
+ let nx=tn.rg*2.-1.;var N=normalize(Tt*ivm*nx.x-Bb*ivm*nx.y+Ng*sqrt(max(.05,1.-dot(nx,nx))));
+ if(dot(N,N)<.5||any(N!=N)){N=Ng;}
+ let base=ta.rgb*i.tint;let rough=clamp(tn.b,.05,1.);
+ return shade(i.wp,Ng,N,V,dist,base,rough,0.,base*i.m.w);
 }
 // ---- sky behind the glass ----
 @vertex fn vsSky(@builtin(vertex_index)i:u32)->@builtin(position)vec4f{return vec4f(f32(i32(i&1u)*4-1),f32(i32(i>>1u)*4-1),1.,1.);}
@@ -350,6 +377,8 @@ fn inlay(wp:vec3f,w:f32)->f32{
  return vec4f(refl*F+vec3f(.012,.013,.012)*dirt+i.col*i.m.x*.35,a*(1.-.55*min(i.m.x,1.)));
 }`;
 const SHADOW_WGSL=COMMON+`
+@vertex fn vsModel(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->@builtin(position)vec4f{
+ return u.lvp*vec4f(modelXf(p,n,a,b,c,d).p,1.);}
 @vertex fn vsDyn(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)part:f32,@location(3)a:vec4f,@location(4)b:vec4f,@location(5)c:vec4f,@location(6)d:vec4f)->@builtin(position)vec4f{
  return u.lvp*vec4f(dynXf(p,n,part,a,b,c,d).p,1.);}
 @vertex fn vs(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)a:vec4f,@location(3)b:vec4f,@location(4)c:vec4f,@location(5)d:vec4f)->@builtin(position)vec4f{

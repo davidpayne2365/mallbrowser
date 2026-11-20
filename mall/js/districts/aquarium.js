@@ -1,6 +1,6 @@
 // aquarium: a walk-through tunnel under the fish
 DISTRICTS.aquarium=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 const WALL=hsl(215,.45,.08);
  shell({title:'Deep Blue Aquarium',floorPat:3,floor:hsl(220,.5,.12),roof:'flat',h:8,wallCol:WALL,wallPat:0,ceil:hsl(215,.4,.06),panels:false,titleCol:hsl(190,.9,.55),font:'italic 900 {s} Georgia,serif'});
  const WATER=hsl(195,.8,.35),BLUE=hsl(200,.9,.5);

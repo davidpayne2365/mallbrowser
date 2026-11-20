@@ -1,6 +1,6 @@
 // open-air street market
 DISTRICTS.market=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'Old Town Market',floorPat:22,floor:hsl(30,.1,.6),h:14,wallCol:hsl(15,.4,.5),wallPat:25,titleCol:hsl(30,.9,.6)});
  // building facades with lit windows and shopfronts at street level
  for(const[x0,z0,x1,z1,face]of[[-DW,0,DW,.4,0],[-DW,DD-.4,DW,DD,1],[-DW,0,-DW+.4,DD,2],[DW-.4,0,DW,DD,3]]){

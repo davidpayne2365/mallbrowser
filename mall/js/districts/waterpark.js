@@ -1,6 +1,6 @@
 // waterpark
 DISTRICTS.waterpark=function(K){
-const{B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'Lagoon Splash',floorPat:24,floor:hsl(40,.2,.85),h:2.6,wallCol:hsl(190,.5,.45),wallPat:0,titleCol:hsl(190,.95,.6),titleY:4.4,signY:3.6});
  const pool=(x0,z0,x1,z1)=>{B(x0,-.02,z0,x1,.06,z1,hsl(195,.8,.45),{e:.55,pat:8,solid:false});B(x0-.4,0,z0-.4,x1+.4,.25,z0,C.white);B(x0-.4,0,z1,x1+.4,.25,z1+.4,C.white);B(x0-.4,0,z0,x0,.25,z1,C.white);B(x1,0,z0,x1+.4,.25,z1,C.white)};
  // wave pool, with swimmers
