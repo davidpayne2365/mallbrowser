@@ -1,5 +1,8 @@
 # mallbrowser
 
+- [`mall/`](mall/): **Skylight Galleria**, a WebGPU mall with a glass roof, a real sky photo and photo-scanned materials. See [mall/README.md](mall/README.md).
+- The repository root holds a copy of AquariumGPU (details below).
+
 This is a copy of [Jwilli47/AquariumGPU](https://github.com/Jwilli47/AquariumGPU) taken at commit `c0d9fe6` (Nov 15 2026), used under its MIT License. Its README follows.
 
 ---
