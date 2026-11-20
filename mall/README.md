@@ -10,14 +10,25 @@ A two-level shopping mall you can walk through in the browser, under a glass bar
 
 Serve this folder over HTTP (for example `python3 -m http.server`) and open `index.html`. Opening the file directly from disk won't work, because the page fetches its photos from `assets/`.
 
-Controls: hold the mouse or a finger to walk forward and drag to steer. On a keyboard, W A S D walk, Q and E move down and up, Shift goes faster, 1–6 jump to viewpoints, N switches between day and night, H shows stats, M mutes and Esc opens the menu.
+Controls: you walk through the mall on foot, in first person.
+
+| | Desktop | Phone |
+|---|---|---|
+| Look | Click to capture the mouse, then move it | Drag with your right thumb |
+| Move | W A S D or the arrow keys | Left-thumb joystick |
+| Run | Shift | Push the stick all the way |
+| Jump | Space | |
+
+Other keys: 1–6 jump to viewpoints, N switches day and night, F toggles flying, H shows stats, M mutes, and Esc opens the menu.
 
 ## What's in it
 
 - **Day and night:** each time you pass under one of the upper-level bridges, the sky fades between day and a starry night with the Milky Way and a full moon.
-- **People:** shoppers walk the concourses, stop at shop windows, browse inside stores and eat at the food court tables, and cashiers stand at the counters.
+- **People:** shoppers wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters.
 - **Sound:** it starts when you enter. Crowd chatter gets louder near people, each shop plays its own style of music as you pass, and you can hear the fountains up close.
 - **Nature:** trees in the planters, palms around the fountain, living walls in the food court, birds circling above the roof, and drifting clouds whose shadows move across the floor.
+- **No dead ends:** a shop-lined loop corridor on both floors joins the end of each wing to the side door of the department store at the end of the concourse, so every route carries on.
+- **Escalators:** twelve in all. Four are in the food court, and two run up to and down from each of the four bridges.
 - **Floors:** every area has its own stone or tile, with granite inlays.
 - **Stores:** about 200 shops with made-up names.
 
