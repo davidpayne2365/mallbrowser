@@ -181,7 +181,7 @@ function makeZombieMode(api){
    step(p,p.x+away[0]/l*4,p.z+away[1]/l*4,sp,dt);p.zsp=Math.min(1.6,sp*.7);p.pose=0}
   else if(z){z.t+=dt;z.run=Math.max(0,(z.run||0)-dt*.5);if(z.t>2.5){z.st='cower';p.pose=7;p.zsp=0}}}
 
- function damage(n){if(deadT>0)return;health-=n;hurtT=.4;if(health<=0){health=0;deadT=2.5;banner('You were bitten','Back to the start of this zone…')}}
+ function damage(n){if(deadT>0)return;health-=n;hurtT=.4;if(health<=0){health=0;deadT=3;banner('You died','No second chances · starting over from the car park…',9999)}}
  function respawn(){const r=api.CUR||api.HUB,d=r.doors[0],inx=-d.dx||0,inz=-d.dz||0;P.x=d.x+inx*4;P.z=d.z+inz*4;P.y=api.EYE+.1;api.settle();health=100;
   for(const q of r.P)if(isZ(q)&&Math.hypot(q.x-P.x,q.z-P.z)<10){q.x+=(q.x-P.x)*1.5;q.z+=(q.z-P.z)*1.5}}
 
@@ -209,7 +209,7 @@ function makeZombieMode(api){
  let zoneLast='',gunLast='',groanT=0,countT=0,frameNo=0;const count=new Map();
  function update(dt){const t=performance.now()/1000;
   for(const r of api.LOADED)seedZone(r);
-  if(deadT>0){deadT-=dt;if(deadT<=0)respawn()}
+  if(deadT>0){deadT-=dt;if(deadT<=0){deadT=99;location.reload()}}
   cool-=dt;swapT=Math.max(0,swapT-dt);recoil=Math.max(0,recoil-dt*6);hurtT=Math.max(0,hurtT-dt);
   gridT-=dt;if(gridT<0){gridT=.2;rebuild()}
   if(firing&&deadT<=0&&swapT<=0){if(gun().beam)beamTick(dt);else if(cool<=0){shoot();cool=1/gun().rate}}
