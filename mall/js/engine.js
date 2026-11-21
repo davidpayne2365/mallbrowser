@@ -476,10 +476,11 @@ const look=(dx,dy,k)=>{P.yaw-=dx*k;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-
 const locked=()=>document.pointerLockElement===cv;
 const lockMouse=()=>{try{const r=cv.requestPointerLock?.();if(r&&r.catch)r.catch(()=>{})}catch{}};
 cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCapture(e.pointerId)}catch{}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
- if(e.pointerType==='touch'){if(moveId===null&&(TS.lefty?e.clientX>innerWidth*.58&&e.clientX<innerWidth-18:e.clientX<innerWidth*.42&&e.clientX>18)&&e.clientY>innerHeight*.3){moveId=e.pointerId;joy0={x:e.clientX,y:e.clientY};stickB.style.left=e.clientX+'px';stickB.style.top=e.clientY+'px';stickB.style.opacity=1;return}
+ if(e.pointerType==='touch'){if(moveId===null&&e.clientX>18&&e.clientX<innerWidth-18){moveId=e.pointerId;joy0={x:e.clientX,y:e.clientY,lx:e.clientX};return}
   touches++;if(lookId===null)lookId=e.pointerId;return}
  if(!locked())lockMouse()});
-cv.addEventListener('pointermove',e=>{if(e.pointerId===moveId){let dx=e.clientX-joy0.x,dy=e.clientY-joy0.y;const l=Math.hypot(dx,dy);if(l>JR){dx*=JR/l;dy*=JR/l}const DZ=.14*JR,m=l<DZ?0:(Math.min(l,JR)-DZ)/(JR-DZ)/Math.max(1e-3,Math.min(l,JR));joyV.x=dx*m;joyV.y=dy*m;stickK.style.transform=`translate(${dx}px,${dy}px)`;return}
+cv.addEventListener('pointermove',e=>{if(e.pointerId===moveId){const ax=v=>{const a=Math.abs(v),DZ=14;return a<DZ?0:Math.sign(v)*Math.min(1,(a-DZ)/(JR-DZ))};joyV.y=ax(e.clientY-joy0.y);
+  if(TS.steer){pend.x+=e.clientX-joy0.lx;joy0.lx=e.clientX;joyV.x=0}else joyV.x=ax(e.clientX-joy0.x);return}
  if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
  if(e.pointerType==='touch'&&e.pointerId!==lookId)return;if(e.pointerType==='touch'){pend.x+=dx;pend.y+=dy;return}look(dx,dy,.004)});
 document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022*(ZM?1-ZM.zoom()*.65:1))});
@@ -550,7 +551,6 @@ function update(dt){
  if(pend.x||pend.y){const a=Math.min(1,dt*30),dx=pend.x*a,dy=pend.y*a;pend.x-=dx;pend.y-=dy;if(Math.abs(pend.x)<.01)pend.x=0;if(Math.abs(pend.y)<.01)pend.y=0;look(dx,0,.006*TS.sens*(ZM?1-ZM.zoom()*.65:1))}
  if(touchMode&&playing&&!P.ride)P.pitch+=(0-P.pitch)*Math.min(1,dt*6);
  // steer with the stick: pushing it sideways slowly turns the view that way (while no finger is looking)
- if(touchMode&&TS.steer&&playing&&moveId!==null)P.yaw-=joyV.x*Math.abs(joyV.x)*2.6*TS.sens*dt;
  if(gyroR.y||gyroR.p){const g=TS.sens*(ZM?1-ZM.zoom()*.5:1);P.yaw+=gyroR.y*g;P.pitch=touchMode?P.pitch:Math.max(-1.45,Math.min(1.45,P.pitch+gyroR.p*g));gyroR.y=gyroR.p=0}
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
@@ -667,14 +667,14 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 // detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
 if(touchMode){const tq=$('tq');tq.style.display='';const B=[...tq.querySelectorAll('button')];
- const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Stick '+(TS.steer?'turns':'strafes');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');
+ const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Swipe '+(TS.steer?'turns':'strafes');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');
   B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty,TS.ink][i]))};B[5].onclick=()=>{TS.ink=!TS.ink;if(TS.ink&&detail>=0)setDetail(-1);saveTS();draw();resize()};
  B[0].onclick=()=>{TS.sens=Math.max(.4,+(TS.sens-.1).toFixed(1));saveTS();draw()};B[1].onclick=()=>{TS.sens=Math.min(2.5,+(TS.sens+.1).toFixed(1));saveTS();draw()};
  B[2].onclick=()=>{TS.gyro=!TS.gyro;if(TS.gyro)askGyro();saveTS();draw()};B[3].onclick=()=>{TS.steer=!TS.steer;saveTS();draw()};
  B[4].onclick=()=>{TS.lefty=!TS.lefty;saveTS();location.reload()};draw()}
 const setDetail=d=>{if(detail<0&&d>=0)regionChanged=true;detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i-1===d));try{localStorage[DKEY]=d}catch{}resize()};setDetail(detail);
 qb.forEach((b,i)=>b.onclick=()=>setDetail(i-1));
-function play(){playing=true;body.classList.add('g');if(touchMode)stickB.style.display='';startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
+function play(){playing=true;body.classList.add('g');startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
 function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;moveId=null;joyV.x=joyV.y=0;stickHome();stickB.style.display='none';if(locked())document.exitPointerLock()}
 $('d').onclick=play;$('o').onclick=pause;
 
