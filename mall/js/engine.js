@@ -22,7 +22,7 @@ const SNAP=QS.has('snap'),SK=new Set((QS.get('skip')||'').split(',')),ctx=SNAP?n
 const GU=GPUBufferUsage,TU=GPUTextureUsage,TB=TU.TEXTURE_BINDING,RA=TU.RENDER_ATTACHMENT,CD=TU.COPY_DST;
 
 // photographs: sky + fifteen scanned materials, fetched while the mall is built
-const NMAT=19,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
+const NMAT=25,FILES=['sky.jpg',...[...Array(NMAT).keys()].map(i=>`m${i}_a.jpg`),...[...Array(NMAT).keys()].map(i=>`m${i}_n.jpg`)];
 let loaded=0;const IMG=n=>fetch('assets/'+n).then(r=>{if(!r.ok)throw Error(n);return r.blob()}).then(b=>createImageBitmap(b,{colorSpaceConversion:'none'})).then(b=>{prog(.05+.3*(++loaded/FILES.length));return b});
 const assetP=Promise.all(FILES.map(IMG));
 const MODEL_FILES=[...Array(MODELS.layers).keys()].flatMap(i=>[`../models/tex/L${i}_a.webp`,`../models/tex/L${i}_n.jpg`]);
@@ -250,7 +250,8 @@ async function texArray(list,format,TS){const TM=Math.log2(TS)+1,t=device.create
  for(let l=0;l<list.length;l++)for(let m=0;m<TM;m++){const s=Math.max(1,TS>>m),b=await createImageBitmap(list[l],{resizeWidth:s,resizeHeight:s,resizeQuality:'high'});
   device.queue.copyExternalImageToTexture({source:b},{texture:t,mipLevel:m,origin:[0,0,l]},[s,s]);b.close()}
  return t}
-const albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',1024),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',1024);
+// surface photos: full size on High, half size otherwise (a quarter of the memory, for phones)
+const MTS=detail>=2?1024:512,albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',MTS),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',MTS);
 // Poly Haven models and foliage cards
 let mres;try{mres=await modelP}catch(e){return fail('Could not load the 3D models ('+e.message+'). Check your connection and reload.')}
 const MS_=detail===2?512:256,mAlbT=await texArray(mres.slice(1).filter((_,i)=>i%2===0),'rgba8unorm-srgb',MS_),mNrT=await texArray(mres.slice(1).filter((_,i)=>i%2===1),'rgba8unorm',MS_);
@@ -479,7 +480,7 @@ const padKey=(type,code)=>dispatchEvent(new KeyboardEvent(type,{code,key:code}))
 function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamepads?.()||[])].find(g=>g&&g.connected);if(!gp)return;
  const b=gp.buttons.map(x=>x.pressed||x.value>.5),dz=v=>Math.abs(v||0)<.15?0:(v-Math.sign(v)*.15)/.85,edge=i=>b[i]&&!padPrev[i];
  if(edge(9))padKey('keydown','Escape');
- if(playing){for(const[i,code]of Object.entries(PADKEYS)){if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
+ if(playing){for(const[i,c0]of Object.entries(PADKEYS)){const code=ZM&&i==='2'?'KeyE':c0;if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
   padMove=[-dz(gp.axes[1])+(b[12]?1:0)-(b[13]?1:0),dz(gp.axes[0])+(b[15]?1:0)-(b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){ZM.fire(!!(b[7]||b[6]));if(edge(4))ZM.swap(-1);if(edge(5))ZM.swap(1)}
   P.yaw-=dz(gp.axes[2])*2.6*dt;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt))}
  padPrev=b}
@@ -692,7 +693,9 @@ body.classList.remove('l');body.classList.add('r');
 if(QS.has('go'))play();
 // zombie mode: the menu's mode button switches between the two; the mode itself lives in js/zombies.js
 if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,gbuf:()=>gbuf(GU.VERTEX),
- get actx(){return actx},get master(){return master},kick});window.__zm=ZM;
+ get actx(){return actx},get master(){return master},kick,
+ // world position -> CSS pixels on screen (for damage numbers), or null when behind you
+ project:(x,y,z)=>{const cx=VP[0]*x+VP[4]*y+VP[8]*z+VP[12],cy=VP[1]*x+VP[5]*y+VP[9]*z+VP[13],cw=VP[3]*x+VP[7]*y+VP[11]*z+VP[15];if(cw<=.05)return null;return[(cx/cw*.5+.5)*innerWidth,(.5-cy/cw*.5)*innerHeight]}});window.__zm=ZM;
  // always night in zombie mode
  nightOverride=1;nightK=1;$('d').textContent='Start Zombie Mode';$('zm').textContent='Back to normal mode'}
 $('zm').onclick=()=>{location.search=MODE?'':'?mode=zombies'};

@@ -224,7 +224,7 @@ fn shade(wp:vec3f,Ng:vec3f,N:vec3f,V:vec3f,dist:f32,base:vec3f,rough:f32,metal:f
  if(kind==3){em=.5;sp=.97;}else if(kind==4){sp=.3;}else if(kind==1){sp=.2;}else if(kind==8){em=d.z;sp=.4;}
  var col=r.col;
  if(kind>=5&&kind<=7){sp=.5;if(part>.5&&part<1.5&&kind!=5){em=3.;col=mix(r.col,vec3f(1.,.7,.3),.5)*(.6+.4*sin(u.cam.w*3.+p.x*2.+p.y*3.+p.z*2.));}if(part>1.5&&part<2.5){col=vec3f(.9,.88,.85);sp=.7;}if(part>2.5&&part<3.5){col=vec3f(.62,.43,.34);}if(part>3.5&&part<4.5){col=vec3f(.42,.06,.03);}if(part>4.5&&part<5.5){col=vec3f(.5,.25,.6);sp=.9;}}
- o.wp=r.p;o.n=r.n;o.col=col;o.m=vec4f(em,sp,0.,0.);o.lp=p;o.ln=n;o.sg=vec4f(-1.,0.,0.,0.);
+ o.wp=r.p;o.n=r.n;o.col=col;o.m=vec4f(em,sp,select(0.,d.w,kind==8),0.);o.lp=p;o.ln=n;o.sg=vec4f(-1.,0.,0.,0.);
  o.pos=u.vp*vec4f(r.p,1.);if(r.hide>.5){o.pos=vec4f(2.,2.,2.,1.);}
  return o;
 }
@@ -252,6 +252,8 @@ fn matOf(p:i32)->vec4f{
  if(p==2){return vec4f(2.,1.7,1.,.55);}
  if(p==10){return vec4f(1.,2.3,1.,.32);}
  if(p==11){return vec4f(3.,2.,.5,1.);}
+ // gun finishes (zombie mode): Poly Haven metal plates and paint, layers 19-24
+ if(p>=40&&p<=45){return vec4f(19.+f32(p-40),.55,1.3,1.);}
  return vec4f(-1.,1.,0.,1.);
 }
 // each part of the mall gets its own floor
@@ -303,6 +305,8 @@ fn inlay(wp:vec3f,w:f32)->f32{
  let an=abs(Ng);var uv=wp.xz;var T=vec3f(1.,0.,0.);var Bt=vec3f(0.,0.,1.);
  if(an.x>an.y&&an.x>an.z){uv=vec2f(wp.z,-wp.y);T=vec3f(0.,0.,1.);Bt=vec3f(0.,-1.,0.);}
  else if(an.z>an.y){uv=vec2f(wp.x,-wp.y);T=vec3f(1.,0.,0.);Bt=vec3f(0.,-1.,0.);}
+ // gun finishes follow the gun: map them in the part's own space rather than the world's
+ if(pat>=40){let al=abs(i.ln);uv=select(select(i.lp.xy,i.lp.xz,al.y>.5),i.lp.zy,al.x>.5);}
  let lay=max(i32(M.x),0);
  let ta=textureSample(albT,smpR,uv/M.y,lay);
  let tn=textureSample(nrT,smpR,uv/M.y,lay);
@@ -317,6 +321,7 @@ fn inlay(wp:vec3f,w:f32)->f32{
   else if(pat==10){base=ta.rgb*mix(vec3f(1.),tint,.55)*1.15;}
   else if(pat==2){base=ta.rgb*mix(vec3f(1.),tint,.15);}
   else if(pat==7||isFloor){base=ta.rgb*1.05;}
+  else if(pat>=40){base=ta.rgb*mix(vec3f(1.),tint,.6)*1.1;emis+=base*.12;}
   else{base=ta.rgb*mix(vec3f(1.),tint,.35)*1.05;}
   let tnn=mix(tn,gn,inl);
   let nx=(tnn.rg*2.-1.)*M.z;
