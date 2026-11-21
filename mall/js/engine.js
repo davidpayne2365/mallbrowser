@@ -478,7 +478,7 @@ function rideStep(dt){const R=P.ride,s=R.s,p=s.p,L=s.L;let i=0;while(i<L.length-
 const PADKEYS={0:'Space',1:'KeyC',2:'KeyN',3:'KeyF',8:'KeyR'};let padPrev=[],padMove=[0,0],padRun=false;
 const padKey=(type,code)=>dispatchEvent(new KeyboardEvent(type,{code,key:code}));
 // the menu with a controller: d-pad or left stick moves between the buttons (left/right along the detail row), A presses
-let menuSel=0,menuRep=0;window.__menu=()=>({menuSel,menuRep,b:navigator.getGamepads?.()[0]?.buttons.map(x=>x.pressed?1:0).join("")});
+let menuSel=0,menuRep=0;
 function menuPad(b,gp,dt){if(!body.classList.contains('r'))return;const rows=[[$('d')],[$('zm')],[...$('q').querySelectorAll('button')]];
  const ax=gp.axes[0]||0,ay=gp.axes[1]||0,up=b[12]||ay<-.5,down=b[13]||ay>.5,left=b[14]||ax<-.5,right=b[15]||ax>.5;
  let row=menuSel<1?0:menuSel<2?1:2,col=row<2?0:menuSel-2;menuRep-=dt;
