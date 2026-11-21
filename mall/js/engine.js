@@ -153,7 +153,7 @@ function spawnAt(from,door,theme){const n=districtCount++,th=theme||door.theme||
  const r=prepRegion(WORLD.district(n,th,{q,ox:door.x,oz:door.z},{next,num,total:ORDER.length}));r.doors[0].link=from;door.link=r;r.num=num;LOADED.push(r);dirty=true;return r}
 function enter(r){CUR=r;const keep=new Set([r,...r.doors.map(d=>d.link).filter(Boolean)]);
  for(const o of LOADED)if(!keep.has(o)){for(const d of o.doors)if(d.link&&keep.has(d.link)){/* forget the way back */}
-  for(const k of keep)for(const d of k.doors)if(d.link===o)d.link=null;dropWater(o)}
+  for(const k of keep)for(const d of k.doors)if(d.link===o)d.link=null}
  LOADED=LOADED.filter(o=>keep.has(o));dirty=true;regionChanged=true;showTitle(r)}
 const inside=(r,x,z)=>x>=r.bb[0]&&x<=r.bb[1]&&z>=r.bb[2]&&z<=r.bb[3];
 function regionAt(x,z){for(const r of LOADED)if(r!==HUB&&inside(r,x,z))return r;return LOADED.includes(HUB)&&inside(HUB,x,z)?HUB:null}
@@ -218,7 +218,7 @@ function rebuildWorld(){
  for(const k of RIDEKIND)rideB[k].set(cat2(k));
  buildModels();
  PPL=LOADED.flatMap(r=>r.P);NP=PPL.length;pplData=new Float32Array(NP*16);pplB.set(pplData);
- NLIGHTS=buildLights();makeSceneBG();shadowPass();for(const r of LOADED)addWater(r);dirty=false}
+ NLIGHTS=buildLights();makeSceneBG();shadowPass();dirty=false}
 const cat2=k=>{const n=LOADED.reduce((s,r)=>s+(r.rides?.[k]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r.rides?.[k];if(a){out.set(a,o);o+=a.length}}return out};
 
 /* ---------- crowd stepping ---------- */
@@ -405,7 +405,7 @@ const blocked=(x,feet,z)=>{for(const dy of[.65,1.1,1.6])for(const dx of[-.25,.25
 const VIEWS=[[-30,1.7,-6,-Math.PI/2-.04,.04],[-1.75,1.7,-21,Math.PI,.32],[14,7.7,-19,Math.PI*.75,-.05],[-100,7.7,5,-Math.PI/2,.1],[60,1.7,19,Math.PI,0],[100,1.7,-4.5,-Math.PI/2,.04]];
 const P={x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vy:0,vz:0};window.__P=P;
 const view=i=>{if(CUR!==HUB)backToHub();const v=VIEWS[i];P.x=v[0];P.y=v[1];P.z=v[2];P.yaw=v[3];P.pitch=v[4];P.vx=P.vy=P.vz=0;settle?.()};
-function backToHub(){themed=0;for(const d of HUB.doors)d.link=null;for(const r of LOADED)if(r!==HUB)dropWater(r);LOADED=[HUB];CUR=null;dirty=true;
+function backToHub(){themed=0;for(const d of HUB.doors)d.link=null;LOADED=[HUB];CUR=null;dirty=true;
  P.x=-30;P.y=1.7;P.z=-6;P.yaw=-Math.PI/2-.04;P.pitch=.04;P.vx=P.vz=0;settle()}
 // title card as you walk into a new district
 let titleT=0;function showTitle(r){const el=$('t');if(!el)return;el.textContent=r===HUB?'Skylight Galleria':r.title+(r.num?'  ·  District '+r.num:'');el.classList.add('on');clearTimeout(titleT);titleT=setTimeout(()=>el.classList.remove('on'),3500)}
@@ -510,22 +510,21 @@ function update(dt){
  return{fwd}}
 
 
-/* ---------- audio: muzak, shop music, fountains (all positional) ---------- */
-let actx=null,master=null,muzG=null,noiseBuf=null,ambG=null,windG=null,windF=null,ambNext=0,ambStep=0;const SPK=[],WATER=[];
+/* ---------- audio: muzak, shop music, district backgrounds ---------- */
+let actx=null,master=null,muzG=null,noiseBuf=null,ambG=null,windG=null,windF=null,ambNext=0,ambStep=0;const SPK=[];
 // each district's own background sound (all synthesised, no voices). muz: how loud the mall music stays;
 // wind/windF: a soft rush of air (or traffic, low windF); the rest are events per second, or a tune.
-const AMB={hub:{muz:.3},dept:{muz:.3},market:{wind:.05,windF:700,chirp:.35},aquarium:{wind:.22,windF:110,bubble:1.4},arboretum:{wind:.04,windF:900,chirp:1.3,splash:.15},
+const AMB={hub:{muz:.3},dept:{muz:.3},market:{wind:.05,windF:700,chirp:.35},aquarium:{wind:.22,windF:110},arboretum:{wind:.04,windF:900,chirp:1.3},
  forest:{wind:.09,windF:650,chirp:.9},rink:{wind:.02,windF:300,tune:'waltz'},cinema:{muz:.08,bleep:2.2},amusement:{wind:.03,windF:500,tune:'organ',bleep:.5},
- waterpark:{wind:.05,windF:800,splash:2.2,chirp:.15},lot:{wind:.1,windF:160,chirp:.4},exit:{wind:.1,windF:160,chirp:.4}};
+ waterpark:{wind:.05,windF:800,chirp:.3},lot:{wind:.1,windF:160,chirp:.4},exit:{wind:.1,windF:160,chirp:.4}};
 const ORGAN=[72,76,79,84,83,79,76,79,74,77,81,86,84,81,77,74,72,76,79,84,86,84,81,79,77,76,74,71,72,0,0,0],WALTZ=[[48,64,67,72],[43,62,65,71],[45,64,69,72],[43,62,67,71]];
 function amb(kind,t0){const o=actx.createOscillator(),g=actx.createGain();g.connect(ambG);
  if(kind==='chirp'){o.type='sine';const f=2400+Math.random()*1800,n=2+Math.floor(Math.random()*3);for(let k=0;k<n;k++){const t=t0+k*.11;o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*1.35,t+.06);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.025,t+.01);g.gain.linearRampToValueAtTime(0,t+.07)}o.connect(g);o.start(t0);o.stop(t0+n*.11+.1);return}
- if(kind==='bubble'){o.type='sine';o.frequency.setValueAtTime(220+Math.random()*200,t0);o.frequency.exponentialRampToValueAtTime(700+Math.random()*400,t0+.07);g.gain.setValueAtTime(.03,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.09);o.connect(g);o.start(t0);o.stop(t0+.1);return}
  if(kind==='bleep'){o.type='square';o.frequency.value=[523,659,784,1047,1319,880][Math.floor(Math.random()*6)];g.gain.setValueAtTime(.014,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.09);o.connect(g);o.start(t0);o.stop(t0+.1);return}
- if(kind==='splash'){const s=actx.createBufferSource(),f=actx.createBiquadFilter();s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=700+Math.random()*900;f.Q.value=.8;g.gain.setValueAtTime(.07,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.45);s.connect(f);f.connect(g);s.start(t0,Math.random()*1.5);s.stop(t0+.5)}}
+}
 function ambTick(now){const A=AMB[CUR?CUR.theme:'hub']||{};muzG.gain.setTargetAtTime(A.muz??0,now,1.5);windG.gain.setTargetAtTime(A.wind||0,now,1.5);windF.frequency.setTargetAtTime(A.windF||500,now,1);
  if(ambNext<now)ambNext=now;
- while(ambNext<now+.4){const t0=ambNext;for(const k of['chirp','bubble','bleep','splash'])if(A[k]&&Math.random()<A[k]*.125)amb(k,t0+Math.random()*.12);
+ while(ambNext<now+.4){const t0=ambNext;for(const k of['chirp','bleep'])if(A[k]&&Math.random()<A[k]*.125)amb(k,t0+Math.random()*.12);
   if(A.tune==='organ'&&ambStep%2===0){const m=ORGAN[(ambStep/2)%ORGAN.length];if(m){tone(ambG,mf(m),t0,.22,.03,'square');tone(ambG,mf(m-12),t0,.22,.02,'triangle')}if(ambStep%8===0)tone(ambG,mf(48+(ambStep%32?7:0)),t0,.3,.04,'triangle')}
   if(A.tune==='waltz'&&ambStep%3===0){const beat=(ambStep/3)%3,ch=WALTZ[Math.floor(ambStep/9)%4];if(beat===0)tone(ambG,mf(ch[0]),t0,.5,.05,'triangle');else for(const m of ch.slice(1))tone(ambG,mf(m),t0,.3,.016,'sine')}
   ambStep++;ambNext+=.125}}
@@ -564,7 +563,6 @@ function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioCon
  const CH=[[60,64,67,71],[57,60,64,67],[53,57,60,64],[55,59,62,65]];let ci=0,next=actx.currentTime+.2;
  const note=(m,t0,dur,vol,type)=>{const o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.value=mf(m);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.35);g.gain.setTargetAtTime(0,t0+dur-.5,.3);o.connect(g);g.connect(lp);o.start(t0);o.stop(t0+dur+1.5)};
  // crowd murmur, loudness follows how many people are near you
- for(const r of LOADED)addWater(r);
  // three shop speakers that follow the nearest open shops
  for(let k=0;k<3;k++){const g=actx.createGain(),f=actx.createBiquadFilter(),pn=panner(0,-100,0,2.5,1.6);g.gain.value=0;f.type='lowpass';f.connect(g);g.connect(pn);pn.connect(master);SPK.push({g,f,pn,dest:f,shop:null,st:null,step:0,next:0,prog:null})}
  setInterval(()=>{if(!actx||actx.state!=='running')return;const now=actx.currentTime;
@@ -586,11 +584,6 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
   sp.shop=sh;sp.st=STY[sh.key]||STY.apparel;sp.prog=PROGS[(sh.name.length+sh.key.length)%4];sp.step=0;sp.next=now+.1;sp.f.frequency.value=sp.st.cut*(sh.big?.8:1);
   sp.g.gain.cancelScheduledValues(now);sp.g.gain.setValueAtTime(0,now);sp.g.gain.setTargetAtTime(sh.big?.5:.8,now+.1,.4)}}
 
-function addWater(r){if(!actx||r.water)return;r.water=[];
- for(const f of r.fountains){const s=actx.createBufferSource(),bf=actx.createBiquadFilter(),hf=actx.createBiquadFilter(),g=actx.createGain();s.buffer=noiseBuf;s.loop=true;
-  bf.type='bandpass';bf.frequency.value=f.big?900:1300;bf.Q.value=.5;hf.type='highshelf';hf.frequency.value=3000;hf.gain.value=4;g.gain.value=f.big?1.1:.7;
-  const pn=panner(f.x,f.y,f.z,f.big?3:2,1.4);s.connect(bf);bf.connect(hf);hf.connect(g);g.connect(pn);pn.connect(master);s.start(0,Math.random()*2);r.water.push({s,pn})}}
-function dropWater(r){if(!r.water)return;for(const w of r.water){try{w.s.stop()}catch{}w.pn.disconnect()}r.water=null}
 
 /* ---------- menu ---------- */
 const qb=[...$('q').querySelectorAll('button')];
