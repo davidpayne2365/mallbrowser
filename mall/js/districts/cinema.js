@@ -43,5 +43,7 @@ for(const sx of[-1,1]){const xi=sx*8,xo=sx*58,z0=80,z1=136,mx=(xi+xo)/2;
 // back corridor between the auditoriums: movie posters
 for(let z=80;z<130;z+=7)for(const sx of[-1,1])box(sx*7.6,2.4,z,.1,2.6,1.8,hsl(rnd(0,360),.7,.55),{e:1.8,pat:5,solid:false});
 people(-22,MID-3,22,MID+3,20);people(-3,5,3,75,16);people(-50,6,-28,60,10);
+// hidden: a ghost watching from the back row of the left theatre
+{const x=-55,z=90.4,y=3.36;box(x,y+.75,z,.55,1.3,.35,hsl(200,.2,.97),{glass:1,solid:false});box(x,y+1.55,z,.4,.4,.38,hsl(200,.2,.97),{glass:1,solid:false});for(const s of[-1,1])B(x+s*.1-.04,y+1.55,z-.2,x+s*.1+.04,y+1.62,z-.18,hsl(190,.8,.7),{e:3,solid:false});light(x,y+1.2,z,hsl(190,.6,.8),1.5,4)}
 return{title:'Paramount Lights',night:1,fog:.002};
 };

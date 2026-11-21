@@ -49,5 +49,7 @@ for(const e of ESC){const y0=e.y0;nl(nn(e.bx,y0,e.z),nn(e.tx,y0+6,e.z),1);join(e
 for(const e of ESC)nl(nn(e.bx,e.y0,e.z),nn(0,e.y0,e.z<MID?e.z:AZ1+2));
 for(let k=0;k<12;k++){const x=pick([-1,1])*rnd(16,56),z=pick([4,136]);model('planter_pot_clay',x,0,z,0,1.6);model('card_jacaranda',x,.7,z,rnd(0,6),1.3,{tint:leafTint()})}
 people(-3,5,3,135,24);people(-55,MID-2,55,MID+2,16);
+// hidden: a huddle of garden gnomes facing the corner, top floor, far back
+for(let k=0;k<7;k++){const a=k/7*3.1+.2;model('garden_gnome',57-Math.cos(a)*1.6,12,136.5-Math.sin(a)*1.6,Math.atan2(57-(57-Math.cos(a)*1.6),136.5-(136.5-Math.sin(a)*1.6)),1)}
 return{title:'Hartwell & Co.',fog:.002};
 };

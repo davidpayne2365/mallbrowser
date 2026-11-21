@@ -49,5 +49,7 @@ for(const sx of[-1,1]){
 shop(44,MID+20,1,0,0,1,10,8,0,'toys',{name:'Reef Gift Shop'});
 for(let x=-56;x<=56;x+=8){if(Math.abs(x)<5)continue;B(x-1,7.9,MID-.6,x+1,8,MID+.6,hsl(195,.9,.6),{e:2,solid:false});light(x,7,MID,hsl(195,.9,.7),5,10)}
 people(-3,10,3,130,46);people(-56,MID-2,56,MID+2,30);
+// hidden: a sunken treasure chest, spilling gold, in the far corner
+{const x=-55,z=135;model('wooden_crate_01',x,0,z,.4,1.6,{tint:[.7,.55,.4],solid:true});for(let k=0;k<26;k++)B(x+rnd(-1.4,1.4)-.05,rnd(0,.25),z+rnd(-1.2,1.2)-.05,x+rnd(-1.4,1.4)+.05,rnd(.26,.3),z+rnd(-1.2,1.2)+.05,hsl(45,.95,.55),{e:.6,s:.9,solid:false});light(x,1,z,hsl(45,.9,.6),3,5)}
 return{title:'Deep Blue Aquarium',night:1,fog:.01,fogCol:[.0,.02,.05]};
 };

@@ -32,5 +32,7 @@ for(let k=0;k<8;k++){const z=10+k*16;if(Math.abs(z-MID)<6)continue;bench(3.6,z,0
 for(let k=0;k<25;k++)bird(rnd(-50,50),rnd(24,34),rnd(10,130),rnd(5,15),2,(chance(.5)?1:-1)*rnd(.15,.3));
 for(let k=0;k<50;k++)bird(rnd(-50,50),rnd(.8,2.5),rnd(10,130),rnd(.5,2),.4,(chance(.5)?1:-1)*rnd(.5,1),[.9,.95,.4]);
 people(-1.5,5,1.5,135,26);people(-55,MID-1.5,55,MID+1.5,16);
+// hidden: a garden gnome among the ferns, well off the boardwalk
+model('garden_gnome',-41,0,58,1.1,1.1);model('card_fern',-40.4,0,58.6,0,1.2,{tint:leafTint(.9)});
 return{title:'Whispering Pines',fog:.012,fogCol:[.05,.07,.06]};
 };

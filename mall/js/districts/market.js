@@ -45,5 +45,7 @@ for(let z=10;z<DD;z+=12)bulbs(-DW+.5,z,DW-.5,z+6,10,40,1.5);
 for(let z=6;z<DD;z+=14)for(const sx of[-1,1])lamp(sx*4.5,z,4.5,C.warm,5);
 for(let k=0;k<20;k++)bird(rnd(-30,30),rnd(1.2,3),rnd(20,120),rnd(2,6),.5,(chance(.5)?1:-1)*rnd(.4,.8),hsl(0,0,rnd(.25,.45)));
 people(-50,MID-3,50,MID+3,26);people(-3,5,3,135,24);for(const sx of[-1,1])for(let row=0;row<3;row++)people(sx*(10+row*15)+sx*6,6,sx*(10+row*15)+sx*9,134,8);
+// hidden: a ginger cat asleep on a crate, tucked behind the stalls in the back corner
+model('wooden_crate_01',-55.5,0,135.5,.3,1.3,{solid:true});model('concrete_cat_statue',-55.5,.46,135.5,2.2,1.1,{tint:[1.7,.95,.5]});
 return{title:'Old Town Market',fog:.0025};
 };

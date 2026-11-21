@@ -9,7 +9,7 @@ function hsl(h,s,l){h=(((h%360)+360)%360)/360;const f=n=>{const k=(n+h*12)%12,a=
 function genWorld(){
 let R=rng(19870611);const rnd=(a,b)=>a+(b-a)*R(),pick=a=>a[Math.floor(R()*a.length)],chance=p=>R()<p;
 // state of the region being built
-let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,models,slides,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
+let inst,glass,lights,names,fol,leaves,drops,birds,shops,seats,fountains,ESC,NAV,doors,idle,rides,models,slides,boards,G,XF={q:0,ox:0,oz:0},stores=0;const used=new Set();
 const cl=(v,n)=>v<0?0:v>n-1?n-1:v;
 // local -> world: XF.q quarter turns about +y (same sense as the shader's ry), then the offset
 const xd=(x,z)=>{const q=XF.q;return q===0?[x,z]:q===1?[z,-x]:q===2?[-x,-z]:[-z,x]};
@@ -308,7 +308,11 @@ const hedge=(x0,z0,x1,z1,h=1.1)=>{const l=Math.hypot(x1-x0,z1-z0),n=Math.max(2,M
 const grassPatch=(x0,z0,x1,z1,n)=>{for(let k=0;k<n;k++)model('card_grass',rnd(x0,x1),0,rnd(z0,z1),rnd(0,6.28),rnd(.7,1.3),{tint:leafTint(),sway:.4})};
 const log=(x,z,len,yaw,r=.35)=>{model('trunk_fir',x,r,z,yaw,[r,len,r],{pitch:Math.PI/2,tint:[.8,.75,.7]});const c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));mark(x-s*len-r,0,z-c*len-r,x+s*len+r,r*2,z+c*len+r)};
 // everything a district file may use (see js/districts/*.js)
-const K={goods,goodsRow,slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
+// a boarding spot for a fair ride: stand inside radius r of (x,z) and the next seat of that ride that comes within
+// 'reach' (and below 'top', if given) carries you round; you are set down at 'out' afterwards. A glowing pad marks it.
+const board=(x,z,r,mesh,o={})=>{const[wx,wz]=xp(x,z),[ox,oz]=xp(...(o.out||[x,z-r-1.5]));boards.push({x:wx,z:wz,r,mesh,reach:o.reach??2,top:o.top??99,near:!!o.near,dz:o.dz,laps:o.laps??1,y:o.y??0,out:[ox,oz]});
+ for(let k=0;k<20;k++){const a=k/20*6.283;B(x+Math.cos(a)*r-.12,(o.y??0)+.01,z+Math.sin(a)*r-.12,x+Math.cos(a)*r+.12,(o.y??0)+.04,z+Math.sin(a)*r+.12,hsl(150,.9,.55),{e:2.5,solid:false})}};
+const K={board,goods,goodsRow,slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
 
 /* ---------- the hub ---------- */
 function buildHub(){
@@ -494,11 +498,11 @@ let hubNames=null,STOP={};
 function region(theme,build,xf,gs,seed){
  // shop names: the hub claims its own first; each district then picks from what is left, the same way every time
  used.clear();if(theme!=='hub'&&hubNames)for(const n of hubNames)used.add(n);
- R=rng(seed);LCNT={};XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};slides=[];stores=0;NK=new Map();
+ R=rng(seed);LCNT={};XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};slides=[];boards=[];stores=0;NK=new Map();
  NAV={n:[],l:[]};G={...gs,d:new Uint8Array(gs.nx*gs.ny*gs.nz)};
  const info=build()||{};if(theme==='hub')hubNames=[...used];
  return{theme,xf,gs:G,inst:new Float32Array(inst),glass:new Float32Array(glass),fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),
-  shops,seats,fountains,lights,names,ESC,doors,idle,slides,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
+  shops,seats,fountains,lights,names,ESC,doors,idle,slides,boards,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
 return{hub:()=>region('hub',buildHub,{q:0,ox:0,oz:0},HUBG,19870611),
  // every area is built from a fixed seed (from its name), so the map is identical on every visit for everyone
  district:(n,theme,xf,stop={})=>{STOP=stop;return region(theme,()=>DISTRICTS[theme](K),xf,DISTG,seedOf(theme))},themes:Object.keys(DISTRICTS)};

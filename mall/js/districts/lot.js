@@ -49,6 +49,8 @@ treeLine(K,4,138,-58.5);treeLine(K,4,138,58.5);for(let x=-56;x<=56;x+=rnd(5,7))i
 // the path to the doors, and people coming and going
 npath(Array.from({length:30},(_,k)=>[0,2+k*4.4]));npath([[-30,10],[0,10],[30,10]]);
 people(-20,3,20,10,14);for(let k=0;k<6;k++)stand(rnd(-50,50),rnd(24,130),rnd(0,6));
+// hidden: a garden gnome standing in one of the entrance planters
+model('garden_gnome',-30.4,.72,6.6,.4,.9);
 return{title:'Skylight Galleria',fog:.0012};
 };
 
@@ -80,6 +82,8 @@ treeLine(K,HD+2,138,-58.5);treeLine(K,HD+2,138,58.5);for(let x=-56;x<=56;x+=rnd(
 // a few shoppers heading to their cars with bags
 npath(Array.from({length:30},(_,k)=>[0,2+k*4.4]));
 people(-20,10,20,50,18);people(-20,HD+2,20,HD+10,10);for(let k=0;k<6;k++)stand(rnd(-50,50),rnd(HD+22,130),rnd(0,6));
+// hidden: the founder's marble bust, in the far corner of the exit hall
+B(HW-2.6,0,HD-3.6,HW-1.4,1.2,HD-2.4,hsl(38,.1,.9),{pat:7});model('marble_bust_01',HW-2,1.2,HD-3,-2.4,1.3);box(HW-2,.7,HD-3.62,.9,.18,.02,hsl(45,.8,.6),{e:1.5,sign:T('The Founder'),face:1,solid:false});
 return{title:'Grand Exit',fog:.0012};
 };
 })();

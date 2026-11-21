@@ -22,6 +22,7 @@ Controls: you walk through the mall on foot, in first person.
 | Move | W A S D or the arrow keys | Hold anywhere to walk forward |
 | Run | Shift | Hold with two fingers |
 | Jump | Space | |
+| Ride | Step onto a glowing green pad at a fair ride; Space hops off early | Step onto the pad |
 
 The ⛶ button toggles full screen, and phones go full screen when you enter. Other keys: 1–6 jump to viewpoints, N switches day and night, F toggles flying, H shows stats, M mutes, and Esc opens the menu.
 
@@ -29,14 +30,18 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 
 - **No flicker:** the lights stay steady.
 - **Day and night:** each time you pass under one of the upper-level bridges, the sky fades between day and a starry night with the Milky Way and a full moon.
-- **People:** each shopper has a face (eyes, eyebrows, nose, lips, ears), and some have long hair or beards. They wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters.
-- **Sound:** it starts when you enter. Each shop plays its own style of music as you pass, and you can hear the fountains up close.
+- **People:** each shopper has a face (eyes, eyebrows, nose, lips, ears), and some have long hair or beards. They wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters. Shoppers vary in build, and some carry shopping bags or backpacks or wear coats, hats or glasses.
+- **Sound:** it starts when you enter. Each shop plays its own style of music as you pass, and you can hear the fountains up close. Each district has its own background sound: birdsong and wind in the forest and the Arboretum, an underwater hum in the aquarium, splashing at the waterpark, a fairground organ at the fair, a waltz at the ice rink, arcade bleeps at the cinema, and wind and distant traffic outside.
 - **Nature:** trees in the planters, palms around the fountain, living walls in the food court, birds circling above the roof, and drifting clouds whose shadows move across the floor.
 - **No dead ends:** a shop-lined loop corridor on both floors joins the end of each wing to the side door of the department store at the end of the concourse, so every route carries on.
 - **Escalators:** twelve in all. Four are in the food court, and two run up to and down from each of the four bridges.
 - **Floors:** every area has its own stone or tile, with granite inlays.
-- **Stores:** about 200 shops with made-up names.
+- **Stores:** about 200 shops with made-up names. Their shelves hold packaged goods with printed labels: 256 different designs with invented brands, book titles and record sleeves. Shops also show real 3D items by type (clocks, vases and lanterns in home stores; cameras and laptops in electronics; cakes and pastries on food court counters).
 - **Backrooms:** a small "Staff · Restrooms" door off each loop corridor leads down a flickering hallway to restrooms and a stockroom.
+
+## Hidden finds
+
+Every district hides one thing that's easy to miss. Bigfoot roams the back of the Arboretum; the rest are for you to find.
 
 ## Endless districts
 
@@ -48,7 +53,7 @@ Beyond the gate, the districts follow one after another in a straight line. Each
 |---|---|
 | The Arboretum | A glass conservatory with a lily pond, footbridge, palm house, rose gardens and tall photo-leaf trees. Somewhere in the back a Bigfoot wanders, rarely seen |
 | Deep Blue Aquarium | A walk-through glass tunnel with schools of fish, manta rays, turtles, narwhals and a mermaid, plus coral wall tanks, glowing jellyfish, a bronze shark and a gift shop |
-| Starlight Fair | A night-time fair with a turning Ferris wheel, a carousel, a roller coaster, a drop tower, game booths and food stands |
+| Starlight Fair | A night-time fair where you can ride the Ferris wheel, carousel, teacups, roller coaster, drop tower and bumper cars, plus game booths and food stands |
 | Old Town Market | An open-air market with lanes of stalls (bread, fruit, flowers, fish, cheese, crafts), cafe tables, a busker and string lights between brick buildings |
 | Whispering Pines | A boardwalk through walls of tall pines, with a stream, ferns, fallen logs, mushrooms, a lookout tower you can climb and a picnic clearing |
 | Hartwell & Co. | A three-floor department store around a skylit atrium, with named departments, escalators, chandeliers and a fountain |

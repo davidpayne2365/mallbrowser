@@ -39,5 +39,7 @@ for(let i=0;i<6;i++)B(28,i*.3,96+i*1.2,52,i*.3+.3,97.2+i*1.2,hsl(210,.3,.5));for
 for(let k=0;k<30;k++)part(rnd(-55,55),rnd(8,20),rnd(5,135),.4,.4,.05,C.white,rnd(0,6),rnd(0,6),0,0);
 for(let k=0;k<8;k++)lamp(pick([-1,1])*4.5,rnd(78,135),4,C.warm,5);
 people(-55,MID-3,55,MID+3,14);people(-50,4,-30,60,10);people(30,4,50,60,10);
+// hidden: a penguin who wandered in, standing by the far boards
+{const x=21,z=10;B(x-.22,0,z-.18,x+.22,.75,z+.18,hsl(220,.2,.08));B(x-.16,.1,z-.19,x+.16,.65,z-.17,C.white,{solid:false});B(x-.15,.75,z-.15,x+.15,1,z+.15,hsl(220,.2,.08));B(x-.04,.84,z-.24,x+.04,.88,z-.15,hsl(30,.9,.55),{solid:false});for(const s of[-1,1])B(x+s*.1-.06,0,z-.24,x+s*.1+.06,.03,z-.1,hsl(30,.9,.55),{solid:false})}
 return{title:'Glacier Ice Rink',fog:.003};
 };

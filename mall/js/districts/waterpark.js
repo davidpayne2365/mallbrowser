@@ -77,5 +77,7 @@ for(let k=0;k<12;k++){const x=pick([8,52])+rnd(-1,1),z=rnd(80,134);B(x-.35,0,z-1
 for(let k=0;k<8;k++)palm(pick([-1,1])*rnd(55,57),rnd(5,135),rnd(7,10));
 for(let k=0;k<12;k++)bird(rnd(-40,40),rnd(20,30),rnd(20,120),rnd(6,14),2,(chance(.5)?1:-1)*rnd(.15,.25),[.9,.9,.9]);
 people(-55,MID-3,55,MID+3,24);people(-3,5,3,135,16);people(-54,6,-10,18,10);people(8,34,52,37,8);
+// hidden: a giant rubber duck in the corner of the kids' pool
+{const x=11.5,z=55;B(x-.7,0,z-.5,x+.7,.6,z+.5,hsl(50,.95,.55),{s:.7,solid:false});B(x-.35,.55,z-.65,x+.35,1.1,z-.05,hsl(50,.95,.55),{s:.7,solid:false});B(x-.18,.72,z-.85,x+.18,.82,z-.62,hsl(25,.95,.5),{solid:false});for(const s of[-1,1])B(x+s*.18-.05,.92,z-.66,x+s*.18+.05,1,z-.64,hsl(0,0,.05),{solid:false})}
 return{title:'Lagoon Splash',fog:.0015};
 };

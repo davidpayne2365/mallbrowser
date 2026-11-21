@@ -59,7 +59,10 @@ const MESH={unit:partMesh([[0,0,0,1,1,1,0]]),
   [-.095,.045,.04,.06,.045,.13,2],[.095,.045,.04,.06,.045,.13,3],[0,.95,0,.185,.12,.115,7],
   [-.036,1.676,.091,.018,.011,.012,8,1],[.036,1.676,.091,.018,.011,.012,8,1],[-.036,1.676,.1,.0085,.0085,.005,9,1],[.036,1.676,.1,.0085,.0085,.005,9,1],
   [-.038,1.703,.094,.022,.0055,.01,6,1],[.038,1.703,.094,.022,.0055,.01,6,1],[0,1.652,.104,.011,.024,.017,1,1],[0,1.612,.094,.026,.0075,.01,10,1],
-  [-.097,1.665,0,.012,.03,.022,1,1],[.097,1.665,0,.012,.03,.022,1,1],[0,1.6,-.055,.112,.16,.072,11],[0,1.6,.06,.085,.055,.05,12,1]]),
+  [-.097,1.665,0,.012,.03,.022,1,1],[.097,1.665,0,.012,.03,.022,1,1],[0,1.6,-.055,.112,.16,.072,11],[0,1.6,.06,.085,.055,.05,12,1],
+  // optional extras, shown or hidden per person in the shader: bags (13 right, 14 left), coat (15), hat (16), glasses (17), backpack (18), bun (19)
+  [.272,.64,.01,.035,.15,.12,13],[-.272,.64,.01,.035,.15,.12,14],[0,.74,0,.205,.2,.125,15],[0,1.795,-.01,.1,.04,.11,16],[0,1.765,.075,.1,.008,.065,16,1],
+  [0,1.683,.101,.062,.009,.004,17,1],[0,1.22,-.118,.14,.2,.06,18],[0,1.735,-.105,.045,.045,.045,19]]),
  bird:partMesh([[0,0,0,.09,.07,.3,0],[0,.03,.17,.06,.06,.08,0],[-.21,0,0,.34,.015,.15,1],[.21,0,0,.34,.015,.15,2],[0,0,-.2,.1,.01,.1,0]]),
  // rides
  ferris:partMesh([...ringParts(40,14,0,-.9,.28,2,'x'),...ringParts(40,14,0,.9,.28,2,'x'),...ringParts(40,14.25,0,-.9,.12,1,'x'),...ringParts(40,14.25,0,.9,.12,1,'x'),
@@ -435,6 +438,22 @@ addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{ke
 function settle(){P.feet=P.y-EYE;const g=groundAt(P.x,P.feet+STEP,P.z);if(g>-50)P.feet=g;P.ey=P.feet+EYE;P.vy=0}
 // water slides: walk into the top and ride to the splash pool
 function rideStart(){for(const r of LOADED)for(const s of r.slides||[]){const a=s.p[0];if(Math.hypot(P.x-a[0],P.z-a[2])<1.2&&Math.abs(P.feet-a[1])<1.4){P.ride={s,d:0,v:3};return true}}return false}
+// fair rides: stand on a boarding pad and the next seat carries you round (the same motion the shader draws).
+// Look around freely; Space hops off early. Seat positions follow the ride formulas in shaders.js (dynXf, kind 7).
+window.__boards=()=>LOADED.flatMap(r=>(r.boards||[]).map(b=>({x:b.x,z:b.z,mesh:b.mesh})));window.__carry=()=>P.carry&&{mesh:P.carry.b.mesh,end:P.carry.end};
+const SEAT={gondola:-2.1,horse:.25,car:.4,tube:.1,drop:-.3};
+function seatPos(r,mesh,i,tt){const a=r.rides[mesh],o=i*16,th=tt*a[o+12]+a[o+11]*6.2831853,bx=a[o+4],by=a[o+5],bz=a[o+6],dy=a[o+13];
+ const off=dy<.5?[0,bx*Math.sin(th),bx*Math.cos(th)]:dy<1.5?[bx*Math.cos(th),by*Math.sin(a[o+14]*th+a[o+11]*3),bz*Math.sin(th)]:[0,by*(.5+.5*Math.sin(th)),0];
+ const c=Math.cos(a[o+3]),s=Math.sin(a[o+3]);return[a[o]+c*off[0]+s*off[2],a[o+1]+off[1],a[o+2]-s*off[0]+c*off[2]]}
+const rideClock=()=>(performance.now()/1000)%1000;
+function boardCheck(){for(const r of LOADED)for(const b of r.boards||[]){if(Math.hypot(P.x-b.x,P.z-b.z)>b.r)continue;const a=r.rides?.[b.mesh];if(!a)continue;const tt=rideClock();let best=-1,bd=b.reach;
+  for(let i=0;i<a.length/16;i++){if(b.dz!==undefined&&Math.abs(a[i*16+14]-b.dz)>.01)continue;const p=seatPos(r,b.mesh,i,tt);if(p[1]>b.top)continue;const d=b.near?Math.hypot(p[0]-P.x,p[2]-P.z):Math.hypot(p[0]-b.x,p[2]-b.z);if(d<bd){bd=d;best=i}}
+  if(best<0)continue;const sp=Math.abs(a[best*16+12])||.1,lap=Math.min(90,2*Math.PI/sp);
+  const p=seatPos(r,b.mesh,best,tt),side=b.mesh==='drop'?(()=>{const dx=P.x-p[0],dz=P.z-p[2],l=Math.hypot(dx,dz)||1;return[dx/l*2.3,dz/l*2.3]})():[0,0];
+  P.carry={r,b,i:best,end:tt+lap*b.laps,side};footstep(false);return true}
+ return false}
+function carryStep(){const C=P.carry,tt=rideClock();if(tt>=C.end||tt<C.end-200||keys.has('Space')){P.x=C.b.out[0];P.z=C.b.out[1];P.y=EYE+1;P.carry=null;P.jumped=true;settle();return}
+ const p=seatPos(C.r,C.b.mesh,C.i,tt);P.x=p[0]+C.side[0];P.z=p[2]+C.side[1];P.feet=p[1]+(SEAT[C.b.mesh]??0);P.ey=P.feet+1.05;P.y=P.ey;P.vx=P.vz=P.vy=0}
 function rideStep(dt){const R=P.ride,s=R.s,p=s.p,L=s.L;let i=0;while(i<L.length-2&&L[i+1]<R.d)i++;
  const a=p[i],b=p[i+1],seg=Math.max(.01,L[i+1]-L[i]),k=Math.min(1,(R.d-L[i])/seg),slope=(a[1]-b[1])/seg;
  R.v=Math.max(3,Math.min(13,R.v+dt*(slope*14-.8)));R.d+=R.v*dt;
@@ -447,6 +466,7 @@ function update(dt){
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
  if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true}
  f=Math.max(-1,Math.min(1,f));
+ if(P.carry&&!fly){carryStep();const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(P.ride&&!fly){rideStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(fly){
   let wx=fwd[0]*f+rt[0]*s,wy=fwd[1]*f+vu,wz=fwd[2]*f+rt[2]*s;const l=Math.hypot(wx,wy,wz);
@@ -469,6 +489,7 @@ function update(dt){
  else{P.vy-=18*dt;P.feet+=P.vy*dt;if(P.feet<=g){P.feet=g;P.vy=0}}
  grounded=P.feet-g<.03;
  if(grounded&&playing&&rideStart())return{fwd};
+ if(grounded&&playing&&boardCheck())return{fwd};
  if(grounded&&playing&&keys.has('Space')&&!P.jumped){P.vy=4.6;P.feet+=.02;grounded=false;P.jumped=true}if(!keys.has('Space'))P.jumped=false;
  // eye height eases over steps; a light bob while walking; footsteps
  const moved=Math.hypot(P.x-ox,P.z-oz);if(grounded){bobPh+=moved*Math.PI/.75;stepDist+=moved;if(stepDist>.75){stepDist=0;footstep(fast)}}
@@ -478,7 +499,24 @@ function update(dt){
 
 
 /* ---------- audio: muzak, shop music, fountains (all positional) ---------- */
-let actx=null,master=null,muzG=null,noiseBuf=null;const SPK=[],WATER=[];
+let actx=null,master=null,muzG=null,noiseBuf=null,ambG=null,windG=null,windF=null,ambNext=0,ambStep=0;const SPK=[],WATER=[];
+// each district's own background sound (all synthesised, no voices). muz: how loud the mall music stays;
+// wind/windF: a soft rush of air (or traffic, low windF); the rest are events per second, or a tune.
+const AMB={hub:{muz:.3},dept:{muz:.3},market:{wind:.05,windF:700,chirp:.35},aquarium:{wind:.22,windF:110,bubble:1.4},arboretum:{wind:.04,windF:900,chirp:1.3,splash:.15},
+ forest:{wind:.09,windF:650,chirp:.9},rink:{wind:.02,windF:300,tune:'waltz'},cinema:{muz:.08,bleep:2.2},amusement:{wind:.03,windF:500,tune:'organ',bleep:.5},
+ waterpark:{wind:.05,windF:800,splash:2.2,chirp:.15},lot:{wind:.1,windF:160,chirp:.4},exit:{wind:.1,windF:160,chirp:.4}};
+const ORGAN=[72,76,79,84,83,79,76,79,74,77,81,86,84,81,77,74,72,76,79,84,86,84,81,79,77,76,74,71,72,0,0,0],WALTZ=[[48,64,67,72],[43,62,65,71],[45,64,69,72],[43,62,67,71]];
+function amb(kind,t0){const o=actx.createOscillator(),g=actx.createGain();g.connect(ambG);
+ if(kind==='chirp'){o.type='sine';const f=2400+Math.random()*1800,n=2+Math.floor(Math.random()*3);for(let k=0;k<n;k++){const t=t0+k*.11;o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*1.35,t+.06);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.025,t+.01);g.gain.linearRampToValueAtTime(0,t+.07)}o.connect(g);o.start(t0);o.stop(t0+n*.11+.1);return}
+ if(kind==='bubble'){o.type='sine';o.frequency.setValueAtTime(220+Math.random()*200,t0);o.frequency.exponentialRampToValueAtTime(700+Math.random()*400,t0+.07);g.gain.setValueAtTime(.03,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.09);o.connect(g);o.start(t0);o.stop(t0+.1);return}
+ if(kind==='bleep'){o.type='square';o.frequency.value=[523,659,784,1047,1319,880][Math.floor(Math.random()*6)];g.gain.setValueAtTime(.014,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.09);o.connect(g);o.start(t0);o.stop(t0+.1);return}
+ if(kind==='splash'){const s=actx.createBufferSource(),f=actx.createBiquadFilter();s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=700+Math.random()*900;f.Q.value=.8;g.gain.setValueAtTime(.07,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.45);s.connect(f);f.connect(g);s.start(t0,Math.random()*1.5);s.stop(t0+.5)}}
+function ambTick(now){const A=AMB[CUR?CUR.theme:'hub']||{};muzG.gain.setTargetAtTime(A.muz??0,now,1.5);windG.gain.setTargetAtTime(A.wind||0,now,1.5);windF.frequency.setTargetAtTime(A.windF||500,now,1);
+ if(ambNext<now)ambNext=now;
+ while(ambNext<now+.4){const t0=ambNext;for(const k of['chirp','bubble','bleep','splash'])if(A[k]&&Math.random()<A[k]*.125)amb(k,t0+Math.random()*.12);
+  if(A.tune==='organ'&&ambStep%2===0){const m=ORGAN[(ambStep/2)%ORGAN.length];if(m){tone(ambG,mf(m),t0,.22,.03,'square');tone(ambG,mf(m-12),t0,.22,.02,'triangle')}if(ambStep%8===0)tone(ambG,mf(48+(ambStep%32?7:0)),t0,.3,.04,'triangle')}
+  if(A.tune==='waltz'&&ambStep%3===0){const beat=(ambStep/3)%3,ch=WALTZ[Math.floor(ambStep/9)%4];if(beat===0)tone(ambG,mf(ch[0]),t0,.5,.05,'triangle');else for(const m of ch.slice(1))tone(ambG,mf(m),t0,.3,.016,'sine')}
+  ambStep++;ambNext+=.125}}
 const STY={apparel:{bpm:122,w:'sawtooth',cut:900,kick:1,hat:1,bass:1,arp:0,pad:1},shoes:{bpm:120,w:'sawtooth',cut:1100,kick:1,hat:1,bass:1},
  sports:{bpm:128,w:'sawtooth',cut:1600,kick:1,hat:1,bass:1,arp:1},tech:{bpm:110,w:'square',cut:1500,kick:1,arp:1,pad:1},arcade:{bpm:142,w:'square',cut:3500,arp:1,lead:1,hat:1},
  toys:{bpm:132,w:'square',cut:2600,lead:1,kick:1},candy:{bpm:126,w:'triangle',cut:3000,lead:1,kick:1,hat:1},books:{bpm:70,w:'sine',cut:2000,pad:1,arp:1,soft:1},
@@ -505,6 +543,8 @@ function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioCon
  noiseBuf=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate);{const nd=noiseBuf.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1}
  // background muzak + air handling hum, quieter than before
  muzG=actx.createGain();muzG.gain.value=.3;muzG.connect(master);
+ ambG=actx.createGain();ambG.gain.value=1;ambG.connect(master);
+ {const ws=actx.createBufferSource();ws.buffer=noiseBuf;ws.loop=true;windF=actx.createBiquadFilter();windF.type='lowpass';windF.frequency.value=500;windG=actx.createGain();windG.gain.value=0;ws.connect(windF);windF.connect(windG);windG.connect(master);ws.start()}
  const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1700;
  const dl=actx.createDelay(1),fb=actx.createGain(),wet=actx.createGain();dl.delayTime.value=.37;fb.gain.value=.4;wet.gain.value=.35;
  lp.connect(muzG);lp.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(muzG);
@@ -518,7 +558,8 @@ function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioCon
  setInterval(()=>{if(!actx||actx.state!=='running')return;const now=actx.currentTime;
   while(next<now+1){const c=CH[ci++%4];c.forEach(m=>note(m,next,4.2,.03,'triangle'));note(c[0]-12,next,4.2,.05,'sine');
    for(let q=0;q<4;q++)if(Math.random()<.55)note(c[Math.floor(Math.random()*4)]+12,next+q+Math.random()*.2,.9,.03,'sine');next+=4}
-  for(const sp of SPK)if(sp.shop){if(sp.next<now)sp.next=now+.05;while(sp.next<now+.25)playStep(sp)}},60)}
+  for(const sp of SPK)if(sp.shop){if(sp.next<now)sp.next=now+.05;while(sp.next<now+.25)playStep(sp)}
+  ambTick(now)},60)}
 function footstep(run){if(!actx||actx.state!=='running')return;const t0=actx.currentTime,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
  s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=run?1500:1100+Math.random()*400;f.Q.value=1.2;g.gain.setValueAtTime(run?.22:.15,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.07);
  s.connect(f);f.connect(g);g.connect(master);s.start(t0,Math.random()*1.5);s.stop(t0+.09);kick(master,t0,run?.12:.07)}
