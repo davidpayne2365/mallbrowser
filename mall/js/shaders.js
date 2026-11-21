@@ -29,12 +29,14 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   let ph=c.w*6.2831+t*(1.6+d.z*1.5)*3.1416;
   var sw=sin(ph)*.48*mv;
   if(pose==1){sw=sin(t*.6+c.w*40.)*.05;}
-  if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2){ang=-1.45;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
-  let zomb=pose>=3;
-  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
-  if(pose==2){p.y-=.43;}
+  if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2||pose==5){ang=-1.45;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  // poses: 0 walk, 1 stand, 2 sit, 3 zombie walk, 4 zombie fallen, 5 zombie feeding (crouched), 6 person pulled down
+  let zomb=pose>=3&&pose<=5;
+  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}if(pose==5){ang=-.6+sin(t*7.+f32(pt))*.25;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  if(pose==2||pose==5){p.y-=.43;}
+  if(pose==5){p=rx(p-vec3f(0.,.5,0.),.85)+vec3f(0.,.5,0.);n=rx(n,.85);}
   if(pose==3){p=rx(p-vec3f(0.,.9,0.),.22)+vec3f(0.,.9,0.);n=rx(n,.22);}
-  if(pose==4){p=rx(p,-1.5708)+vec3f(0.,.14,0.);n=rx(n,-1.5708);}
+  if(pose==4||pose==6){p=rx(p,-1.5708)+vec3f(0.,.14,0.);n=rx(n,-1.5708);}
   if(pose==0){p.y+=abs(cos(ph))*.035*mv;}
   let h=c.w*97.13;
   let sk=hs1(h+1.);var skin=mix(vec3f(.07,.035,.02),vec3f(.62,.42,.32),sk*sk*.8+sk*.2);
@@ -52,6 +54,7 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   if(pt==9){let ei=hs1(h+8.);o.col=select(select(vec3f(.025,.012,.006),vec3f(.03,.08,.16),ei>.75),vec3f(.04,.07,.03),ei>.9);}
   if(pt==10){o.col=skin*vec3f(.78,.45,.45);}
   if(zomb&&pt==9){o.col=vec3f(.75,.72,.35);}
+  if(zomb&&pt==10){o.col=vec3f(.32,.01,.01);}
   let longHair=hs1(h+7.)<.45;let beard=!longHair&&hs1(h+9.)>.72;
   if((pt==11&&!longHair)||(pt==12&&!beard)){p=vec3f(0.,1.62,0.);}
   // extras: shopping bags, a long coat, a hat, glasses, a backpack, a bun; and a heavier or slimmer build

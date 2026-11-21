@@ -225,8 +225,10 @@ const cat2=k=>{const n=LOADED.reduce((s,r)=>s+(r.rides?.[k]?.length||0),0),out=n
 
 /* ---------- crowd stepping ---------- */
 const angLerp=(a,b,k)=>{let d=(b-a+Math.PI)%(2*Math.PI);if(d<0)d+=2*Math.PI;return a+(d-Math.PI)*k};
-function stepPeople(dt,t){let i=0;if(ZM){pplB.n=0;return}for(const r of LOADED){const N=r.N;for(const p of r.P){
-  if(p.g){const g=p.g;let A=N[g.from],Bn=N[g.to];
+// in zombie mode a person who is infected, down or fleeing (p.zs) is moved by js/zombies.js; everyone else keeps shopping
+function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p of r.P){
+  if(p.zs){if(p.zs.st==='gone')continue}
+  else if(p.g){const g=p.g;let A=N[g.from],Bn=N[g.to];
    if(p.wait>0){p.wait-=dt;p.pose=1;p.speed=0;if(Bn.shop)p.ty=Math.atan2(Bn.shop.nx,Bn.shop.nz)+Math.sin(t*.3+p.ph*9)*.8;if(p.wait<=0)p.pose=0}
    else{const len=Math.max(.01,Math.hypot(Bn.x-A.x,Bn.y-A.y,Bn.z-A.z)),sp=g.esc?.6:p.base;p.speed+=(sp-p.speed)*Math.min(1,dt*3);p.pose=g.esc?1:0;
     g.t+=p.speed*dt/len;
@@ -237,7 +239,7 @@ function stepPeople(dt,t){let i=0;if(ZM){pplB.n=0;return}for(const r of LOADED){
    p.x=A.x+dx*k+dz/lh*o;p.z=A.z+dz*k-dx/lh*o;p.y=A.y+(Bn.y-A.y)*k+(g.esc?.2:0);
    if(!(p.wait>0))p.ty=Math.atan2(dx,dz);p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*5))}
   else if(p.pose===1){p.turn-=dt;if(p.turn<0){p.turn=rn(3,12);p.ty=p.yaw+rn(-1.6,1.6)}p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*2))}
-  if(NOCULL||inView(sphere(p.x,p.y+1,p.z,1.4)))pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,p.fur?1:0,0,p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i++*16)}}
+  if(NOCULL||inView(sphere(p.x,p.y+1,p.z,1.4)))pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,(p.zc||p.c)[0],(p.zc||p.c)[1],(p.zc||p.c)[2],p.ph,p.fur?1:0,0,p.zs?p.zsp||0:p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i++*16)}}
  pplB.n=i;if(i)device.queue.writeBuffer(pplB.b,0,pplData,0,i*16)}
 
 // photo textures
@@ -640,7 +642,7 @@ function frame(now){
    {view:T.mA,resolveTarget:T.axV,clearValue:{r:1,g:0,b:0,a:0},loadOp:'clear',storeOp:'discard'}],
   depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
  p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')&&instB.n){p.setPipeline(scenePipe);drawCells(p,instCells,36)}
- p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);if(ZM){drawDyn(p,MESH.person,ZM.zomB);drawDyn(p,MESH.unit,ZM.fxB)}drawDyn(p,MESH.bird,birdB);
+ p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);if(ZM)drawDyn(p,MESH.unit,ZM.fxB);drawDyn(p,MESH.bird,birdB);
  for(const k of RIDEKIND)drawDyn(p,MESH[k],rideB[k]);
  p.setPipeline(modelPipe);drawModels(p,false);
  if(!SK.has('sky')){p.setPipeline(skyPipe);p.draw(3)}
@@ -677,7 +679,9 @@ body.classList.remove('l');body.classList.add('r');
 if(QS.has('go'))play();
 // zombie mode: the menu's mode button switches between the two; the mode itself lives in js/zombies.js
 if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,gbuf:()=>gbuf(GU.VERTEX),
- get actx(){return actx},get master(){return master},kick});window.__zm=ZM;$('d').textContent='Start Zombie Mode';$('zm').textContent='Back to normal mode'}
+ get actx(){return actx},get master(){return master},kick});window.__zm=ZM;
+ // always night in zombie mode
+ nightOverride=1;nightK=1;$('d').textContent='Start Zombie Mode';$('zm').textContent='Back to normal mode'}
 $('zm').onclick=()=>{location.search=MODE?'':'?mode=zombies'};
 requestAnimationFrame(frame);
 })();

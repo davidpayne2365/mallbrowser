@@ -1,8 +1,11 @@
-// Zombie mode (index.html?mode=zombies): the same mall, overrun. Every zone (the car park, the mall, each district and
-// the exit) has slow, shambling zombies; clear them all. You start with a pistol with unlimited bullets and find other
-// weapons hidden around the map, each with its own spread and kind of damage.
-// The engine calls makeZombieMode(api) once, then zm.update(dt) every frame while you play, and draws zm.zomB (people
-// mesh, pose 3 = zombie, 4 = fallen) and zm.fxB (glowing parts: your gun, tracers, flashes, pickups).
+// Zombie mode (index.html?mode=zombies): night falls on a busy mall, and a few of the shoppers are zombies.
+// A zombie goes for the nearest person (or for you, if you are close), pulls them down and feeds; a while later the
+// victim gets up as a zombie too, so the outbreak spreads through the crowd. Nobody new appears: the zone is cleared
+// when no zombies are left and nobody is still turning. You have a pistol with unlimited bullets; each zombie you
+// kill has a 5% chance to drop a new weapon, each with its own spread and kind of damage.
+// The engine calls makeZombieMode(api) once and zm.update(dt) every frame while you play. People are the engine's
+// crowd (region.P): a person with p.zs is moved here (p.x, p.y, p.z, p.yaw, p.pose, p.zsp speed, p.zc colours);
+// everyone else keeps shopping. zm.fxB holds glowing parts: your gun, tracers, flashes and dropped weapons.
 function makeZombieMode(api){
  const{P,keys}=api,R=rng(1313);
  // ---- weapons: rate (shots per second), dmg per pellet, pellets, spread (radians), range (m), and what each hit does
@@ -15,17 +18,15 @@ function makeZombieMode(api){
   {id:'tesla',name:'Tesla Coil',rate:2.5,dmg:40,pellets:1,spread:.01,range:45,chain:3,col:[.5,.8,1],tip:'Lightning jumps to 3 more zombies'},
   {id:'frost',name:'Frost Ray',rate:4,dmg:18,pellets:1,spread:.02,range:50,slow:1,col:[.7,.95,1],tip:'Freezes zombies, slowing them down'}];
  const W=Object.fromEntries(WEAPONS.map(w=>[w.id,w]));
- // where each weapon is hidden (one per zone, along the route); later zones hide a second copy as a spare
- const HIDE={lot:'shotgun',hub:'smg',market:'rifle',dept:'ember',aquarium:'tesla',arboretum:'frost'};
- const COUNT={lot:14,hub:45,exit:18};const PER=28;
- // zombies never appear within 30 m of you (?zclose, for testing, lets them appear right in front)
+ const DROP=.05;                                   // chance a killed zombie drops a weapon you don't have yet
+ const SEED={lot:2,hub:6,exit:2},SEEDN=3;          // zombies hidden in each zone's crowd at the start
+ const TURN=[10,16];                               // seconds before someone pulled down gets up as a zombie
+ // zombies never start within 30 m of you (?zclose, for testing, lets them start right in front)
  const MINDIST=new URLSearchParams(location.search).has('zclose')?3:30;
- let owned=['pistol'],cur='pistol',cool=0,firing=false,health=100,hurtT=0,deadT=0,recoil=0,swapT=0;
- const zones=new Map();          // theme -> {r,zs:[],picks:[],cleared}
- const cleared=new Set(),taken=new Set();
+ let shots=0,hitsN=0,owned=['pistol'],cur='pistol',cool=0,firing=false,health=100,hurtT=0,deadT=0,recoil=0,swapT=0;
+ const seeded=new Map(),cleared=new Set(),saved=new Map(),drops=[],fx=[];
  const ZONES=['lot','hub',...(typeof ROUTE!=='undefined'?ROUTE:[]),'exit'];
- const zomB=api.gbuf(),fxB=api.gbuf();let zData=new Float32Array(16*400),fData=new Float32Array(16*900),nF=0;
- const fx=[];                    // short-lived effects: {kind,a:[x,y,z],b:[x,y,z],col,life,t}
+ const fxB=api.gbuf();let fData=new Float32Array(16*900),nF=0;
 
  // ---- HUD
  const css='position:fixed;z-index:5;pointer-events:none;font:600 14px/1.3 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000';
@@ -44,40 +45,50 @@ function makeZombieMode(api){
   btn('FIRE','right:22px;bottom:90px;width:84px;height:84px',()=>firing=true,()=>firing=false);btn('SWAP','right:118px;bottom:40px;width:56px;height:56px',()=>swap(1));
   btn('JUMP','right:22px;bottom:186px;width:60px;height:60px',()=>{keys.add('Space');setTimeout(()=>keys.delete('Space'),150)})}
 
- // ---- zones: zombies and hidden weapons appear when an area loads (the same places every time)
- function seedOf(t){let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
- function spawnZone(r){const th=r.theme,Z={r,zs:[],picks:[]};zones.set(th,Z);if(!r.N||!r.N.length)return Z;
-  const rr=rng(seedOf(th)+7),d0=r.doors[0],far=r.N.filter(n=>Math.hypot(n.x-d0.x,n.z-d0.z)>(MINDIST<30?0:th==='hub'?40:22)&&Math.hypot(n.x-P.x,n.z-P.z)>MINDIST);const pool=far.length?far:r.N;
-  const n=cleared.has(th)?0:COUNT[th]??PER;for(let k=0;k<n;k++){const nd=pool[Math.floor(rr()*pool.length)],s=.92+rr()*.16;
-   Z.zs.push({x:nd.x+rr()-.5,y:nd.y,z:nd.z+rr()-.5,yaw:rr()*6.28,hp:100,max:100,spd:.55+rr()*.45,s,ph:rr(),col:[.12+rr()*.2,.1+rr()*.15,.08+rr()*.12],
-    st:'idle',wx:nd.x,wz:nd.z,home:[nd.x,nd.z],t:rr()*3,gy:0,atk:0,flash:0,burn:0,slow:0,dead:0})}
-  // the hidden weapon: tucked away at a quiet spot far from the entrance
-  const want=HIDE[th]||WEAPONS[1+Math.floor(rr()*(WEAPONS.length-1))].id;const nd=pool[Math.floor(rr()*pool.length)];if(!taken.has(th))Z.picks.push({w:want,x:nd.x,y:nd.y,z:nd.z,taken:false});
-  return Z}
- function syncZones(){const L=api.LOADED;for(const r of L){const th=r.theme;const Z=zones.get(th);if(!Z||Z.r!==r)spawnZone(r)}
-  for(const[th,Z]of zones)if(!L.includes(Z.r))zones.delete(th)}
+ // ---- people and their states. p.zs.st: zombie, eat (feeding on someone), down (pulled down, turning), dead (shot),
+ // gone (removed), flee (running from a zombie), cower (stopped, frightened)
+ const isZ=p=>p.zs&&(p.zs.st==='zombie'||p.zs.st==='eat');
+ const isHuman=p=>!p.fur&&(!p.zs||p.zs.st==='flee'||p.zs.st==='cower');
+ const blood=c=>[c[0]*.55+.2,c[1]*.35,c[2]*.35];
+ function turn(p){const z=p.zs||(p.zs={});Object.assign(z,{st:'zombie',hp:100,spd:.55+R()*.45,tgt:null,think:R()*.6,atk:0,flash:0,burn:0,slow:0,gy:0,t:0,wx:p.x,wz:p.z});
+  p.zc=blood(p.c);p.pose=3}
+ // a few shoppers in each zone are already infected when you first get there
+ function seedZone(r){const th=r.theme;if(seeded.get(th)===r)return;seeded.set(th,r);if(cleared.has(th))return;
+  const cand=r.P.filter(p=>!p.fur&&p.g&&Math.hypot(p.x-P.x,p.z-P.z)>MINDIST),rr=rng(seedOfZ(th));
+  for(let k=0;k<(SEED[th]??SEEDN)&&cand.length;k++){const i=Math.floor(rr()*cand.length);turn(cand[i]);cand.splice(i,1)}}
+ function seedOfZ(t){let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return(h>>>0)+11}
+
+ // ---- quick look-ups: who is near whom (rebuilt a few times a second)
+ const CELL=6;let gridH=new Map(),gridZ=new Map(),gridT=0;
+ const key=(x,y,z)=>Math.floor(x/CELL)*73856093^Math.floor(z/CELL)*19349663^Math.floor(y/3)*83492791;
+ function rebuild(){gridH=new Map();gridZ=new Map();for(const r of api.LOADED)for(const p of r.P){const g=isZ(p)?gridZ:isHuman(p)?gridH:null;if(!g)continue;const k=key(p.x,p.y,p.z);let a=g.get(k);if(!a)g.set(k,a=[]);a.push(p)}}
+ function nearest(g,x,y,z,max){let best=null,bd=max;const cx=Math.floor(x/CELL),cz=Math.floor(z/CELL),cy=Math.floor(y/3),n=Math.ceil(max/CELL);
+  for(let i=-n;i<=n;i++)for(let j=-n;j<=n;j++)for(const dy of[0,-1,1]){const a=g.get((cx+i)*73856093^(cz+j)*19349663^(cy+dy)*83492791);if(!a)continue;
+   for(const p of a){const d=Math.hypot(p.x-x,p.z-z);if(d<bd&&Math.abs(p.y-y)<2.5){bd=d;best=p}}}return best}
 
  // ---- weapons
  function swap(dir){const i=owned.indexOf(cur);cur=owned[(i+dir+owned.length)%owned.length];swapT=.25;cool=Math.max(cool,.2)}
  function select(n){if(owned[n]){cur=owned[n];swapT=.25}}
  function eye(){return[P.x,P.ey??P.y,P.z]}
  function dirs(){const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);return{f:[-sy*cp,sp,-cy*cp],r:[cy,0,-sy],u:[sy*sp,cp,cy*sp]}}
- // distance along a ray before it meets a wall (marching through the collision grid)
  function wallDist(o,d,max){for(let t=.3;t<max;t+=.25){if(api.solid(o[0]+d[0]*t,o[1]+d[1]*t,o[2]+d[2]*t))return t}return max}
  function raySphere(o,d,c,rad){const ox=o[0]-c[0],oy=o[1]-c[1],oz=o[2]-c[2],b=ox*d[0]+oy*d[1]+oz*d[2],cc=ox*ox+oy*oy+oz*oz-rad*rad,h=b*b-cc;if(h<0)return-1;const t=-b-Math.sqrt(h);return t>0?t:-1}
- const live=()=>{const a=[];for(const Z of zones.values())for(const z of Z.zs)if(z.st!=='dead')a.push(z);return a};
- function hurt(z,dmg,w,head){if(z.st==='dead')return;z.hp-=dmg*(head?2.5:1);z.flash=.12;z.st='chase';if(w.burn)z.burn=4;if(w.slow)z.slow=4;
-  if(z.hp<=0){z.st='dead';z.dead=0;groan(z,true)}}
- function shoot(){const w=W[cur],o=eye(),{f,r,u}=dirs(),muz=[o[0]+r[0]*.2+u[0]*-.12+f[0]*.55,o[1]+r[1]*.2+u[1]*-.12+f[1]*.55,o[2]+r[2]*.2+u[2]*-.12+f[2]*.55];
-  recoil=Math.min(1,recoil+.5);fx.push({k:'flash',a:muz,col:w.col,life:.05,t:0});gunSound(w);const zs=live();
-  for(let p=0;p<w.pellets;p++){const ja=R()*6.283,jr=w.spread*Math.sqrt(R());let d=[f[0]+(r[0]*Math.cos(ja)+u[0]*Math.sin(ja))*jr,f[1]+(r[1]*Math.cos(ja)+u[1]*Math.sin(ja))*jr,f[2]+(r[2]*Math.cos(ja)+u[2]*Math.sin(ja))*jr];
+ function zombiesNear(o,range){const a=[];for(const r of api.LOADED)for(const p of r.P)if(isZ(p)&&Math.hypot(p.x-o[0],p.z-o[2])<range+2)a.push(p);return a}
+ function kill(p){const z=p.zs;z.st='dead';z.t=0;p.pose=4;p.zsp=0;groan(p,true);
+  // a small chance of dropping a weapon you don't have yet
+  const missing=WEAPONS.filter(w=>!owned.includes(w.id)&&!drops.some(d=>d.w===w.id));
+  if(missing.length&&R()<DROP){const w=missing[Math.floor(R()*missing.length)];drops.push({w:w.id,x:p.x,y:p.y,z:p.z,t:0})}}
+ function hurt(p,dmg,w,head){const z=p.zs;if(!isZ(p))return;z.hp-=dmg*(head?2.5:1);z.flash=.12;if(w.burn)z.burn=4;if(w.slow)z.slow=4;if(z.hp<=0)kill(p)}
+ function shoot(){const w=W[cur],o=eye(),{f,r,u}=dirs(),muz=[o[0]+r[0]*.24+u[0]*-.18+f[0]*.62,o[1]+r[1]*.24+u[1]*-.18+f[1]*.62,o[2]+r[2]*.24+u[2]*-.18+f[2]*.62];
+  shots++;recoil=Math.min(1,recoil+.5);fx.push({k:'flash',a:muz,col:w.col,life:.05,t:0});gunSound(w);const zs=zombiesNear(o,w.range);
+  for(let q=0;q<w.pellets;q++){const ja=R()*6.283,jr=w.spread*Math.sqrt(R());let d=[f[0]+(r[0]*Math.cos(ja)+u[0]*Math.sin(ja))*jr,f[1]+(r[1]*Math.cos(ja)+u[1]*Math.sin(ja))*jr,f[2]+(r[2]*Math.cos(ja)+u[2]*Math.sin(ja))*jr];
    const l=Math.hypot(...d);d=d.map(v=>v/l);const wd=wallDist(o,d,w.range);
-   const hits=[];for(const z of zs){if(Math.hypot(z.x-o[0],z.z-o[2])>wd+1)continue;const s=z.s;
-    const th=raySphere(o,d,[z.x,z.y+1.64*s,z.z],.17*s),tb=Math.max(raySphere(o,d,[z.x,z.y+1.15*s,z.z],.3*s),-1),tl=raySphere(o,d,[z.x,z.y+.55*s,z.z],.26*s);
-    const ts=[th,tb,tl].filter(t=>t>0);if(!ts.length)continue;const t=Math.min(...ts);if(t<wd)hits.push({z,t,head:th>0&&t===th})}
+   const hits=[];for(const p of zs){const s=p.s[1],low=p.zs.st==='eat'?.45:0;
+    const th=raySphere(o,d,[p.x,p.y+(1.64-low*1.5)*s,p.z],.17*s),tb=raySphere(o,d,[p.x,p.y+(1.15-low)*s,p.z],.3*s),tl=raySphere(o,d,[p.x,p.y+.55*s,p.z],.26*s);
+    const ts=[th,tb,tl].filter(t=>t>0);if(!ts.length)continue;const t=Math.min(...ts);if(t<wd)hits.push({p,t,head:th>0&&t===th})}
    hits.sort((a,b)=>a.t-b.t);const n=Math.min(hits.length,w.pierce||1);let end=wd;
-   for(let k=0;k<n;k++){const h=hits[k];hurt(h.z,w.dmg,w,h.head);end=h.t;
-    if(w.chain){let from=h.z;const done=new Set([h.z]);for(let c=0;c<w.chain;c++){let best=null,bd=6;for(const z of zs)if(!done.has(z)&&z.st!=='dead'){const dd=Math.hypot(z.x-from.x,z.z-from.z);if(dd<bd){bd=dd;best=z}}
+   for(let k=0;k<n;k++){const h=hits[k];hitsN++;hurt(h.p,w.dmg,w,h.head);end=h.t;
+    if(w.chain){let from=h.p;const done=new Set([h.p]);for(let c=0;c<w.chain;c++){let best=null,bd=6;for(const p of zs)if(!done.has(p)&&isZ(p)){const dd=Math.hypot(p.x-from.x,p.z-from.z);if(dd<bd){bd=dd;best=p}}
       if(!best)break;done.add(best);fx.push({k:'beam',a:[from.x,from.y+1.2,from.z],b:[best.x,best.y+1.2,best.z],col:w.col,life:.12,t:0});hurt(best,w.dmg*.6,w,false);from=best}}}
    const hp=[o[0]+d[0]*end,o[1]+d[1]*end,o[2]+d[2]*end];fx.push({k:'beam',a:muz,b:hp,col:w.col,life:cur==='rifle'?.12:.05,t:0});fx.push({k:'spark',a:hp,col:n?[.6,.05,.03]:w.col,life:.12,t:0})}}
 
@@ -85,77 +96,88 @@ function makeZombieMode(api){
  function gunSound(w){const A=api.actx;if(!A||A.state!=='running')return;const t0=A.currentTime;api.kick(api.master,t0,w.id==='shotgun'||w.id==='rifle'?.5:.3);
   const o=A.createOscillator(),g=A.createGain();o.type=w.id==='tesla'||w.id==='frost'?'sawtooth':'square';o.frequency.setValueAtTime(w.id==='frost'?1400:w.id==='tesla'?900:420,t0);o.frequency.exponentialRampToValueAtTime(90,t0+.08);
   g.gain.setValueAtTime(.06,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.09);o.connect(g);g.connect(api.master);o.start(t0);o.stop(t0+.1)}
- function groan(z,die){const A=api.actx;if(!A||A.state!=='running')return;const d=Math.hypot(z.x-P.x,z.z-P.z);if(d>14)return;const t0=A.currentTime,o=A.createOscillator(),v=A.createOscillator(),vg=A.createGain(),g=A.createGain(),f=A.createBiquadFilter();
-  o.type='sawtooth';o.frequency.value=die?70:85+z.ph*40;v.frequency.value=5;vg.gain.value=6;v.connect(vg);vg.connect(o.frequency);f.type='lowpass';f.frequency.value=500;
+ function groan(p,die){const A=api.actx;if(!A||A.state!=='running')return;const d=Math.hypot(p.x-P.x,p.z-P.z);if(d>14)return;const t0=A.currentTime,o=A.createOscillator(),v=A.createOscillator(),vg=A.createGain(),g=A.createGain(),f=A.createBiquadFilter();
+  o.type='sawtooth';o.frequency.value=die?70:85+p.ph*40;v.frequency.value=5;vg.gain.value=6;v.connect(vg);vg.connect(o.frequency);f.type='lowpass';f.frequency.value=500;
   const vol=.05*(1-d/14);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.15);g.gain.linearRampToValueAtTime(0,t0+(die?.9:1.4));o.connect(f);f.connect(g);g.connect(api.master);o.start(t0);v.start(t0);o.stop(t0+1.5);v.stop(t0+1.5)}
 
- // ---- zombie movement: shamble toward you, step up and down, slide along walls, keep apart from each other
+ // ---- moving people around: walk toward (or away from) a point, step up and down, slide along walls
  const free=(x,y,z)=>!api.solid(x,y+.9,z)&&!api.solid(x,y+1.5,z);
- function moveZ(z,dt){const dx=P.x-z.x,dz=P.z-z.z,dist=Math.hypot(dx,dz),dy=P.feet-z.y;
-  if(z.st==='idle'&&(dist<28&&Math.abs(dy)<4||dist<8)){z.st='chase';if(R()<.5)groan(z)}
-  let tx,tz,sp=z.spd*(z.slow>0?.3:1);
-  if(z.st==='chase'){tx=dx;tz=dz;if(dist>45)z.st='idle'}else{z.t-=dt;if(z.t<0){z.t=2+R()*4;z.wx=z.home[0]+(R()-.5)*8;z.wz=z.home[1]+(R()-.5)*8}tx=z.wx-z.x;tz=z.wz-z.z;sp*=.35}
-  const l=Math.hypot(tx,tz);if(l>.05){z.yaw=Math.atan2(tx,tz);let mx=tx/l*sp*dt,mz=tz/l*sp*dt;
-   if(!free(z.x+mx,z.y,z.z+mz)){const a=Math.atan2(mx,mz),m=Math.hypot(mx,mz);let ok=false;for(const da of[.8,-.8,1.6,-1.6]){const nx=Math.sin(a+da)*m,nz=Math.cos(a+da)*m;if(free(z.x+nx,z.y,z.z+nz)){mx=nx;mz=nz;ok=true;break}}if(!ok){mx=0;mz=0}}
-   if(z.st==='chase'&&dist<1)mx=mz=0;z.x+=mx;z.z+=mz}
-  z.gy-=dt;if(z.gy<0){z.gy=.3;const g=api.groundAt(z.x,z.y+.6,z.z);if(g>-50&&g<z.y+.7)z.y=g}
-  if(z.st==='chase'&&dist<1.2&&Math.abs(dy)<1.5){z.atk-=dt;if(z.atk<=0){z.atk=1.1;damage(12)}}else z.atk=Math.min(z.atk,.4)}
+ function step(p,tx,tz,sp,dt){const z=p.zs,dx=tx-p.x,dz=tz-p.z,l=Math.hypot(dx,dz);if(l<.05)return;p.yaw=Math.atan2(dx,dz);let mx=dx/l*sp*dt,mz=dz/l*sp*dt;
+  if(!free(p.x+mx,p.y,p.z+mz)){const a=Math.atan2(mx,mz),m=Math.hypot(mx,mz);let ok=false;for(const da of[.8,-.8,1.6,-1.6]){const nx=Math.sin(a+da)*m,nz=Math.cos(a+da)*m;if(free(p.x+nx,p.y,p.z+nz)){mx=nx;mz=nz;ok=true;break}}if(!ok){mx=0;mz=0}}
+  p.x+=mx;p.z+=mz;z.gy=(z.gy||0)-dt;if(z.gy<0){z.gy=.3;const g=api.groundAt(p.x,p.y+.6,p.z);if(g>-50&&g<p.y+.7)p.y=g}}
+ function zombie(p,dt){const z=p.zs,dP=Math.hypot(P.x-p.x,P.z-p.z),dy=P.feet-p.y;
+  z.flash=Math.max(0,z.flash-dt);z.slow=Math.max(0,z.slow-dt);if(z.burn>0){z.burn-=dt;z.hp-=10*dt;z.flash=Math.max(z.flash,.02);if(z.hp<=0){kill(p);return}}
+  p.zc=z.flash>0?[.7,.05,.03]:z.burn>0?[.9,.35,.05]:z.slow>0?[.45,.7,.95]:blood(p.c);
+  if(z.st==='eat'){z.t+=dt;p.zsp=0;p.pose=5;if(z.t>6){z.st='zombie';p.pose=3}return}
+  // choose who to go after: you if you're close, otherwise the nearest person
+  z.think-=dt;if(z.think<0){z.think=.6;z.tgt=dP<14&&Math.abs(dy)<3?'you':nearest(gridH,p.x,p.y,p.z,28)}
+  const sp=z.spd*(z.slow>0?.3:1);let tx,tz,s=sp;
+  if(z.tgt==='you'){tx=P.x;tz=P.z}else if(z.tgt&&isHuman(z.tgt)){tx=z.tgt.x;tz=z.tgt.z}
+  else{z.t-=dt;if(z.t<0){z.t=2+R()*4;z.wx=p.x+(R()-.5)*10;z.wz=p.z+(R()-.5)*10}tx=z.wx;tz=z.wz;s=sp*.4}
+  if(z.tgt==='you'&&dP<1){p.yaw=Math.atan2(P.x-p.x,P.z-p.z)}else step(p,tx,tz,s,dt);p.zsp=Math.min(1.2,s*.9);p.pose=3;
+  // bite you
+  if(z.tgt==='you'&&dP<1.2&&Math.abs(dy)<1.5){z.atk-=dt;if(z.atk<=0){z.atk=1.1;damage(12)}}else z.atk=Math.min(z.atk,.4);
+  // or pull someone down
+  const h=z.tgt!=='you'&&z.tgt;if(h&&isHuman(h)&&Math.hypot(h.x-p.x,h.z-p.z)<.8&&Math.abs(h.y-p.y)<1){
+   h.zs={st:'down',t:0,turn:TURN[0]+R()*(TURN[1]-TURN[0])};h.pose=6;h.zsp=0;h.zc=blood(h.c);h.yaw=p.yaw+Math.PI;z.st='eat';z.t=0;z.tgt=null;groan(p)}}
+ function human(p,dt){const z=p.zs;const zz=nearest(gridZ,p.x,p.y,p.z,10);
+  if(zz){if(!z)p.zs={st:'flee',t:0};const s=p.zs;s.st='flee';s.t=0;const dx=p.x-zz.x,dz=p.z-zz.z,l=Math.hypot(dx,dz)||1;step(p,p.x+dx/l*4,p.z+dz/l*4,(p.base||1.3)*1.7,dt);p.zsp=1.5;p.pose=0}
+  else if(z){z.t+=dt;if(z.t>4){z.st='cower';p.pose=1;p.zsp=0}}}
+
  function damage(n){if(deadT>0)return;health-=n;hurtT=.4;if(health<=0){health=0;deadT=2.5;banner('You were bitten','Back to the start of this zone…')}}
  function respawn(){const r=api.CUR||api.HUB,d=r.doors[0],inx=-d.dx||0,inz=-d.dz||0;P.x=d.x+inx*4;P.z=d.z+inz*4;P.y=api.EYE+.1;api.settle();health=100;
-  for(const z of(zones.get(r.theme)?.zs||[]))if(z.st!=='dead'&&Math.hypot(z.x-P.x,z.z-P.z)<10){z.x=z.home[0];z.z=z.home[1];z.st='idle'}}
+  for(const q of r.P)if(isZ(q)&&Math.hypot(q.x-P.x,q.z-P.z)<10){q.x+=(q.x-P.x)*1.5;q.z+=(q.z-P.z)*1.5}}
 
  // ---- every frame
- let zoneLast='',groanT=0;
- function update(dt){syncZones();const t=performance.now()/1000;
+ let zoneLast='',groanT=0,countT=0;const count=new Map();
+ function update(dt){const t=performance.now()/1000;
+  for(const r of api.LOADED)seedZone(r);
   if(deadT>0){deadT-=dt;if(deadT<=0)respawn()}
   cool-=dt;swapT=Math.max(0,swapT-dt);recoil=Math.max(0,recoil-dt*6);hurtT=Math.max(0,hurtT-dt);
   if(firing&&cool<=0&&deadT<=0&&swapT<=0){shoot();cool=1/W[cur].rate}
-  // zombies near you move; far away ones wait
-  for(const Z of zones.values()){for(const z of Z.zs){if(z.st==='dead'){z.dead+=dt;continue}
-    z.flash=Math.max(0,z.flash-dt);z.slow=Math.max(0,z.slow-dt);if(z.burn>0){z.burn-=dt;z.hp-=10*dt;z.flash=Math.max(z.flash,.02);if(z.hp<=0){z.st='dead';z.dead=0}}
-    if(Math.hypot(z.x-P.x,z.z-P.z)<70)moveZ(z,dt)}
-   // keep them from standing inside each other
-   const L=Z.zs.filter(z=>z.st!=='dead');for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=L[i],b=L[j],dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz);if(d<.6&&d>.001&&Math.abs(a.y-b.y)<1){const p=(.6-d)/2/d;a.x-=dx*p;a.z-=dz*p;b.x+=dx*p;b.z+=dz*p}}
-   // weapon pickups
-   for(const pk of Z.picks)if(!pk.taken&&Math.hypot(pk.x-P.x,pk.z-P.z)<1.4&&Math.abs(pk.y-P.feet)<1.5){pk.taken=true;taken.add(Z.r.theme);const w=W[pk.w];
-    if(!owned.includes(pk.w)){owned.push(pk.w);cur=pk.w;swapT=.25;banner('New weapon: '+w.name,w.tip+' · unlimited ammo')}else banner(w.name+' (already yours)','',1.6)}
-   const alive=Z.zs.filter(z=>z.st!=='dead').length;
-   if(!cleared.has(Z.r.theme)&&Z.zs.length&&alive===0){cleared.add(Z.r.theme);const all=ZONES.every(th=>cleared.has(th));
-    banner(all?'You cleared Skylight Galleria!':'Zone cleared!',all?'Every zone is safe again.':`${cleared.size} of ${ZONES.length} zones cleared`,4)}}
-  groanT-=dt;if(groanT<0){groanT=2+R()*3;const a=live().filter(z=>z.st==='chase');if(a.length)groan(a[Math.floor(R()*a.length)])}
+  gridT-=dt;if(gridT<0){gridT=.2;rebuild()}
+  for(const r of api.LOADED)for(const p of r.P){if(Math.hypot(p.x-P.x,p.z-P.z)>90)continue;const z=p.zs;
+   if(!z){if(!p.fur&&gridZ.size)human(p,dt);continue}
+   if(isZ(p))zombie(p,dt);
+   else if(z.st==='down'){z.t+=dt;if(z.t>z.turn)turn(p)}
+   else if(z.st==='dead'){z.t+=dt;if(z.t>4)p.y-=dt*.25;if(z.t>7)z.st='gone'}
+   else if(z.st==='flee'||z.st==='cower')human(p,dt)}
+  // weapons dropped by zombies
+  for(let i=drops.length-1;i>=0;i--){const d=drops[i];d.t+=dt;if(Math.hypot(d.x-P.x,d.z-P.z)<1.4&&Math.abs(d.y-P.feet)<1.5){const w=W[d.w];drops.splice(i,1);
+    if(!owned.includes(d.w)){owned.push(d.w);cur=d.w;swapT=.25;banner('New weapon: '+w.name,w.tip+' · unlimited ammo')}}else if(d.t>120)drops.splice(i,1)}
+  // counts per zone, and clearing a zone
+  countT-=dt;if(countT<0){countT=.4;for(const r of api.LOADED){let zs=0,down=0,hum=0;for(const p of r.P){if(isZ(p))zs++;else if(p.zs&&p.zs.st==='down')down++;else if(isHuman(p))hum++}count.set(r.theme,{zs,down,hum});
+    if(!cleared.has(r.theme)&&seeded.get(r.theme)===r&&zs===0&&down===0&&r.P.length){cleared.add(r.theme);saved.set(r.theme,hum);const all=ZONES.every(th=>cleared.has(th));
+     banner(all?'You cleared Skylight Galleria!':'Zone cleared!',all?'Every zone is safe again.':`${hum} survivors saved · ${cleared.size} of ${ZONES.length} zones cleared`,4)}}}
+  groanT-=dt;if(groanT<0){groanT=2+R()*3;const a=zombiesNear([P.x,0,P.z],14);if(a.length)groan(a[Math.floor(R()*a.length)])}
   // HUD
-  const CUR=api.CUR,Z=CUR&&zones.get(CUR.theme),left=Z?Z.zs.filter(z=>z.st!=='dead').length:0,title=CUR?(CUR.theme==='hub'?'The Mall':(typeof TITLES!=='undefined'&&TITLES[CUR.theme])||CUR.title||CUR.theme):'';
-  const zl=`${title} · ${Z&&cleared.has(CUR.theme)?'cleared':left+' zombies left'}<br><span style="font-size:12px;opacity:.85">Zones cleared ${cleared.size} / ${ZONES.length}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
+  const CUR=api.CUR,c=CUR&&count.get(CUR.theme),title=CUR?(CUR.theme==='hub'?'The Mall':(typeof TITLES!=='undefined'&&TITLES[CUR.theme])||CUR.title||CUR.theme):'';
+  const line=!c?'':cleared.has(CUR.theme)?`cleared · ${saved.get(CUR.theme)} survivors saved`:`${c.zs} zombies${c.down?` · ${c.down} turning`:''} · ${c.hum} people left`;
+  const zl=`${title} · ${line}<br><span style="font-size:12px;opacity:.85">Zones cleared ${cleared.size} / ${ZONES.length}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
   hud.hp.firstChild.style.width=health+'%';hud.gun.innerHTML=`${W[cur].name} <span style="opacity:.8">∞</span><div style="font-size:12px;opacity:.8">${owned.length} of ${WEAPONS.length} weapons · ${api.touchMode?'SWAP':'wheel / 1–7'} to switch</div>`;
   hud.red.style.opacity=hurtT>0?1:0;if(bannerT>0){bannerT-=dt;if(bannerT<=0)hud.banner.style.opacity=0}
   for(const e of fx)e.t+=dt;for(let i=fx.length-1;i>=0;i--)if(fx[i].t>fx[i].life)fx.splice(i,1);
   write(t)}
 
- // ---- instance data for drawing
- function write(t){let n=0;for(const Z of zones.values())for(const z of Z.zs){if(z.st==='dead'&&z.dead>6)continue;if(n>=400)break;
-   const sink=z.st==='dead'?Math.max(0,z.dead-4)*.25:0,c=z.flash>0?[.7,.05,.03]:z.burn>0?[.9,.35,.05]:z.slow>0?[.45,.7,.95]:z.col;
-   zData.set([z.x,z.y-sink,z.z,z.yaw,z.s,z.s,z.s,1,c[0],c[1],c[2],z.ph,0,0,z.st==='dead'?0:Math.min(1.2,z.spd*(z.st==='chase'?.9:.35)*(z.slow>0?.3:1)),z.st==='dead'?4:3],n*16);n++}
-  zomB.set(zData.subarray(0,n*16));
-  nF=0;const part=(x,y,z,yaw,sx,sy,sz,col,pitch,em)=>{if(nF>=900)return;fData.set([x,y,z,yaw,sx,sy,sz,8,col[0],col[1],col[2],0,pitch,0,em,0],nF*16);nF++};
-  // your gun, held in front of you
+ // ---- glowing parts: your gun, tracers, flashes, dropped weapons
+ function write(t){nF=0;const part=(x,y,z,yaw,sx,sy,sz,col,pitch,em)=>{if(nF>=900)return;fData.set([x,y,z,yaw,sx,sy,sz,8,col[0],col[1],col[2],0,pitch,0,em,0],nF*16);nF++};
   if(deadT<=0){const o=eye(),{f,r,u}=dirs(),w=W[cur],k=.46-recoil*.06-swapT*.6,p=[o[0]+r[0]*.24-u[0]*(.2+swapT*.4)+f[0]*k,o[1]+r[1]*.24-u[1]*(.2+swapT*.4)+f[1]*k,o[2]+r[2]*.24-u[2]*(.2+swapT*.4)+f[2]*k];
    const at=(df,du,dr)=>[p[0]+f[0]*df+u[0]*du+r[0]*dr,p[1]+f[1]*df+u[1]*du+r[1]*dr,p[2]+f[2]*df+u[2]*du+r[2]*dr];const pi=P.pitch+recoil*.08;
    const dark=[.06,.06,.07],L=w.id==='shotgun'||w.id==='rifle'?1.35:w.id==='smg'?1.05:1;
    const g1=at(0,0,0),g2=at(.12*L,.012,0),g3=at(-.1,-.07,0),g4=at(.03,.03,0);
    part(...g1,P.yaw,.045,.06,.2*L,dark,pi,0);part(...g2,P.yaw,.025,.025,.2*L,dark,pi,0);part(...g3,P.yaw,.04,.09,.045,dark,pi-.3,0);part(...g4,P.yaw,.05,.01,.12,w.col,pi,1.6)}
-  // tracers, flashes, sparks
   for(const e of fx){const a=1-e.t/e.life;if(e.k==='beam'){const[x0,y0,z0]=e.a,[x1,y1,z1]=e.b,dx=x1-x0,dy=y1-y0,dz=z1-z0,l=Math.hypot(dx,dy,dz);if(l<.01)continue;
     part((x0+x1)/2,(y0+y1)/2,(z0+z1)/2,Math.atan2(-dx,-dz),.012,.012,l,e.col,Math.asin(dy/l),4*a)}
    else part(...e.a,t*20,e.k==='flash'?.1:.07,e.k==='flash'?.1:.07,e.k==='flash'?.1:.07,e.col,t*13,(e.k==='flash'?8:3)*a)}
-  // hidden weapons: a glowing gun turning slowly above a ring of light
-  for(const Z of zones.values())for(const pk of Z.picks){if(pk.taken)continue;const w=W[pk.w],y=pk.y+.9+Math.sin(t*2)*.08,yaw=t*1.2;
-   part(pk.x,y,pk.z,yaw,.07,.1,.36,[.08,.08,.09],0,0);part(pk.x,y+.02,pk.z,yaw,.04,.04,.5,w.col,0,2.5);
-   for(let k=0;k<8;k++){const a=k/8*6.283;part(pk.x+Math.cos(a)*.5,pk.y+.03,pk.z+Math.sin(a)*.5,a,.12,.02,.04,w.col,0,3)}}
+  for(const d of drops){const w=W[d.w],y=d.y+.9+Math.sin(t*2)*.08,yaw=t*1.2;
+   part(d.x,y,d.z,yaw,.07,.1,.36,[.08,.08,.09],0,0);part(d.x,y+.02,d.z,yaw,.04,.04,.5,w.col,0,2.5);
+   for(let k=0;k<8;k++){const a=k/8*6.283;part(d.x+Math.cos(a)*.5,d.y+.03,d.z+Math.sin(a)*.5,a,.12,.02,.04,w.col,0,3)}}
   fxB.set(fData.subarray(0,nF*16))}
 
- showHud(true);banner('Zombie Mode','Clear every zone · unlimited ammo · find hidden weapons',4);
  // for automated tests: nearest live zombie and counts
- const debug=()=>{const a=live().map(z=>({x:z.x,y:z.y,z:z.z,hp:z.hp,d:Math.hypot(z.x-P.x,z.z-P.z)})).sort((p,q)=>p.d-q.d);return{alive:a.length,near:a[0],health,cur,owned}};
- return{debug,update,zomB,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,owned:()=>owned,
+ const debug=()=>{const a=zombiesNear([P.x,0,P.z],500).map(p=>({x:p.x,y:p.y,z:p.z,hp:p.zs.hp,st:p.zs.st,d:Math.hypot(p.x-P.x,p.z-P.z)})).sort((p,q)=>p.d-q.d);
+  let down=0,fleeing=0;for(const r of api.LOADED)for(const p of r.P){if(p.zs&&p.zs.st==='down')down++;if(p.zs&&p.zs.st==='flee')fleeing++}return{alive:a.length,down,fleeing,near:a[0],health,cur,owned,drops:drops.length,shots,hits:hitsN}};
+ showHud(true);banner('Zombie Mode','The outbreak spreads through the crowd · stop it in every zone',4);
+ return{debug,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,owned:()=>owned,
   // faster on your feet than in the normal mode
   walk:3.2,run:6.6,jump:6.4}}
