@@ -29,11 +29,12 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   let ph=c.w*6.2831+t*(1.6+d.z*1.5)*3.1416;
   var sw=sin(ph)*.48*mv;
   if(pose==1){sw=sin(t*.6+c.w*40.)*.05;}
-  if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2||pose==5){ang=-1.45;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
-  // poses: 0 walk, 1 stand, 2 sit, 3 zombie walk, 4 zombie fallen, 5 zombie feeding (crouched), 6 person pulled down
+  if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2||pose==5||pose==7){ang=-1.45;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  // poses: 0 walk, 1 stand, 2 sit, 3 zombie walk, 4 zombie fallen, 5 zombie feeding (crouched), 6 person pulled down, 7 cowering
   let zomb=pose>=3&&pose<=5;
-  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}if(pose==5){ang=-.6+sin(t*7.+f32(pt))*.25;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
-  if(pose==2||pose==5){p.y-=.43;}
+  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}if(pose==5){ang=-.6+sin(t*7.+f32(pt))*.25;}if(pose==7){ang=-2.75+sin(t*9.+c.w*30.)*.06;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  if(pose==2||pose==5||pose==7){p.y-=.43;}
+  if(pose==7){p=rx(p-vec3f(0.,.5,0.),.45)+vec3f(0.,.5,0.);n=rx(n,.45);}
   if(pose==5){p=rx(p-vec3f(0.,.5,0.),.85)+vec3f(0.,.5,0.);n=rx(n,.85);}
   if(pose==3){p=rx(p-vec3f(0.,.9,0.),.22)+vec3f(0.,.9,0.);n=rx(n,.22);}
   if(pose==4||pose==6){p=rx(p,-1.5708)+vec3f(0.,.14,0.);n=rx(n,-1.5708);}
@@ -370,6 +371,14 @@ fn inlay(wp:vec3f,w:f32)->f32{
  if(lt>=0.){let tl=vec2f(lt-16.*floor(lt/16.),floor(lt/16.));base=textureSampleGrad(lblT,smp,(tl+lu)/16.,gx/16.,gy/16.).rgb;emis=vec3f(0.);}
  return shade(wp,Ng,N,V,dist,base,rough,metal,emis);
 }
+// super low detail: flat colours lit by the sun and the sky, and fog; no textures, reflections, shadows or effects
+@fragment fn fsLow(i:VO)->@location(0)vec4f{
+ var N=normalize(i.n);let V0=u.cam.xyz-i.wp;let dist=length(V0);if(dot(N,V0)<0.){N=-N;}
+ let nk=u.nite.x;let L=normalize(u.sun.xyz);let ndl=max(dot(N,L),0.);
+ let amb=mix(vec3f(.5,.53,.58),vec3f(.2,.22,.3),nk)*(.72+.28*N.y);
+ var c=i.col*(amb+mix(vec3f(.65,.6,.52),vec3f(.08,.09,.14),nk)*ndl)+i.col*i.m.x*.6;
+ c=mix(c,mix(vec3f(.62,.7,.82),vec3f(.03,.04,.07),nk),1.-exp(-dist*u.fog.x*.8));
+ return vec4f(pow(clamp(c,vec3f(0.),vec3f(1.)),vec3f(1./2.2)),1.);}
 // ---- Poly Haven models and foliage cards: textured meshes, instanced ----
 struct MO{@builtin(position)pos:vec4f,@location(0)wp:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)@interpolate(flat)m:vec4f,@location(4)tint:vec3f};
 @vertex fn vsModel(@location(0)p4:vec4f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->MO{let p=p4.xyz;let lay=p4.w;

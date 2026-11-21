@@ -50,7 +50,7 @@ function makeZombieMode(api){
  const isZ=p=>p.zs&&(p.zs.st==='zombie'||p.zs.st==='eat');
  const isHuman=p=>!p.fur&&(!p.zs||p.zs.st==='flee'||p.zs.st==='cower');
  const blood=c=>[c[0]*.55+.2,c[1]*.35,c[2]*.35];
- function turn(p){const z=p.zs||(p.zs={});Object.assign(z,{st:'zombie',hp:100,spd:.55+R()*.45,tgt:null,think:R()*.6,atk:0,flash:0,burn:0,slow:0,gy:0,t:0,wx:p.x,wz:p.z});
+ function turn(p){const z=p.zs||(p.zs={});Object.assign(z,{st:'zombie',hp:100,spd:1+R()*.45,tgt:null,think:R()*.6,atk:0,flash:0,burn:0,slow:0,gy:0,t:0,wx:p.x,wz:p.z});
   p.zc=blood(p.c);p.pose=3}
  // a few shoppers in each zone are already infected when you first get there
  function seedZone(r){const th=r.theme;if(seeded.get(th)===r)return;seeded.set(th,r);if(cleared.has(th))return;
@@ -59,9 +59,10 @@ function makeZombieMode(api){
  function seedOfZ(t){let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return(h>>>0)+11}
 
  // ---- quick look-ups: who is near whom (rebuilt a few times a second)
- const CELL=6;let gridH=new Map(),gridZ=new Map(),gridT=0;
+ const CELL=6;let gridH=new Map(),gridZ=new Map(),gridF=new Map(),gridT=0;
  const key=(x,y,z)=>Math.floor(x/CELL)*73856093^Math.floor(z/CELL)*19349663^Math.floor(y/3)*83492791;
- function rebuild(){gridH=new Map();gridZ=new Map();for(const r of api.LOADED)for(const p of r.P){const g=isZ(p)?gridZ:isHuman(p)?gridH:null;if(!g)continue;const k=key(p.x,p.y,p.z);let a=g.get(k);if(!a)g.set(k,a=[]);a.push(p)}}
+ function rebuild(){gridH=new Map();gridZ=new Map();gridF=new Map();const add=(g,p)=>{const k=key(p.x,p.y,p.z);let a=g.get(k);if(!a)g.set(k,a=[]);a.push(p)};
+  for(const r of api.LOADED)for(const p of r.P){if(isZ(p))add(gridZ,p);else if(isHuman(p)){add(gridH,p);if(p.zs&&p.zs.st==='flee'&&p.zs.seen)add(gridF,p)}}}
  function nearest(g,x,y,z,max){let best=null,bd=max;const cx=Math.floor(x/CELL),cz=Math.floor(z/CELL),cy=Math.floor(y/3),n=Math.ceil(max/CELL);
   for(let i=-n;i<=n;i++)for(let j=-n;j<=n;j++)for(const dy of[0,-1,1]){const a=g.get((cx+i)*73856093^(cz+j)*19349663^(cy+dy)*83492791);if(!a)continue;
    for(const p of a){const d=Math.hypot(p.x-x,p.z-z);if(d<bd&&Math.abs(p.y-y)<2.5){bd=d;best=p}}}return best}
@@ -120,9 +121,14 @@ function makeZombieMode(api){
   // or pull someone down
   const h=z.tgt!=='you'&&z.tgt;if(h&&isHuman(h)&&Math.hypot(h.x-p.x,h.z-p.z)<.8&&Math.abs(h.y-p.y)<1){
    h.zs={st:'down',t:0,turn:TURN[0]+R()*(TURN[1]-TURN[0])};h.pose=6;h.zsp=0;h.zc=blood(h.c);h.yaw=p.yaw+Math.PI;z.st='eat';z.t=0;z.tgt=null;groan(p)}}
- function human(p,dt){const z=p.zs;const zz=nearest(gridZ,p.x,p.y,p.z,10);
-  if(zz){if(!z)p.zs={st:'flee',t:0};const s=p.zs;s.st='flee';s.t=0;const dx=p.x-zz.x,dz=p.z-zz.z,l=Math.hypot(dx,dz)||1;step(p,p.x+dx/l*4,p.z+dz/l*4,(p.base||1.3)*1.7,dt);p.zsp=1.5;p.pose=0}
-  else if(z){z.t+=dt;if(z.t>4){z.st='cower';p.pose=1;p.zsp=0}}}
+ // people are scared: they spot a zombie 22 m away and run (panic spreads to anyone near a runner); they sprint at
+ // first but tire after about 8 s; when nothing is chasing them they crouch and cover their heads (pose 7)
+ function human(p,dt){const z=p.zs;const zz=nearest(gridZ,p.x,p.y,p.z,22);let away=null;
+  if(zz)away=[p.x-zz.x,p.z-zz.z];else{const f=nearest(gridF,p.x,p.y,p.z,6);if(f&&f!==p)away=[Math.sin(f.yaw),Math.cos(f.yaw)]}
+  // only people who can see a zombie spread the panic, so it doesn't snowball through the whole mall
+  if(away){if(!z)p.zs={st:'flee',t:0,run:0};const s=p.zs;s.st='flee';s.t=0;s.seen=!!zz;s.run=(s.run||0)+dt;const l=Math.hypot(...away)||1,sp=(p.base||1.3)*(s.run<8?1.9:1.15);
+   step(p,p.x+away[0]/l*4,p.z+away[1]/l*4,sp,dt);p.zsp=Math.min(1.6,sp*.7);p.pose=0}
+  else if(z){z.t+=dt;z.run=Math.max(0,(z.run||0)-dt*.5);if(z.t>2.5){z.st='cower';p.pose=7;p.zsp=0}}}
 
  function damage(n){if(deadT>0)return;health-=n;hurtT=.4;if(health<=0){health=0;deadT=2.5;banner('You were bitten','Back to the start of this zone…')}}
  function respawn(){const r=api.CUR||api.HUB,d=r.doors[0],inx=-d.dx||0,inz=-d.dz||0;P.x=d.x+inx*4;P.z=d.z+inz*4;P.y=api.EYE+.1;api.settle();health=100;

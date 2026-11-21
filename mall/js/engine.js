@@ -7,6 +7,7 @@ const MODE=QS.get('mode')==='zombies'?'zombies':'';let ZM=null;
 const coarse=matchMedia('(pointer:coarse)').matches;
 let detail=coarse?1:2;try{const d=localStorage.skyMallDetail;if(d!=null)detail=+d}catch{}
 if(QS.has('d'))detail=+QS.get('d');
+// detail: -1 super low (flat shapes, one pass, no effects), 0 low, 1 medium, 2 high
 const SCALE=[.5,.75,1],BLV=6,tick=()=>new Promise(r=>setTimeout(r,16));
 const prog=v=>bar.style.transform=`scaleX(${v})`;
 const fail=t=>{body.classList.add('e');msg.textContent=t};
@@ -197,11 +198,11 @@ function buildLights(){const all=LOADED.flatMap(r=>r.lights);let x0=1e9,x1=-1e9,
  const ga=new Uint32Array(2*NC*STRIDE);lists.forEach((a,k)=>{a.sort((p,q)=>p[0]-q[0]);const n=Math.min(MAXL,a.length);ga[k*STRIDE]=n;for(let j=0;j<n;j++)ga[k*STRIDE+1+j]=a[j][1]});
  lightBuf?.destroy();gridBuf?.destroy();lightBuf=buf(lb,GU.STORAGE);gridBuf=buf(ga,GU.STORAGE);LGRID=[LOX,LOZ,LC,LCOLS,LROWS];return all.length}
 // sign atlas: every loaded region's shop names and signs
-const AW=detail===0?1024:2048,AH=AW*3,amips=Math.floor(Math.log2(AH))+1;
+const AW=detail<=0?1024:2048,AH=AW*3,amips=Math.floor(Math.log2(AH))+1;
 const atlas=device.createTexture({size:[AW,AH],format:'rgba8unorm',mipLevelCount:amips,usage:TB|CD|RA});
 const atlasC=document.createElement('canvas');atlasC.width=AW;atlasC.height=AH;
 // printed labels for packaged goods (js/labels.js), drawn once
-const LBW=detail===0?1024:2048,lmips=Math.floor(Math.log2(LBW))+1,lblT=device.createTexture({size:[LBW,LBW],format:'rgba8unorm-srgb',mipLevelCount:lmips,usage:TB|CD|RA});
+const LBW=detail<=0?1024:2048,lmips=Math.floor(Math.log2(LBW))+1,lblT=device.createTexture({size:[LBW,LBW],format:'rgba8unorm-srgb',mipLevelCount:lmips,usage:TB|CD|RA});
 {const lc=makeLabels(LBW);let prev=lc;for(let l=0;l<lmips;l++){const w=Math.max(1,LBW>>l);let src=lc;if(l){src=document.createElement('canvas');src.width=src.height=w;const g2=src.getContext('2d');g2.imageSmoothingQuality='high';g2.drawImage(prev,0,0,w,w)}
  device.queue.copyExternalImageToTexture({source:src},{texture:lblT,mipLevel:l},[w,w]);prev=src}}
 function buildAtlas(){const g=atlasC.getContext('2d');g.fillStyle='#000';g.fillRect(0,0,AW,AH);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';
@@ -295,7 +296,7 @@ function bakeVis(r){const g=r.gs,vx=Math.ceil(g.nx/2),vy=Math.ceil(g.ny/2),vz=Ma
  const occ=device.createTexture({size:[g.nx,g.ny,g.nz],dimension:'3d',format:'r8uint',usage:TB|CD});
  device.queue.writeTexture({texture:occ},g.d,{bytesPerRow:g.nx,rowsPerImage:g.ny},[g.nx,g.ny,g.nz]);
  visTex.destroy();visTex=device.createTexture({size:[vx,vy,vz],dimension:'3d',format:'rgba8unorm',usage:TB|TU.STORAGE_BINDING});
- const rays=QS.has('rays')?[+QS.get('rays'),4]:[[10,20,32][detail],[8,12,16][detail]];
+ const rays=QS.has('rays')?[+QS.get('rays'),4]:[[10,20,32][Math.max(0,detail)],[8,12,16][Math.max(0,detail)]];
  const vb=buf(new Float32Array([rays[0],rays[1],r===HUB?1:0,0,g.x0,g.y0,g.z0,0,g.nx,g.ny,g.nz,0]),GU.UNIFORM);
  const e=device.createCommandEncoder(),c=e.beginComputePass();c.setPipeline(visPipe);
  c.setBindGroup(0,device.createBindGroup({layout:visPipe.getBindGroupLayout(0),entries:[{binding:0,resource:occ.createView()},{binding:1,resource:visTex.createView()},{binding:2,resource:{buffer:vb}}]}));
@@ -356,6 +357,9 @@ const[dynPipe,dynShPipe]=await Promise.all([
   primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
  device.createRenderPipelineAsync({layout:shPipe.getBindGroupLayout?'auto':'auto',vertex:{module:shMod,entryPoint:'vsDyn',buffers:VBUF2},primitive:{topology:'triangle-list',cullMode:'none'},
   depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:3,depthBiasSlopeScale:3}})]);
+const lowPipe=(vs,buffers,cull)=>device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:vs,buffers},fragment:{module:sceneMod,entryPoint:'fsLow',targets:[{format:fmt}]},
+ primitive:{topology:'triangle-list',cullMode:cull},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
+const[sceneLow,dynLow]=await Promise.all([lowPipe('vs',VBUF,'back'),lowPipe('vsDyn',VBUF2,'none')]);
 const drawDyn=(p,mesh,g)=>{if(!g.n)return;p.setVertexBuffer(0,mesh.vb);p.setIndexBuffer(mesh.ib,mesh.fmt||'uint16');p.setVertexBuffer(1,g.b);p.drawIndexed(mesh.n,g.n)};
 const fsPipe=(code,ep,targets)=>{const m=device.createShaderModule({code});return device.createRenderPipelineAsync({layout:'auto',vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:ep,targets},primitive:{topology:'triangle-list'}})};
 const ADD={color:{srcFactor:'one',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one',operation:'add'}},H16={format:'rgba16float'};
@@ -363,7 +367,7 @@ const[fxPipe,combPipe,down0Pipe,downPipe,upPipe,finalPipe]=await Promise.all([fs
  fsPipe(BLOOM_WGSL,'fsDown0',[H16]),fsPipe(BLOOM_WGSL,'fsDown',[H16]),fsPipe(BLOOM_WGSL,'fsUp',[{format:'rgba16float',blend:ADD}]),fsPipe(FINAL_WGSL,'fs',[{format:fmt}])]);
 
 
-const SHW=detail?4096:2048,shTex=device.createTexture({size:[SHW,SHW/2],format:'depth32float',usage:TB|RA}),shV=shTex.createView();
+const SHW=detail>0?4096:2048,shTex=device.createTexture({size:[SHW,SHW/2],format:'depth32float',usage:TB|RA}),shV=shTex.createView();
 const modelShBG=device.createBindGroup({layout:modelShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}},{binding:1,resource:mAlbT.createView({dimension:'2d-array'})},{binding:2,resource:rep}]});
 const shBG=device.createBindGroup({layout:shPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]}),dynShBG=device.createBindGroup({layout:dynShPipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:ubuf}}]});
 function shadowPass(){ub.set(lightMat(),48);if(SK.has('shadow'))return;device.queue.writeBuffer(ubuf,0,ub);const e=device.createCommandEncoder(),p=e.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:shV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'store'}});
@@ -376,9 +380,11 @@ const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),
 
 let T=null;
 function resize(){
- const lim=device.limits.maxTextureDimension2D,k=Math.min(devicePixelRatio||1,2)*SCALE[detail];
+ const low=detail<0,lim=device.limits.maxTextureDimension2D,k=low?Math.min(devicePixelRatio||1,1.5)*.5:Math.min(devicePixelRatio||1,2)*SCALE[detail];
  const W=Math.min(lim,Math.max(16,Math.round(innerWidth*k))),H=Math.min(lim,Math.max(16,Math.round(innerHeight*k)));
- if(T&&T.W===W&&T.H===H)return;if(T)T.list.forEach(t=>t.destroy());
+ if(T&&T.W===W&&T.H===H&&T.low===low)return;if(T)T.list.forEach(t=>t.destroy());
+ if(low){cv.width=W;cv.height=H;const list=[],d=device.createTexture({size:[W,H],format:'depth24plus',usage:RA});list.push(d);T={W,H,list,low,depthV:d.createView()};
+  if(SNAP){T.snapTex=device.createTexture({size:[W,H],format:fmt,usage:RA|TU.COPY_SRC});list.push(T.snapTex)}return}
  cv.width=W;cv.height=H;const list=[],mk=(w,h,f,u,sc=1)=>{const t=device.createTexture({size:[w,h],format:f,usage:u,sampleCount:sc});list.push(t);return t.createView()};
  const hw=Math.max(1,W>>1),hh=Math.max(1,H>>1);
  const t={W,H,list,mC:mk(W,H,'rgba16float',RA,4),mG:mk(W,H,'rgba16float',RA,4),mA:mk(W,H,'rgba8unorm',RA,4),depthV:mk(W,H,'depth24plus',RA,4),
@@ -590,9 +596,10 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 
 
 /* ---------- menu ---------- */
+// detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
-const setDetail=d=>{detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i===d));try{localStorage.skyMallDetail=d}catch{}resize()};setDetail(detail);
-qb.forEach((b,i)=>b.onclick=()=>setDetail(i));
+const setDetail=d=>{detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i-1===d));try{localStorage.skyMallDetail=d}catch{}resize()};setDetail(detail);
+qb.forEach((b,i)=>b.onclick=()=>setDetail(i-1));
 function play(){playing=true;body.classList.add('g');startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
 function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;if(locked())document.exitPointerLock()}
 $('d').onclick=play;$('o').onclick=pause;
@@ -636,6 +643,12 @@ function frame(now){
  device.queue.writeBuffer(ubuf,0,ub);
  pp.set([QS.has('dbg')?0:.045,(QS.has('ex')?+QS.get('ex'):1.15)*(1-.5*nk),t%97,QS.has('dbg')||QS.has('ex')?1:0]);device.queue.writeBuffer(pbuf,0,pp);
  const enc=device.createCommandEncoder();
+ let cur;
+ if(T.low){cur=SNAP?T.snapTex:ctx.getCurrentTexture();const nk2=nightK,sc=[.62*(1-nk2)+.03*nk2,.7*(1-nk2)+.04*nk2,.82*(1-nk2)+.07*nk2];
+  const q=enc.beginRenderPass({colorAttachments:[{view:cur.createView(),clearValue:{r:sc[0]**2.2,g:sc[1]**2.2,b:sc[2]**2.2,a:1},loadOp:'clear',storeOp:'store'}],depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
+  q.setBindGroup(0,sceneBG);q.setVertexBuffer(0,cubeVB);q.setVertexBuffer(1,instB.b);q.setIndexBuffer(cubeIB,'uint16');if(instB.n){q.setPipeline(sceneLow);drawCells(q,instCells,36)}
+  q.setPipeline(dynLow);drawDyn(q,MESH.person,pplB);for(const k of RIDEKIND)drawDyn(q,MESH[k],rideB[k]);if(ZM)drawDyn(q,MESH.unit,ZM.fxB);q.end()}
+ else{
  let p=enc.beginRenderPass({colorAttachments:[
    {view:T.mC,resolveTarget:T.hdrV,clearValue:{r:0,g:0,b:0,a:1},loadOp:'clear',storeOp:'discard'},
    {view:T.mG,resolveTarget:T.gbV,clearValue:{r:0,g:0,b:6e4,a:0},loadOp:'clear',storeOp:'discard'},
@@ -654,7 +667,7 @@ function frame(now){
  fsPass(T.litV,0,combPipe,T.combBG);
  for(let i=0;i<BLV;i++)fsPass(T.dv[i],0,i?downPipe:down0Pipe,T.downBG[i]);
  for(let i=BLV-2;i>=0;i--)fsPass(T.dv[i],1,upPipe,T.upBG[i]);
- const cur=SNAP?T.snapTex:ctx.getCurrentTexture();fsPass(cur.createView(),0,finalPipe,T.finalBG);
+  cur=SNAP?T.snapTex:ctx.getCurrentTexture();fsPass(cur.createView(),0,finalPipe,T.finalBG)}
  let snapBuf=null;const bpr=Math.ceil(T.W*4/256)*256;
  if(SNAP&&frames===+QS.get('snap')){snapBuf=device.createBuffer({size:bpr*T.H,usage:GU.COPY_DST|GU.MAP_READ});enc.copyTextureToBuffer({texture:cur},{buffer:snapBuf,bytesPerRow:bpr},[T.W,T.H])}
  device.queue.submit([enc.finish()]);

@@ -30,7 +30,7 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 
 ## Zombie Mode
 
-Pick **Zombie Mode** on the menu (or open `index.html?mode=zombies`). It is always night, and the mall is as busy as ever, but a few of the shoppers in every zone are zombies. A zombie goes for the nearest person (or for you, if you're close), pulls them down and feeds; 10 to 16 seconds later the victim gets up as a zombie too, with grey-green skin and blood on their mouth and clothes, so the outbreak spreads through the crowd. People nearby run away. Nobody new appears: a zone is cleared when no zombies are left and nobody is still turning, and the top of the screen shows the zombies, people turning and people left in your zone, and how many zones you've cleared. You run faster and jump higher than in the normal mode; if they bite you to nothing you go back to the start of the zone.
+Pick **Zombie Mode** on the menu (or open `index.html?mode=zombies`). It is always night, and the mall is as busy as ever, but a few of the shoppers in every zone are zombies. Zombies walk as fast as the shoppers. A zombie goes for the nearest person (or for you, if you're close), pulls them down and feeds; 10 to 16 seconds later the victim gets up as a zombie too, with grey-green skin and blood on their mouth and clothes, so the outbreak spreads through the crowd. People are scared: they spot a zombie from 22 m and run, panic spreads to anyone next to them, they tire after a few seconds of sprinting, and once nothing is chasing them they crouch and cover their heads. Nobody new appears: a zone is cleared when no zombies are left and nobody is still turning, and the top of the screen shows the zombies, people turning and people left in your zone, and how many zones you've cleared. You run faster and jump higher than in the normal mode; if they bite you to nothing you go back to the start of the zone.
 
 You have a pistol with unlimited bullets. Each zombie you kill has a 5% chance to drop a weapon you don't have yet (a glowing gun on a ring of light), each with its own spread and kind of damage:
 
@@ -92,6 +92,9 @@ The map is fixed: the same districts, in the same order, laid out the same way, 
 - **Ambient light:** a GPU pass works out how much sky each spot in the mall can see, so daylight fades naturally into the shops.
 
 ## Speed
+
+The **Super low** detail setting on the menu (or `?d=-1`) is for the highest frame rate, on phones or for testing: it draws only flat-coloured shapes in a single pass at half resolution, with no textures, furniture, trees, glass, reflections, light shafts, shadows or bloom.
+
 
 The mall only draws what is in front of the camera. Everything is grouped into 16 m cells when an area loads, and cells outside the view are skipped each frame. Shadows, sky light and reflections still use the whole scene, so nothing looks different. Furniture and props also switch to lighter versions once they are far enough away that the difference is smaller than a pixel. Together these cut the triangles drawn per frame by about 3× in the mall and 7–11× in the market and department store. Add `?nocull` to the address to turn both off for comparison.
 
