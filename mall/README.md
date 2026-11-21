@@ -93,7 +93,7 @@ The map is fixed: the same districts, in the same order, laid out the same way, 
 
 ## Speed
 
-The **Super low** detail setting on the menu (or `?d=-1`) is for the highest frame rate, on phones or for testing: it draws only flat-coloured shapes in a single pass at half resolution, with no textures, furniture, trees, glass, reflections, light shafts, shadows or bloom.
+The **Super low** detail setting on the menu (or `?d=-1`) is for the highest frame rate, on phones or for testing: it draws only flat-coloured shapes in a single pass at full resolution, with no textures, furniture, trees, glass, reflections, light shafts, shadows or bloom.
 
 
 The mall only draws what is in front of the camera. Everything is grouped into 16 m cells when an area loads, and cells outside the view are skipped each frame. Shadows, sky light and reflections still use the whole scene, so nothing looks different. Furniture and props also switch to lighter versions once they are far enough away that the difference is smaller than a pixel. Together these cut the triangles drawn per frame by about 3× in the mall and 7–11× in the market and department store. Add `?nocull` to the address to turn both off for comparison.

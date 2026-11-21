@@ -380,7 +380,7 @@ const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),
 
 let T=null;
 function resize(){
- const low=detail<0,lim=device.limits.maxTextureDimension2D,k=low?Math.min(devicePixelRatio||1,1.5)*.5:Math.min(devicePixelRatio||1,2)*SCALE[detail];
+ const low=detail<0,lim=device.limits.maxTextureDimension2D,k=low?Math.min(devicePixelRatio||1,2):Math.min(devicePixelRatio||1,2)*SCALE[detail];
  const W=Math.min(lim,Math.max(16,Math.round(innerWidth*k))),H=Math.min(lim,Math.max(16,Math.round(innerHeight*k)));
  if(T&&T.W===W&&T.H===H&&T.low===low)return;if(T)T.list.forEach(t=>t.destroy());
  if(low){cv.width=W;cv.height=H;const list=[],d=device.createTexture({size:[W,H],format:'depth24plus',usage:RA});list.push(d);T={W,H,list,low,depthV:d.createView()};
