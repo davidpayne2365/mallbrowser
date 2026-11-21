@@ -24,6 +24,8 @@ Controls: you walk through the mall on foot, in first person.
 | Jump | Space | |
 | Ride | Step onto a glowing green pad at a fair ride; Space hops off early | Step onto the pad |
 
+**Game controllers** work too (any pad the browser recognises): left stick or d-pad to walk, right stick to look, A to jump or hop off a ride, RB, RT or a stick click to run, Y to fly, B to fly down, X for day and night, Back to return to the main concourse, and Start for the menu.
+
 The ⛶ button toggles full screen, and phones go full screen when you enter. Other keys: 1–6 jump to viewpoints, N switches day and night, F toggles flying, H shows stats, M mutes, and Esc opens the menu.
 
 ## What's in it

@@ -450,7 +450,7 @@ function boardCheck(){for(const r of LOADED)for(const b of r.boards||[]){if(Math
   for(let i=0;i<a.length/16;i++){if(b.dz!==undefined&&Math.abs(a[i*16+14]-b.dz)>.01)continue;const p=seatPos(r,b.mesh,i,tt);if(p[1]>b.top)continue;const d=b.near?Math.hypot(p[0]-P.x,p[2]-P.z):Math.hypot(p[0]-b.x,p[2]-b.z);if(d<bd){bd=d;best=i}}
   if(best<0)continue;const sp=Math.abs(a[best*16+12])||.1,lap=Math.min(90,2*Math.PI/sp);
   const p=seatPos(r,b.mesh,best,tt),side=b.mesh==='drop'?(()=>{const dx=P.x-p[0],dz=P.z-p[2],l=Math.hypot(dx,dz)||1;return[dx/l*2.3,dz/l*2.3]})():[0,0];
-  P.carry={r,b,i:best,end:tt+lap*b.laps,side};footstep(false);return true}
+  P.carry={r,b,i:best,end:tt+lap*b.laps,side};return true}
  return false}
 function carryStep(){const C=P.carry,tt=rideClock();if(tt>=C.end||tt<C.end-200||keys.has('Space')){P.x=C.b.out[0];P.z=C.b.out[1];P.y=EYE+1;P.carry=null;P.jumped=true;settle();return}
  const p=seatPos(C.r,C.b.mesh,C.i,tt);P.x=p[0]+C.side[0];P.z=p[2]+C.side[1];P.feet=p[1]+(SEAT[C.b.mesh]??0);P.ey=P.feet+1.05;P.y=P.ey;P.vx=P.vz=P.vy=0}
@@ -459,13 +459,25 @@ function rideStep(dt){const R=P.ride,s=R.s,p=s.p,L=s.L;let i=0;while(i<L.length-
  R.v=Math.max(3,Math.min(13,R.v+dt*(slope*14-.8)));R.d+=R.v*dt;
  P.x=a[0]+(b[0]-a[0])*k;P.z=a[2]+(b[2]-a[2])*k;P.feet=a[1]+(b[1]-a[1])*k+.05;P.ey=P.feet+1.05;P.y=P.ey;
  const ty=Math.atan2(-(b[0]-a[0]),-(b[2]-a[2]));P.yaw=angLerp(P.yaw,ty,Math.min(1,dt*6));P.pitch+=(-.35-P.pitch)*Math.min(1,dt*2);
- if(R.d>=L[L.length-1]){const dx=b[0]-a[0],dz=b[2]-a[2],l=Math.hypot(dx,dz)||1;P.vx=dx/l*R.v*.5;P.vz=dz/l*R.v*.5;P.vy=2;grounded=false;P.ride=null;footstep(true)}}
+ if(R.d>=L[L.length-1]){const dx=b[0]-a[0],dz=b[2]-a[2],l=Math.hypot(dx,dz)||1;P.vx=dx/l*R.v*.5;P.vz=dz/l*R.v*.5;P.vy=2;grounded=false;P.ride=null}}
+// game controllers (standard mapping): left stick or d-pad walks, right stick looks, A jumps / hops off a ride,
+// RB, RT or a stick click runs, B flies down, Y toggles flying, X day and night, Back returns to the concourse, Start opens the menu
+const PADKEYS={0:'Space',1:'KeyC',2:'KeyN',3:'KeyF',8:'KeyR'};let padPrev=[],padMove=[0,0],padRun=false;
+const padKey=(type,code)=>dispatchEvent(new KeyboardEvent(type,{code,key:code}));
+function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamepads?.()||[])].find(g=>g&&g.connected);if(!gp)return;
+ const b=gp.buttons.map(x=>x.pressed||x.value>.5),dz=v=>Math.abs(v||0)<.15?0:(v-Math.sign(v)*.15)/.85,edge=i=>b[i]&&!padPrev[i];
+ if(edge(9))padKey('keydown','Escape');
+ if(playing){for(const[i,code]of Object.entries(PADKEYS)){if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
+  padMove=[-dz(gp.axes[1])+(b[12]?1:0)-(b[13]?1:0),dz(gp.axes[0])+(b[15]?1:0)-(b[14]?1:0)];padRun=!!(b[5]||b[7]||b[10]);
+  P.yaw-=dz(gp.axes[2])*2.6*dt;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt))}
+ padPrev=b}
 function update(dt){
+ readPad(dt);
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
- if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true}
- f=Math.max(-1,Math.min(1,f));
+ if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true;f+=padMove[0];s+=padMove[1];if(padRun)fast=true}
+ f=Math.max(-1,Math.min(1,f));s=Math.max(-1,Math.min(1,s));
  if(P.carry&&!fly){carryStep();const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(P.ride&&!fly){rideStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(fly){
@@ -491,8 +503,8 @@ function update(dt){
  if(grounded&&playing&&rideStart())return{fwd};
  if(grounded&&playing&&boardCheck())return{fwd};
  if(grounded&&playing&&keys.has('Space')&&!P.jumped){P.vy=4.6;P.feet+=.02;grounded=false;P.jumped=true}if(!keys.has('Space'))P.jumped=false;
- // eye height eases over steps; a light bob while walking; footsteps
- const moved=Math.hypot(P.x-ox,P.z-oz);if(grounded){bobPh+=moved*Math.PI/.75;stepDist+=moved;if(stepDist>.75){stepDist=0;footstep(fast)}}
+ // eye height eases over steps; a light bob while walking
+ const moved=Math.hypot(P.x-ox,P.z-oz);if(grounded){bobPh+=moved*Math.PI/.75;stepDist+=moved}
  const target=P.feet+EYE+Math.sin(bobPh)*.025*Math.min(1,moved/dt/2);
  P.ey+=(target-P.ey)*Math.min(1,dt*(grounded?14:30));P.y=P.ey;
  return{fwd}}
@@ -560,9 +572,6 @@ function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioCon
    for(let q=0;q<4;q++)if(Math.random()<.55)note(c[Math.floor(Math.random()*4)]+12,next+q+Math.random()*.2,.9,.03,'sine');next+=4}
   for(const sp of SPK)if(sp.shop){if(sp.next<now)sp.next=now+.05;while(sp.next<now+.25)playStep(sp)}
   ambTick(now)},60)}
-function footstep(run){if(!actx||actx.state!=='running')return;const t0=actx.currentTime,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
- s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=run?1500:1100+Math.random()*400;f.Q.value=1.2;g.gain.setValueAtTime(run?.22:.15,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.07);
- s.connect(f);f.connect(g);g.connect(master);s.start(t0,Math.random()*1.5);s.stop(t0+.09);kick(master,t0,run?.12:.07)}
 function setMute(v){muted=v;if(master)master.gain.setTargetAtTime(v?0:.9,actx.currentTime,.1)}
 let audT=0;
 function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.listener,now=actx.currentTime;
