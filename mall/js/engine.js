@@ -5,7 +5,11 @@ const QS=new URLSearchParams(location.search);
 // game mode: '' (walk around) or 'zombies' (js/zombies.js); ZM is set once the world is built
 const MODE=QS.get('mode')==='zombies'?'zombies':'';let ZM=null;
 const coarse=matchMedia('(pointer:coarse)').matches;
-let detail=coarse?1:2;try{const d=localStorage.skyMallDetail;if(d!=null)detail=+d}catch{}
+// phones (and small tablets) get their own fast path: Super low by default, a shorter view, half the crowd,
+// smaller textures and a resolution that adjusts itself to hold the frame rate. ?phone=1 / ?phone=0 forces it.
+const PHONE=QS.has('phone')?QS.get('phone')!=='0':coarse&&Math.min(screen.width,screen.height)<900,DKEY=PHONE?'skyMallDetailPhone':'skyMallDetail';
+let detail=PHONE?-1:coarse?1:2;try{const d=localStorage[DKEY];if(d!=null)detail=+d}catch{}
+const PH_DRAW=95,PH_FOG=.035;let phScale=Math.min(devicePixelRatio||1,1.5);const phMax=phScale;
 if(QS.has('d'))detail=+QS.get('d');
 // detail: -1 super low (flat shapes, one pass, no effects), 0 low, 1 medium, 2 high
 const SCALE=[.5,.75,1],BLV=6,tick=()=>new Promise(r=>setTimeout(r,16));
@@ -102,7 +106,7 @@ function prepRegion(r){
   r.bb=[Math.min(...c.map(v=>v[0])),Math.max(...c.map(v=>v[0])),Math.min(...c.map(v=>v[1])),Math.max(...c.map(v=>v[1]))]}
  r.doors.forEach(d=>d.link=null);r.loadedOnce=true;
  r.slides=(r.slides||[]).map(p=>{const L=[0];for(let i=1;i<p.length;i++)L.push(L[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1],p[i][2]-p[i-1][2]));return{p,L}});
- buildCrowd(r);return r}
+ buildCrowd(r);if(PHONE&&r.P.length>12)r.P=r.P.filter((_,i)=>i%2===0);return r}
 // crowd for a region: a walking map (nodes + links), wanderers, diners/seated, shoppers in stores, staff
 function buildCrowd(r){const N=[],P=[];r.N=N;r.P=P;
  const nd=(x,y,z)=>{for(let i=N.length-1;i>=0;i--){const n=N[i];if(Math.abs(n.x-x)<.3&&n.y===y&&Math.abs(n.z-z)<.3)return i}N.push({x,y,z,nb:[],shop:null});return N.length-1};
@@ -183,7 +187,7 @@ function setFrustum(m){const R=i=>[m[i],m[4+i],m[8+i],m[12+i]],r0=R(0),r1=R(1),r
  [r3.map((v,k)=>v+r0[k]),r3.map((v,k)=>v-r0[k]),r3.map((v,k)=>v+r1[k]),r3.map((v,k)=>v-r1[k]),r2,r3.map((v,k)=>v-r2[k])].forEach((q,i)=>FR.set(q,i*4))}
 function inView(b){if(NOCULL)return true;for(let i=0;i<24;i+=4){const a=FR[i],c=FR[i+1],d=FR[i+2];if(a*(a>0?b[3]:b[0])+c*(c>0?b[4]:b[1])+d*(d>0?b[5]:b[2])+FR[i+3]<0)return false}return true}
 const DRAWN={tris:0};
-function drawCells(p,cells,ni){let s=-1,e=-1;for(const c of cells){if(!inView(c.b))continue;DRAWN.tris+=c.n*ni/3;if(c.first===e)e+=c.n;else{if(s>=0)p.drawIndexed(ni,e-s,0,0,s);s=c.first;e=c.first+c.n}}if(s>=0)p.drawIndexed(ni,e-s,0,0,s)}
+function drawCells(p,cells,ni){let s=-1,e=-1;const far=PHONE&&detail<0;for(const c of cells){if(!inView(c.b))continue;if(far){const b=c.b;if(Math.hypot(Math.max(b[0]-P.x,0,P.x-b[3]),Math.max(b[2]-P.z,0,P.z-b[5]))>PH_DRAW)continue}DRAWN.tris+=c.n*ni/3;if(c.first===e)e+=c.n;else{if(s>=0)p.drawIndexed(ni,e-s,0,0,s);s=c.first;e=c.first+c.n}}if(s>=0)p.drawIndexed(ni,e-s,0,0,s)}
 let instCells=[],glassCells=[];
 const cat=(key,fix)=>{const n=LOADED.reduce((s,r)=>s+(r[key]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r[key];if(!a)continue;out.set(a,o);if(fix)fix(out,o,a.length,r);o+=a.length}return out};
 let lightBuf=null,gridBuf=null,LGRID=[0,0,6,1,1],sceneBG=null,pplData=new Float32Array(0),NP=0;
@@ -251,10 +255,10 @@ async function texArray(list,format,TS){const TM=Math.log2(TS)+1,t=device.create
   device.queue.copyExternalImageToTexture({source:b},{texture:t,mipLevel:m,origin:[0,0,l]},[s,s]);b.close()}
  return t}
 // surface photos: full size on High, half size otherwise (a quarter of the memory, for phones)
-const MTS=detail>=2?1024:512,albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',MTS),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',MTS);
+const MTS=PHONE?256:detail>=2?1024:512,albT=await texArray(bms.slice(1,1+NMAT),'rgba8unorm-srgb',MTS),nrT=await texArray(bms.slice(1+NMAT),'rgba8unorm',MTS);
 // Poly Haven models and foliage cards
 let mres;try{mres=await modelP}catch(e){return fail('Could not load the 3D models ('+e.message+'). Check your connection and reload.')}
-const MS_=detail===2?512:256,mAlbT=await texArray(mres.slice(1).filter((_,i)=>i%2===0),'rgba8unorm-srgb',MS_),mNrT=await texArray(mres.slice(1).filter((_,i)=>i%2===1),'rgba8unorm',MS_);
+const MS_=PHONE?128:detail===2?512:256,mAlbT=await texArray(mres.slice(1).filter((_,i)=>i%2===0),'rgba8unorm-srgb',MS_),mNrT=await texArray(mres.slice(1).filter((_,i)=>i%2===1),'rgba8unorm',MS_);
 const mVB=buf(new Float32Array(mres[0],0,MODELS.vbytes/4),GU.VERTEX),mIB=buf(new Uint32Array(mres[0],MODELS.vbytes,MODELS.ibytes/4),GU.INDEX);
 const skyBm=bms[0],skyTex=device.createTexture({size:[skyBm.width,skyBm.height],format:'rgba8unorm',usage:TB|CD|RA});
 device.queue.copyExternalImageToTexture({source:skyBm},{texture:skyTex},[skyBm.width,skyBm.height]);
@@ -381,7 +385,7 @@ const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),
 
 let T=null;
 function resize(){
- const low=detail<0,lim=device.limits.maxTextureDimension2D,k=low?Math.min(devicePixelRatio||1,2):Math.min(devicePixelRatio||1,2)*SCALE[detail];
+ const low=detail<0,lim=device.limits.maxTextureDimension2D,k=low?(PHONE?phScale:Math.min(devicePixelRatio||1,2)):Math.min(devicePixelRatio||1,2)*SCALE[detail];
  const W=Math.min(lim,Math.max(16,Math.round(innerWidth*k))),H=Math.min(lim,Math.max(16,Math.round(innerHeight*k)));
  if(T&&T.W===W&&T.H===H&&T.low===low)return;if(T)T.list.forEach(t=>t.destroy());
  if(low){cv.width=W;cv.height=H;const list=[],d=device.createTexture({size:[W,H],format:'depth24plus',usage:RA});list.push(d);T={W,H,list,low,depthV:d.createView()};
@@ -611,7 +615,7 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 /* ---------- menu ---------- */
 // detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
-const setDetail=d=>{detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i-1===d));try{localStorage.skyMallDetail=d}catch{}resize()};setDetail(detail);
+const setDetail=d=>{if(detail<0&&d>=0)regionChanged=true;detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i-1===d));try{localStorage[DKEY]=d}catch{}resize()};setDetail(detail);
 qb.forEach((b,i)=>b.onclick=()=>setDetail(i-1));
 function play(){playing=true;body.classList.add('g');startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
 function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;if(locked())document.exitPointerLock()}
@@ -629,13 +633,14 @@ function inv4(m){const a=m,r=new Array(16);
  r[12]=(a[5]*b07-a[4]*b09-a[6]*b06)*d;r[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d;r[14]=(a[13]*b01-a[12]*b03-a[14]*b00)*d;r[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d;return r}
 
 const pp=new Float32Array(4),VP=new Array(16);
-let last=performance.now(),fpsT=0,fpsN=0,fps=0,frames=0,fogK=[.0016,.05,.045,.042];
+let phT=0,phN=0,last=performance.now(),fpsT=0,fpsN=0,fps=0,frames=0,fogK=[.0016,.05,.045,.042];
 // streaming: districts appear ahead of you, a minute's walk apart, and what you have left behind is dropped
 function stream(){const r=regionAt(P.x,P.z);if(r&&r!==CUR)enter(r);if(!CUR)return;
  for(const d of CUR.doors){if(d.link)continue;if(Math.hypot(P.x-d.x,P.z-d.z)<85)spawnAt(CUR,d)}
- if(dirty)rebuildWorld();if(regionChanged){regionChanged=false;bakeVis(CUR);makeSceneBG();shadowPass()}}
+ if(dirty)rebuildWorld();if(regionChanged){regionChanged=false;if(detail>=0)bakeVis(CUR);makeSceneBG();if(detail>=0)shadowPass()}}
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000);last=now;fpsT+=dt;fpsN++;if(fpsT>.5){fps=Math.round(fpsN/fpsT);fpsT=fpsN=0}
+ if(PHONE&&T.low&&playing){phT+=dt;phN++;if(phT>2){const f=phN/phT;phT=phN=0;const ns=f<48?Math.max(.6,phScale-.15):f>57?Math.min(phMax,phScale+.05):phScale;if(Math.abs(ns-phScale)>.01){phScale=ns;resize()}}}
  stream();
  const{fwd}=update(dt),t=now/1000;
  const e=[P.x,P.y,P.z],upv=[0,1,0],r=[fwd[1]*upv[2]-fwd[2]*upv[1],fwd[2]*upv[0]-fwd[0]*upv[2],fwd[0]*upv[1]-fwd[1]*upv[0]],rl=Math.hypot(...r);r[0]/=rl;r[1]/=rl;r[2]/=rl;
@@ -652,7 +657,7 @@ function frame(now){
  for(let i=0;i<3;i++)ub[84+i]=SKY.sunE[i]*SUNSCALE*(1-nk)+MOONC[i]*nk;ub[87]=.0022*(1-nk)+.003*nk;
  SKY.sh.forEach((c,i)=>{for(let j=0;j<3;j++)ub[104+i*4+j]=c[j]*(1-nk)+SKY.shN[i][j]*NGAIN/SKYSCALE*nk});
  ub.set([nk,SKY.KN*NGAIN,Math.cos(-betaN),Math.sin(-betaN)],140);ub[73]=1-.45*nk;
- const fg=[CUR&&CUR.fog||.0016,...(CUR&&CUR.fogCol||[.05,.045,.042])];for(let i=0;i<4;i++){fogK[i]+=(fg[i]-fogK[i])*Math.min(1,dt);ub[76+i]=fogK[i]}
+ const fg=[CUR&&CUR.fog||.0016,...(CUR&&CUR.fogCol||[.05,.045,.042])];for(let i=0;i<4;i++){fogK[i]+=(fg[i]-fogK[i])*Math.min(1,dt);ub[76+i]=fogK[i]}if(PHONE&&T.low)ub[76]=Math.max(ub[76],PH_FOG);
  device.queue.writeBuffer(ubuf,0,ub);
  pp.set([QS.has('dbg')?0:.045,(QS.has('ex')?+QS.get('ex'):1.15)*(1-.5*nk),t%97,QS.has('dbg')||QS.has('ex')?1:0]);device.queue.writeBuffer(pbuf,0,pp);
  const enc=device.createCommandEncoder();
