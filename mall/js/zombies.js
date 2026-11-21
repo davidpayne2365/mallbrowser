@@ -310,10 +310,10 @@ function makeZombieMode(api){
   if(ed(3))setForge(!forgeOpen);
   if(forgeOpen){padRepF-=dt;const d=[[12,-1,0],[13,1,0],[14,0,-1],[15,0,1]].find(([i])=>b[i]);if(d&&padRepF<=0){padRepF=.2;forgeMove(d[1],d[2])}else if(!d)padRepF=0;if(ed(0))forgeAct();if(ed(1))setForge(false)}
   padF=b}
- if(api.touchMode){for(const[lab,bot,dn,up]of[['LIGHT',90,toggleTorch,null],['ZOOM',132,()=>{aimM=true},()=>{aimM=false}]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
-   b.style.cssText=`position:fixed;z-index:6;left:16px;bottom:${bot}px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
+ if(api.touchMode){for(const[lab,bot,dn,up]of[['LIGHT',262,toggleTorch,null],['ZOOM',304,()=>{aimM=true},()=>{aimM=false}]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
+   b.style.cssText=`position:fixed;z-index:6;right:16px;bottom:${bot}px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
    b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dn()});if(up)for(const ev of['pointerup','pointercancel'])b.addEventListener(ev,up);document.body.appendChild(b)}}
- if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;left:16px;bottom:48px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
+ if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;right:16px;bottom:346px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();setForge(!forgeOpen)});document.body.appendChild(b)}
 
  // ---- every frame

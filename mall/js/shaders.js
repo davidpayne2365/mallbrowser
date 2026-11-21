@@ -1,7 +1,7 @@
 /* ============================== SHADERS ============================== */
 //WGSL-START
 const COMMON=`
-struct U{vp:mat4x4f,view:mat4x4f,ivp:mat4x4f,lvp:mat4x4f,cam:vec4f,grid:vec4f,misc:vec4f,fog:vec4f,sun:vec4f,sunC:vec4f,vis:vec4f,skyp:vec4f,scr:vec4f,proj:vec4f,sh:array<vec4f,9>,nite:vec4f,rgn:vec4f,fl:vec4f};
+struct U{vp:mat4x4f,view:mat4x4f,ivp:mat4x4f,lvp:mat4x4f,cam:vec4f,grid:vec4f,misc:vec4f,fog:vec4f,sun:vec4f,sunC:vec4f,vis:vec4f,skyp:vec4f,scr:vec4f,proj:vec4f,sh:array<vec4f,9>,nite:vec4f,rgn:vec4f,fl:vec4f,ph:vec4f};
 @group(0)@binding(0)var<uniform>u:U;
 // the player's flashlight: a wide cone from the eye (fl.xyz = direction, fl.w = brightness)
 fn torch(wp:vec3f,N:vec3f)->f32{if(u.fl.w<=0.){return 0.;}let d=u.cam.xyz+vec3f(0.,-.15,0.)-wp;let d2=dot(d,d);let Ld=d*inverseSqrt(max(d2,1e-4));
@@ -387,10 +387,10 @@ fn inlay(wp:vec3f,w:f32)->f32{
 @fragment fn fsLow(i:VO)->@location(0)vec4f{
  var N=normalize(i.n);let V0=u.cam.xyz-i.wp;let dist=length(V0);if(dot(N,V0)<0.){N=-N;}
  let nk=u.nite.x;let L=normalize(u.sun.xyz);let ndl=max(dot(N,L),0.);
- let amb=mix(vec3f(.5,.53,.58),vec3f(.2,.22,.3),nk)*(.72+.28*N.y);
+ let amb=mix(vec3f(.5,.53,.58),vec3f(.2,.22,.3)+vec3f(.24,.23,.2)*u.ph.x,nk)*(.72+.28*N.y)*(1.+.15*u.ph.x);
  var c=i.col*(amb+mix(vec3f(.65,.6,.52),vec3f(.08,.09,.14),nk)*ndl)+i.col*i.m.x*.6;
  c+=i.col*vec3f(1.,.94,.82)*torch(i.wp,N)*.8;
- c=mix(c,mix(vec3f(.62,.7,.82),vec3f(.03,.04,.07),nk),1.-exp(-dist*u.fog.x*.8));
+ c=mix(c,mix(vec3f(.62,.7,.82),mix(vec3f(.03,.04,.07),vec3f(.13,.14,.19),u.ph.x),nk),1.-exp(-dist*u.fog.x*.8));
  return vec4f(pow(clamp(c,vec3f(0.),vec3f(1.)),vec3f(1./2.2)),1.);}
 // ---- Poly Haven models and foliage cards: textured meshes, instanced ----
 struct MO{@builtin(position)pos:vec4f,@location(0)wp:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)@interpolate(flat)m:vec4f,@location(4)tint:vec3f};

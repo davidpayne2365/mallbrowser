@@ -283,8 +283,8 @@ function lightMat(){const f=SUN.map(v=>-v);let r=[1-f[0]*f[0],-f[0]*f[1],-f[0]*f
  return[r[0]*sx,uu[0]*sy,f[0]*sz,0,r[1]*sx,uu[1]*sy,f[1]*sz,0,r[2]*sx,uu[2]*sy,f[2]*sz,0,-cx*sx,-cy*sy,-z0*sz,1]}
 
 // uniforms
-const ubuf=device.createBuffer({size:608,usage:GU.UNIFORM|GU.COPY_DST}),pbuf=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
-const ub=new Float32Array(152);
+const ubuf=device.createBuffer({size:624,usage:GU.UNIFORM|GU.COPY_DST}),pbuf=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
+const ub=new Float32Array(156);ub[152]=PHONE?1:0;
 ub.set([0,0,6,1,1,1,ACOLS,AROWS,.0016,.05,.045,.042,...SUN,1,...SKY.sunE.map(v=>v*SUNSCALE),QS.has('vol')?+QS.get('vol'):.0022,-150,-1,-85,1,SKY.K,SKYSCALE,Math.cos(-beta),Math.sin(-beta)],68);
 SKY.sh.forEach((c,i)=>ub.set(c,104+i*4));ub.set([1,0,0,0],144);
 
@@ -427,19 +427,27 @@ let titleT=0;function showTitle(r){const el=$('t');if(!el)return;el.textContent=
 const keys=new Set(),ptrs=new Map();let primary=null,playing=false,stats=false,muted=false;
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 // controls: mouse look (click to capture the pointer) and WASD; on phones hold to walk, drag to look, two fingers to run
-const touchMode=coarse;let touches=0,lookId=null;const joyV={x:0,y:0};
+const touchMode=coarse;let touches=0,lookId=null,moveId=null,joy0=null;const joyV={x:0,y:0},JR=58;
+// touch: a thumbstick appears wherever your left thumb lands (left side of the screen); the rest of the screen looks around
+const stickB=document.createElement('div'),stickK=document.createElement('div');
+stickB.style.cssText=`position:fixed;z-index:5;width:${JR*2}px;height:${JR*2}px;margin:-${JR}px 0 0 -${JR}px;border-radius:50%;border:2px solid rgba(255,255,255,.45);background:rgba(0,0,0,.18);pointer-events:none;left:${JR+34}px;top:calc(100vh - ${JR+60}px);opacity:.45;display:none`;
+stickK.style.cssText='position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.8)';
+stickB.appendChild(stickK);document.body.appendChild(stickB);
+const stickHome=()=>{stickB.style.left=(JR+34)+'px';stickB.style.top=`calc(100vh - ${JR+60}px)`;stickB.style.opacity=.45;stickK.style.transform=''};
 const look=(dx,dy,k)=>{P.yaw-=dx*k;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dy*k))};
 const locked=()=>document.pointerLockElement===cv;
 const lockMouse=()=>{try{const r=cv.requestPointerLock?.();if(r&&r.catch)r.catch(()=>{})}catch{}};
 cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCapture(e.pointerId)}catch{}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
- if(e.pointerType==='touch'){touches++;if(lookId===null)lookId=e.pointerId;return}
+ if(e.pointerType==='touch'){if(moveId===null&&e.clientX<innerWidth*.42&&e.clientY>innerHeight*.3){moveId=e.pointerId;joy0={x:e.clientX,y:e.clientY};stickB.style.left=e.clientX+'px';stickB.style.top=e.clientY+'px';stickB.style.opacity=1;return}
+  touches++;if(lookId===null)lookId=e.pointerId;return}
  if(!locked())lockMouse()});
-cv.addEventListener('pointermove',e=>{if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+cv.addEventListener('pointermove',e=>{if(e.pointerId===moveId){let dx=e.clientX-joy0.x,dy=e.clientY-joy0.y;const l=Math.hypot(dx,dy);if(l>JR){dx*=JR/l;dy*=JR/l}joyV.x=dx/JR;joyV.y=dy/JR;stickK.style.transform=`translate(${dx}px,${dy}px)`;return}
+ if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
  if(e.pointerType==='touch'&&e.pointerId!==lookId)return;look(dx,dy,e.pointerType==='touch'?.006:.004)});
 document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022*(ZM?1-ZM.zoom()*.65:1))});
 document.addEventListener('mousedown',e=>{if(ZM&&playing&&locked()&&e.button===0)ZM.fire(true);if(ZM&&playing&&e.button===2)ZM.aim(true)});document.addEventListener('mouseup',e=>{if(ZM&&e.button===0)ZM.fire(false);if(ZM&&e.button===2)ZM.aim(false)});
 addEventListener('wheel',e=>{if(ZM&&playing)ZM.swap(e.deltaY>0?1:-1)},{passive:true});
-const up=e=>{if(ptrs.delete(e.pointerId)&&e.pointerType==='touch')touches=Math.max(0,touches-1);if(e.pointerId===lookId){lookId=null;for(const[id]of ptrs){lookId=id;break}}};
+const up=e=>{if(e.pointerId===moveId){moveId=null;joyV.x=joyV.y=0;ptrs.delete(e.pointerId);stickHome();return}if(ptrs.delete(e.pointerId)&&e.pointerType==='touch')touches=Math.max(0,touches-1);if(e.pointerId===lookId){lookId=null;for(const[id]of ptrs){if(id!==moveId){lookId=id;break}}}};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 const goFull=()=>{try{const d=document.documentElement,r=(d.requestFullscreen||d.webkitRequestFullscreen)?.call(d,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch{}};
 $('fs').onclick=()=>{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen)?.call(document)}else goFull()};
@@ -449,7 +457,7 @@ addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
  if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'&&!ZM){fly=!fly;if(!fly)settle()}if(c==='KeyF'&&ZM)ZM.toggleTorch();if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
-addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null});
+addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;moveId=null;joyV.x=joyV.y=0;stickHome()});
 
 
 function settle(){P.feet=P.y-EYE;const g=groundAt(P.x,P.feet+STEP,P.z);if(g>-50)P.feet=g;P.ey=P.feet+EYE;P.vy=0}
@@ -504,7 +512,7 @@ function update(dt){
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
- if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true;f+=padMove[0];s+=padMove[1];if(padRun)fast=true}
+ if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')-joyV.y;s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft')+joyV.x;vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(Math.hypot(joyV.x,joyV.y)>.92)fast=true;f+=padMove[0];s+=padMove[1];if(padRun)fast=true}
  f=Math.max(-1,Math.min(1,f));s=Math.max(-1,Math.min(1,s));
  if(ZM&&ZM.flying()){ZM.flyStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(P.carry&&!fly){carryStep();const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
@@ -617,8 +625,8 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 const qb=[...$('q').querySelectorAll('button')];
 const setDetail=d=>{if(detail<0&&d>=0)regionChanged=true;detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i-1===d));try{localStorage[DKEY]=d}catch{}resize()};setDetail(detail);
 qb.forEach((b,i)=>b.onclick=()=>setDetail(i-1));
-function play(){playing=true;body.classList.add('g');startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
-function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;if(locked())document.exitPointerLock()}
+function play(){playing=true;body.classList.add('g');if(touchMode)stickB.style.display='';startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
+function pause(){playing=false;body.classList.remove('g');keys.clear();ptrs.clear();primary=null;touches=0;lookId=null;moveId=null;joyV.x=joyV.y=0;stickHome();stickB.style.display='none';if(locked())document.exitPointerLock()}
 $('d').onclick=play;$('o').onclick=pause;
 
 
@@ -662,7 +670,7 @@ function frame(now){
  pp.set([QS.has('dbg')?0:.045,(QS.has('ex')?+QS.get('ex'):1.15)*(1-.5*nk),t%97,QS.has('dbg')||QS.has('ex')?1:0]);device.queue.writeBuffer(pbuf,0,pp);
  const enc=device.createCommandEncoder();
  let cur;
- if(T.low){cur=SNAP?T.snapTex:ctx.getCurrentTexture();const nk2=nightK,sc=[.62*(1-nk2)+.03*nk2,.7*(1-nk2)+.04*nk2,.82*(1-nk2)+.07*nk2];
+ if(T.low){cur=SNAP?T.snapTex:ctx.getCurrentTexture();const nk2=nightK,sc=PHONE?[.62*(1-nk2)+.13*nk2,.7*(1-nk2)+.14*nk2,.82*(1-nk2)+.19*nk2]:[.62*(1-nk2)+.03*nk2,.7*(1-nk2)+.04*nk2,.82*(1-nk2)+.07*nk2];
   const q=enc.beginRenderPass({colorAttachments:[{view:cur.createView(),clearValue:{r:sc[0]**2.2,g:sc[1]**2.2,b:sc[2]**2.2,a:1},loadOp:'clear',storeOp:'store'}],depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
   q.setBindGroup(0,sceneBG);q.setVertexBuffer(0,cubeVB);q.setVertexBuffer(1,instB.b);q.setIndexBuffer(cubeIB,'uint16');if(instB.n){q.setPipeline(sceneLow);drawCells(q,instCells,36)}
   q.setPipeline(dynLow);drawDyn(q,MESH.person,pplB);for(const k of RIDEKIND)drawDyn(q,MESH[k],rideB[k]);if(ZM)drawDyn(q,MESH.unit,ZM.fxB);q.end()}
