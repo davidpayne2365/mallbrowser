@@ -39,7 +39,7 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 
 ## Endless districts
 
-Every department store in the hub has a glowing **Explore →** gate at the back. Walk through one and new districts keep appearing ahead of you, each about a minute's walk deep. Every exit leads somewhere you haven't been, so a long walk never runs out.
+Walk straight down the main concourse, on either floor, and it opens into **The Grand Gate**, a two-storey hall with the glowing **Explore →** gate ahead. There is one at each end. On the upper floor, bridges cross the food court and a wide staircase leads down to the gate. The four department stores at the ends of the wings also have gates at the back. Walk through one and new districts keep appearing ahead of you, each about a minute's walk deep. Every exit leads somewhere you haven't been, so a long walk never runs out.
 
 | District | What's there |
 |---|---|
@@ -63,6 +63,10 @@ The first nine districts you reach are all different. After that the themes repe
 - **Reflections:** the polished floors pick up reflections of what's on screen.
 - **Ambient light:** a GPU pass works out how much sky each spot in the mall can see, so daylight fades naturally into the shops.
 
+## Speed
+
+The mall only draws what is in front of the camera. Everything is grouped into 16 m cells when an area loads, and cells outside the view are skipped each frame. Shadows, sky light and reflections still use the whole scene, so nothing looks different. Furniture and props also switch to lighter versions once they are far enough away that the difference is smaller than a pixel. Together these cut the triangles drawn per frame by about 3× in the mall and 7–11× in the market and department store. Add `?nocull` to the address to turn both off for comparison.
+
 ## How the code is organized
 
 No build step: `index.html` loads plain script files in order.
@@ -73,7 +77,7 @@ No build step: `index.html` loads plain script files in order.
 | `js/shaders.js` | All WebGPU shaders: surfaces, sky, glass and water, people and rides, reflections, light shafts, tone mapping |
 | `js/world.js` | Building blocks (boxes, shops, trees, fountains, escalators…), the hub mall, and the toolkit `K` handed to districts |
 | `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z, exits at (0,140), (−60,70) and (60,70) |
-| `js/models.js`, `models/` | Poly Haven props and leaf cards, built by `tools/build_models.py` into one geometry file and texture layers |
+| `js/models.js`, `models/` | Poly Haven props and leaf cards, built by `tools/build_models.py` into one geometry file and texture layers. Then `tools/build_lods.mjs` adds lighter far-away versions (`cd tools && npm install && node build_lods.mjs`) |
 | `js/engine.js` | Loading, streaming districts in and out, collision, walking, the crowd, audio, controls and the render loop |
 
 To add a new area (for example a grand exit with a parking lot), copy a district file, rename the function, add a `<script>` tag for it in `index.html`, and it joins the rotation.

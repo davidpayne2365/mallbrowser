@@ -1,0 +1,7 @@
+{
+  "name": "mall-tools",
+  "private": true,
+  "type": "module",
+  "description": "Build helpers for the mall's 3D models",
+  "dependencies": { "meshoptimizer": "0.21.0" }
+}

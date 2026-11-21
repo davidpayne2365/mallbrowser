@@ -106,7 +106,7 @@ function buildCrowd(r){const N=[],P=[];r.N=N;r.P=P;
 for(const sd of[-1,1]){
  chain(rng4(-116,116,[-62.5,-57.5,57.5,62.5,-8.75,8.75,-1.75,1.75,...BRG.flatMap(b=>[b-14,b+14])]).map(x=>[x,4.9*sd]),0);
  for(const s2 of[-1,1]){chain(rng4(16.5,118,[57.5,62.5,40,88]).map(x=>[x*s2,5*sd]),6);lk(nd(16.5*s2,6,5*sd),nd(14*s2,6,5*sd))}
- chain([-24,-21,-16,-10,-5,0,5,10,16,21,24].map(z=>[14*sd,z]),6);chain([-14,-9,-4,0,4,9,14].map(x=>[x,24*sd]),6);
+ chain([-24,-21,-16,-10,-5,0,5,10,16,21,24].map(z=>[14*sd,z]),6);chain([-14,-9,-4,0,4,9,14].map(x=>[x,24*sd]),6);chain([-14,-9,-4,0,4,9,14].map(x=>[x,5*sd]),6);
  chain([[8.75*sd,4.9],[8.75*sd,0],[8.75*sd,-4.9]],0);
  for(const wx of[-60,60])for(const y of[0,6]){const zl=y?5:4.9,zs=[17,21,25,26,29,33,37,41,45,49,53];
   for(const o of[-2.5,2.5])chain([[wx+o,zl*sd],...zs.map(z=>[wx+o,z*sd])],y);
@@ -115,6 +115,9 @@ for(const sd of[-1,1]){
   const sx=Math.sign(wx),cx=[64,68,76,84,92,100,108,116,124,126].map(x=>[x*sx,54*sd]);
   chain([[wx+2.5*sx,53*sd],...cx,...[45,37,29,21,19,12,6.2].map(z=>[125*sx,z*sd]),[119*sx,6.2*sd]],y);
   lk(nd(119*sx,y,6.2*sd),nd((y?118:116)*sx,y,zl*sd))}}
+// into the gate halls at both ends: along the ground floor, and down the wide stairs from the upper walkway
+for(const sx of[-1,1])for(const sd of[-1,1]){chain([[116*sx,4.9*sd],[124*sx,5.5*sd],[136*sx,5.5*sd],[141*sx,1.5*sd]],0);
+ lk(nd(119*sx,6,6.2*sd),nd(125.6*sx,6,1.6*sd));lk(nd(125.6*sx,6,1.6*sd),nd(135*sx,0,1.6*sd));lk(nd(135*sx,0,1.6*sd),nd(141*sx,0,1.5*sd))}
 for(const e of r.ESC){const b=nd(e.bx,0,e.z),t=nd(e.tx,6,e.z);lk(b,t,1);
  if(Math.abs(e.z)>1){const sd=Math.sign(e.z);chain([[e.bx,e.z],[e.sx*1.9,8.6*sd],[e.sx*1.75,4.9*sd]],0);lk(t,nd(14*e.sx,6,e.z))}
  else{const br=BRG.reduce((a,b)=>Math.abs(b-e.tx)<Math.abs(a-e.tx)?b:a);for(const sd of[-1,1])lk(b,nd(br-14*e.sx,0,4.9*sd));const m=nd(br,6,0);lk(t,m);for(const sd of[-1,1])lk(m,nd(br,6,5*sd))}}
@@ -153,6 +156,25 @@ const SHOPS=()=>LOADED.flatMap(r=>r.shops);
 /* ---------- world buffers, rebuilt whenever districts load or unload ---------- */
 const instB=gbuf(GU.VERTEX),glassB=gbuf(GU.VERTEX),folB=gbuf(GU.VERTEX),leafB=gbuf(GU.VERTEX),dropB=gbuf(GU.VERTEX),birdB=gbuf(GU.VERTEX),pplB=gbuf(GU.VERTEX);
 const rideB=Object.fromEntries(RIDEKIND.map(k=>[k,gbuf(GU.VERTEX)]));
+// draw only what the camera can see. Static instances are grouped into 16 m cells when an area loads; each frame
+// only cells inside the view are drawn. Shadows, sky light and reflections still use everything, so nothing looks different.
+const CELL=16,NOCULL=QS.has('nocull');
+function cellSort(data,bounds){const n=data.length/16,key=new Float64Array(n),bb=new Float32Array(n*7);
+ for(let i=0;i<n;i++){const b=bounds(data,i*16);bb.set(b,i*7);key[i]=b[6]>CELL*.75?-1:(Math.floor(data[i*16]/CELL)+4096)*8192+Math.floor(data[i*16+2]/CELL)+4096}
+ const ord=Array.from({length:n},(_,i)=>i).sort((a,b)=>key[a]-key[b]),out=new Float32Array(data.length),cells=[];let cur=null;
+ ord.forEach((src,dst)=>{out.set(data.subarray(src*16,src*16+16),dst*16);const b=bb.subarray(src*7,src*7+7);
+  if(!cur||cur.k!==key[src]){cur={k:key[src],first:dst,n:0,b:Array.from(b.subarray(0,6)),r:b[6]};cells.push(cur)}
+  cur.n++;for(let j=0;j<3;j++){cur.b[j]=Math.min(cur.b[j],b[j]);cur.b[j+3]=Math.max(cur.b[j+3],b[j+3])}cur.r=Math.max(cur.r,b[6])});
+ return{out,cells}}
+const sphere=(x,y,z,r)=>[x-r,y-r,z-r,x+r,y+r,z+r,r];
+const boxBounds=(d,o)=>sphere(d[o],d[o+1],d[o+2],.5*Math.hypot(d[o+4],d[o+5],d[o+6])+.05);
+const FR=new Float32Array(24);
+function setFrustum(m){const R=i=>[m[i],m[4+i],m[8+i],m[12+i]],r0=R(0),r1=R(1),r2=R(2),r3=R(3);
+ [r3.map((v,k)=>v+r0[k]),r3.map((v,k)=>v-r0[k]),r3.map((v,k)=>v+r1[k]),r3.map((v,k)=>v-r1[k]),r2,r3.map((v,k)=>v-r2[k])].forEach((q,i)=>FR.set(q,i*4))}
+function inView(b){if(NOCULL)return true;for(let i=0;i<24;i+=4){const a=FR[i],c=FR[i+1],d=FR[i+2];if(a*(a>0?b[3]:b[0])+c*(c>0?b[4]:b[1])+d*(d>0?b[5]:b[2])+FR[i+3]<0)return false}return true}
+const DRAWN={tris:0};
+function drawCells(p,cells,ni){let s=-1,e=-1;for(const c of cells){if(!inView(c.b))continue;DRAWN.tris+=c.n*ni/3;if(c.first===e)e+=c.n;else{if(s>=0)p.drawIndexed(ni,e-s,0,0,s);s=c.first;e=c.first+c.n}}if(s>=0)p.drawIndexed(ni,e-s,0,0,s)}
+let instCells=[],glassCells=[];
 const cat=(key,fix)=>{const n=LOADED.reduce((s,r)=>s+(r[key]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r[key];if(!a)continue;out.set(a,o);if(fix)fix(out,o,a.length,r);o+=a.length}return out};
 let lightBuf=null,gridBuf=null,LGRID=[0,0,6,1,1],sceneBG=null,pplData=new Float32Array(0),NP=0;
 const LC=6,MAXL=32,STRIDE=33;
@@ -179,8 +201,9 @@ function buildAtlas(){const g=atlasC.getContext('2d');g.fillStyle='#000';g.fillR
 let NLIGHTS=0;
 function rebuildWorld(){
  buildAtlas();
- instB.set(cat('inst',(out,o,len,r)=>{for(let i=o+12;i<o+len;i+=16)if(out[i]>=0)out[i]=Math.min(NAMECAP-1,out[i]+r.signBase)}));
- glassB.set(cat('glass'));folB.set(cat('fol'));leafB.set(cat('leaves'));dropB.set(cat('drops'));birdB.set(cat('birds'));
+ {const ci=cellSort(cat('inst',(out,o,len,r)=>{for(let i=o+12;i<o+len;i+=16)if(out[i]>=0)out[i]=Math.min(NAMECAP-1,out[i]+r.signBase)}),boxBounds);instB.set(ci.out);instCells=ci.cells;
+  const cg=cellSort(cat('glass'),boxBounds);glassB.set(cg.out);glassCells=cg.cells}
+ folB.set(cat('fol'));leafB.set(cat('leaves'));dropB.set(cat('drops'));birdB.set(cat('birds'));
  for(const k of RIDEKIND)rideB[k].set(cat2(k));
  buildModels();
  PPL=LOADED.flatMap(r=>r.P);NP=PPL.length;pplData=new Float32Array(NP*16);pplB.set(pplData);
@@ -201,8 +224,8 @@ function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p
    p.x=A.x+dx*k+dz/lh*o;p.z=A.z+dz*k-dx/lh*o;p.y=A.y+(Bn.y-A.y)*k+(g.esc?.2:0);
    if(!(p.wait>0))p.ty=Math.atan2(dx,dz);p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*5))}
   else if(p.pose===1){p.turn-=dt;if(p.turn<0){p.turn=rn(3,12);p.ty=p.yaw+rn(-1.6,1.6)}p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*2))}
-  pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,p.fur?1:0,0,p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i*16);i++}}
- if(NP)device.queue.writeBuffer(pplB.b,0,pplData)}
+  if(NOCULL||inView(sphere(p.x,p.y+1,p.z,1.4)))pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,p.c[0],p.c[1],p.c[2],p.ph,p.fur?1:0,0,p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i++*16)}}
+ pplB.n=i;if(i)device.queue.writeBuffer(pplB.b,0,pplData,0,i*16)}
 
 // photo textures
 let bms;try{bms=await assetP}catch(e){return fail('Could not load the photo textures ('+e.message+'). Check your connection and reload.')}
@@ -299,10 +322,19 @@ const[modelPipe,modelShPipe]=await Promise.all([
 const modelB=gbuf(GU.VERTEX);let MRUNS=[];
 function buildModels(){const names=new Set();for(const r of LOADED)for(const k in r.models||{})names.add(k);
  let total=0;const runs=[];for(const k of names){const n=LOADED.reduce((s,r)=>s+(r.models?.[k]?.length||0),0)/16;if(n&&MODELS.models[k]){runs.push({k,m:MODELS.models[k],first:total,n,card:k.startsWith('card_')});total+=n}}
- const out=new Float32Array(total*16);for(const R of runs){let o=R.first*16;for(const r of LOADED){const a=r.models?.[R.k];if(a){out.set(a,o);o+=a.length}}}
+ const out=new Float32Array(total*16);for(const R of runs){const part=new Float32Array(R.n*16);let o=0;for(const r of LOADED){const a=R.k&&r.models?.[R.k];if(a){part.set(a,o);o+=a.length}}
+  const b=R.m.bb,ext=Math.hypot(Math.max(-b[0],b[3]),Math.max(-b[1],b[4]),Math.max(-b[2],b[5]));
+  const cs=cellSort(part,(d,o)=>sphere(d[o],d[o+1],d[o+2],ext*Math.max(d[o+4],d[o+5],d[o+6])+.4));out.set(cs.out,R.first*16);R.cells=cs.cells;for(const c of R.cells)c.first+=R.first;
+  R.lv=[{i0:R.m.i0,in:R.m.in},...(R.m.lod||[])]}
  modelB.set(out);MRUNS=runs}
+// how far away each lighter version takes over, in multiples of the object's size (it is then too small for the difference to show)
+const LODK=[26,100];
 const drawModels=(p,shadow)=>{if(!modelB.n)return;p.setVertexBuffer(0,mVB);p.setVertexBuffer(1,modelB.b);p.setIndexBuffer(mIB,'uint32');
- for(const R of MRUNS){p.drawIndexed(R.m.in,R.n,R.m.i0,R.m.v0,R.first)}};
+ if(shadow){for(const R of MRUNS)p.drawIndexed(R.m.in,R.n,R.m.i0,R.m.v0,R.first);return}
+ for(const R of MRUNS){let s=-1,e=-1,L=null;const flush=()=>{if(s>=0){p.drawIndexed(L.in,e-s,L.i0,R.m.v0,s);DRAWN.tris+=(e-s)*L.in/3}};
+  for(const c of R.cells){if(!inView(c.b))continue;const b=c.b,dx=Math.max(b[0]-P.x,0,P.x-b[3]),dy=Math.max(b[1]-P.y,0,P.y-b[4]),dz=Math.max(b[2]-P.z,0,P.z-b[5]),d=Math.hypot(dx,dy,dz),S=2*c.r;
+   const lv=R.lv[NOCULL?0:Math.min(R.lv.length-1,d<S*LODK[0]?0:d<S*LODK[1]?1:2)];
+   if(lv===L&&c.first===e)e+=c.n;else{flush();L=lv;s=c.first;e=c.first+c.n}}flush()}};
 const[dynPipe,dynShPipe]=await Promise.all([
  device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:'vsDyn',buffers:VBUF2},fragment:{module:sceneMod,entryPoint:'fs',targets:TG},
   primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'},multisample:MS}),
@@ -358,11 +390,11 @@ const hit=(x,y,z)=>{if(y>40||y<.5)return true;for(const dy of[-.9,-.45,0,.25])fo
 const EYE=1.65,STEP=.55;let fly=false,grounded=true,stepDist=0,bobPh=0;
 const groundAt=(x,top,z)=>{for(let y=top;y>top-14;y-=.25){if(solid(x,y,z)){const r=regionAt(x,z)||CUR;return Math.floor((y-r.gs.y0)/GC)*GC+r.gs.y0+GC}}return -50};
 const blocked=(x,feet,z)=>{for(const dy of[.65,1.1,1.6])for(const dx of[-.25,.25])for(const dz of[-.25,.25])if(solid(x+dx,feet+dy,z+dz))return true;return false};
-const VIEWS=[[-34,1.7,1.2,-Math.PI/2+.1,.2],[-1.75,1.7,-21,Math.PI,.32],[14,7.7,-19,Math.PI*.75,-.05],[-100,7.7,5,-Math.PI/2,.1],[60,1.7,19,Math.PI,0],[100,1.7,-4.5,-Math.PI/2,.04]];
+const VIEWS=[[-30,1.7,-6,-Math.PI/2-.04,.04],[-1.75,1.7,-21,Math.PI,.32],[14,7.7,-19,Math.PI*.75,-.05],[-100,7.7,5,-Math.PI/2,.1],[60,1.7,19,Math.PI,0],[100,1.7,-4.5,-Math.PI/2,.04]];
 const P={x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vy:0,vz:0};window.__P=P;
 const view=i=>{if(CUR!==HUB)backToHub();const v=VIEWS[i];P.x=v[0];P.y=v[1];P.z=v[2];P.yaw=v[3];P.pitch=v[4];P.vx=P.vy=P.vz=0;settle?.()};
 function backToHub(){for(const d of HUB.doors)d.link=null;for(const r of LOADED)if(r!==HUB)dropWater(r);LOADED=[HUB];CUR=null;dirty=true;
- P.x=-34;P.y=1.7;P.z=1.2;P.yaw=-Math.PI/2+.1;P.pitch=.1;P.vx=P.vz=0;settle()}
+ P.x=-30;P.y=1.7;P.z=-6;P.yaw=-Math.PI/2-.04;P.pitch=.04;P.vx=P.vz=0;settle()}
 // title card as you walk into a new district
 let titleT=0;function showTitle(r){const el=$('t');if(!el)return;el.textContent=r===HUB?'Skylight Galleria':r.title+(r.num?'  ·  District '+r.num:'');el.classList.add('on');clearTimeout(titleT);titleT=setTimeout(()=>el.classList.remove('on'),3500)}
 const keys=new Set(),ptrs=new Map();let primary=null,playing=false,stats=false,muted=false;
@@ -546,13 +578,14 @@ function stream(){const r=regionAt(P.x,P.z);if(r&&r!==CUR)enter(r);if(!CUR)retur
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000);last=now;fpsT+=dt;fpsN++;if(fpsT>.5){fps=Math.round(fpsN/fpsT);fpsT=fpsN=0}
  stream();
- const{fwd}=update(dt),t=now/1000;stepPeople(dt,t%1000);audioFrame(fwd);
+ const{fwd}=update(dt),t=now/1000;
  const e=[P.x,P.y,P.z],upv=[0,1,0],r=[fwd[1]*upv[2]-fwd[2]*upv[1],fwd[2]*upv[0]-fwd[0]*upv[2],fwd[0]*upv[1]-fwd[1]*upv[0]],rl=Math.hypot(...r);r[0]/=rl;r[1]/=rl;r[2]/=rl;
  const uu=[r[1]*fwd[2]-r[2]*fwd[1],r[2]*fwd[0]-r[0]*fwd[2],r[0]*fwd[1]-r[1]*fwd[0]];
  const V=[r[0],uu[0],-fwd[0],0,r[1],uu[1],-fwd[1],0,r[2],uu[2],-fwd[2],0,-dot3(r,e),-dot3(uu,e),dot3(fwd,e),1];
  const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*Math.PI/360),n=.05,fr=900;
  const Pm=[fy/asp,0,0,0,0,fy,0,0,0,0,fr/(n-fr),-1,0,0,n*fr/(n-fr),0];
  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=Pm[k*4+i]*V[j*4+k];VP[j*4+i]=s}
+ setFrustum(VP);window.__drawn=DRAWN.tris;DRAWN.tris=0;stepPeople(dt,t%1000);audioFrame(fwd);
  ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
  // day and night: in the hub they swap under each bridge; every district has its own
  const zone=BRIDGES.filter(b=>P.x>b).length,nightT=nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
@@ -569,12 +602,12 @@ function frame(now){
    {view:T.mG,resolveTarget:T.gbV,clearValue:{r:0,g:0,b:6e4,a:0},loadOp:'clear',storeOp:'discard'},
    {view:T.mA,resolveTarget:T.axV,clearValue:{r:1,g:0,b:0,a:0},loadOp:'clear',storeOp:'discard'}],
   depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
- p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')&&instB.n){p.setPipeline(scenePipe);p.drawIndexed(36,instB.n)}
+ p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')&&instB.n){p.setPipeline(scenePipe);drawCells(p,instCells,36)}
  p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);drawDyn(p,MESH.bird,birdB);
  for(const k of RIDEKIND)drawDyn(p,MESH[k],rideB[k]);
  p.setPipeline(modelPipe);drawModels(p,false);
  if(!SK.has('sky')){p.setPipeline(skyPipe);p.draw(3)}
- if(glassB.n&&!SK.has('glass')){p.setPipeline(glassPipe);p.setVertexBuffer(0,cubeVB);p.setIndexBuffer(cubeIB,'uint16');p.setVertexBuffer(1,glassB.b);p.drawIndexed(36,glassB.n)}
+ if(glassB.n&&!SK.has('glass')){p.setPipeline(glassPipe);p.setVertexBuffer(0,cubeVB);p.setIndexBuffer(cubeIB,'uint16');p.setVertexBuffer(1,glassB.b);drawCells(p,glassCells,36)}
  p.end();
  p=enc.beginRenderPass({colorAttachments:[{view:T.fxR,loadOp:'clear',clearValue:{r:0,g:0,b:0,a:0},storeOp:'store'},{view:T.fxV,loadOp:'clear',clearValue:{r:0,g:0,b:0,a:0},storeOp:'store'}]});
  if(!SK.has('fx')){p.setPipeline(fxPipe);p.setBindGroup(0,T.fxBG);p.draw(3)}p.end();

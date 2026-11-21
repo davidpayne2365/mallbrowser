@@ -297,12 +297,14 @@ CEIL(-150,26,150,85);CEIL(-150,-85,150,-26);
 for(const sd of[-1,1]){CEIL(16*sd,7,150*sd,26);CEIL(16*sd,-26,150*sd,-7);CEIL(120*sd,-7,150*sd,7)}
 const US=(x0,z0,x1,z1)=>B(x0,5.6,z0,x1,6,z1,C.floor,{pat:1,s:.6});
 for(const sd of[-1,1]){US(-120,3*sd,-16,17*sd);US(16,3*sd,120,17*sd);US(-16,26*sd,16,36*sd);US(-16,22*sd,16,26*sd);US(12*sd,-22,16*sd,22);
- for(const wx of[-60,60]){US(wx-14,17*sd,wx+14,57*sd);US(wx-16,57*sd,wx+16,77*sd)}US(120*sd,-20,144*sd,20);
+ for(const wx of[-60,60]){US(wx-14,17*sd,wx+14,57*sd);US(wx-16,57*sd,wx+16,77*sd)}
  B(16*sd,0,17,16*sd+.3*sd,12,26,C.facade);B(16*sd,0,-26,16*sd+.3*sd,12,-17,C.facade)}
 const BR=[-88,-40,40,88];for(const b of BR)US(b-2,-3,b+2,3);
 for(const z of[-3,3])for(const[a,b]of[[16,38],[42,86],[90,120],[-120,-90],[-86,-42],[-38,-16]])rail(a,z,b,z);
 for(const b of BR)for(const e of[-2,2]){rail(b+e,-3,b+e,-.95);rail(b+e,.95,b+e,3)}
-for(const sd of[-1,1]){rail(-12,22*sd,12,22*sd);rail(16*sd,-3,16*sd,3);for(const[a,b]of[[-22,-10.9],[-9.1,9.1],[10.9,22]])rail(12*sd,a,12*sd,b)}
+for(const sd of[-1,1]){rail(-12,22*sd,12,22*sd);rail(16*sd,-3,16*sd,3);for(const[a,b]of[[-22,-10.9],[-9.1,-7],[-3,3],[7,9.1],[10.9,22]])rail(12*sd,a,12*sd,b)}
+// two upper bridges straight across the food court, so the upper walkway runs straight from end to end
+for(const sd of[-1,1]){US(-12,3*sd,12,7*sd);rail(-12,3*sd,12,3*sd);rail(-12,7*sd,12,7*sd);for(let x=-9;x<=9;x+=6){B(x-.9,5.55,5*sd-.35,x+.9,5.6,5*sd+.35,C.white,{e:2.2,solid:false});light(x,5.15,5*sd,C.warm,6,9)}}
 // escalators
 
 for(const sx of[1,-1])for(const sz of[1,-1])esc(sx*6.8,sz*10,sx);
@@ -334,9 +336,9 @@ fpush(0,1,0,1);
 for(let k=0;k<16;k++){const a=k/16*6.283;jet(Math.sin(a)*1.35,2.43,Math.cos(a)*1.35,Math.sin(a)*.9,.4,Math.cos(a)*.9,.45,26,.08)}
 jet(0,3.6,0,0,4.6,0,2.45,140,.25);
 for(let k=0;k<12;k++){const a=k/12*6.283+.13;jet(Math.sin(a)*3.25,.6,Math.cos(a)*3.25,-Math.sin(a)*1.5,3.4,-Math.cos(a)*1.5,.45,40,.05)}
-for(const sx of[-1,1])for(const sz of[-1,1]){const x=sx*4.35,z=sz*4.35;B(x-.6,0,z-.6,x+.6,.6,z+.6,C.pot);shrubs(x,.6,z,.5,.5,70);palm(x,z,rnd(7.5,9.5))}
+for(const sx of[-1,1]){const x=sx*4.6,z=0;B(x-.6,0,z-.6,x+.6,.6,z+.6,C.pot);shrubs(x,.6,z,.5,.5,70);palm(x,z,rnd(8,9.5))}
 
-for(let x=-10.5;x<=10.5;x+=3.5)for(let z=-19.5;z<=19.5;z+=3.25){if((Math.abs(x)<5&&Math.abs(z)<5)||(Math.abs(z)>7.8&&Math.abs(z)<12.2))continue;
+for(let x=-10.5;x<=10.5;x+=3.5)for(let z=-19.5;z<=19.5;z+=3.25){if((Math.abs(x)<5&&Math.abs(z)<5)||(Math.abs(z)>7.8&&Math.abs(z)<12.2)||Math.abs(Math.abs(z)-6.5)<.1)continue;
  B(x-.55,.72,z-.55,x+.55,.78,z+.55,C.white,{s:.5,solid:false});B(x-.07,0,z-.07,x+.07,.72,z+.07,C.steel,{solid:false});const cc=pick(chairC);
  for(const[dx,dz]of[[-.85,0],[.85,0],[0,-.85],[0,.85]]){B(x+dx-.22,.42,z+dz-.22,x+dx+.22,.48,z+dz+.22,cc,{solid:false});B(x+dx-.04,0,z+dz-.04,x+dx+.04,.42,z+dz+.04,C.steel,{solid:false});
   seat(x+dx*1.08,z+dz*1.08,Math.atan2(-dx,-dz));const bx=x+dx*1.25,bz=z+dz*1.25;B(bx-(dx?.03:.22),.48,bz-(dz?.03:.22),bx+(dx?.03:.22),.95,bz+(dz?.03:.22),cc,{solid:false})}}
@@ -401,8 +403,8 @@ for(const sx of[-1,1])for(const sz of[-1,1]){
  M('WetFloorSign_01',104,0,30,rnd(0,6),1);
  // stockroom: steel shelving full of stock, crates, barrels, pallets, hanging lamps
  Bk(76,0,19.2,96.8,.02,34.8,hsl(0,0,.45),{pat:7,s:.3,solid:false});
- for(let r=0;r<3;r++)for(let k=0;k<4;k++){const x=79+k*4.4,z=22+r*4.4;M(chance(.5)?'steel_frame_shelves_01':'steel_frame_shelves_02',x,0,z,0,1.2,{solid:true});
-  for(let j=0;j<6;j++){const bx=x+rnd(-1.3,1.3),by=pick([.08,.75,1.4]),w=rnd(.3,.55);Bk(bx-w/2,by,z-.25,bx+w/2,by+rnd(.25,.45),z+.25,hsl(32,.45,rnd(.45,.6)),{solid:false})}}
+ for(let r=0;r<3;r++)for(let k=0;k<4;k++){const x=79+k*4.4,z=22+r*4.4;for(const u of[-.72,0,.72])M('steel_frame_shelves_02',x+u,0,z,0,1.2,{solid:true});
+  for(let j=0;j<6;j++){const bx=x+rnd(-.9,.9),by=pick([.08,.75,1.4]),w=rnd(.3,.55);Bk(bx-w/2,by,z-.25,bx+w/2,by+rnd(.25,.45),z+.25,hsl(32,.45,rnd(.45,.6)),{solid:false})}}
  for(let k=0;k<8;k++)M('wooden_crate_01',rnd(78,95),0,rnd(33,34),rnd(0,.3),1,{solid:true});
  for(let k=0;k<3;k++)M('wooden_crate_01',94,.7*k,21,.2*k,1,{solid:true});
  for(const[x,z]of[[95,24],[95.2,25.2],[94,24.6]])M('Barrel_01',x,0,z,rnd(0,6),1,{solid:true});
@@ -417,15 +419,45 @@ for(const[cx,cz,n]of[[-70,0,14],[45,4,16],[0,0,12],[-20,8,8]]){const cy=rnd(24,3
 const ANCH=['Grand Meridian','Holloway & Finch','The Emporium','Sterling & Vale','Brightwater','Marlowe’s'],AF='400 {s} Didot,"Bodoni 72",Georgia,serif';
 let ai=0;
 for(const lvl of[0,1]){ai=0;
- for(const sd of[-1,1]){shop(120*sd,0,0,1,sd,0,34,24,lvl,'apparel',{big:1,open:7,door:[2,10],back:!lvl,signW:6.5,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1});
+ for(const sd of[-1,1]){ai++;
   for(const wx of[-60,60])shop(wx,57*sd,1,0,0,sd,32,20,lvl,'apparel',{big:1,open:6,back:!lvl,signW:6,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1})}}
 
-// gates: short halls behind the department stores lead out to new districts
+// gate halls: both ends of the main concourse open straight into a two-storey hall with the gate glowing ahead.
+// Walk straight on along the ground floor, or along the upper walkway and down the wide stairs; either way you reach the gate.
+const gateHall=sd=>{const X=v=>v*sd,GRN=hsl(150,.9,.55),WALLH=hsl(35,.14,.8),MARB=hsl(35,.1,.86),STONE=hsl(35,.08,.82);
+ B(X(120.3),0,-17,X(143.8),.03,17,MARB,{pat:7,s:.3,solid:false});
+ for(const sz of[-1,1]){const Z=v=>v*sz;
+  B(X(120),0,Z(7),X(120.3),12,Z(17),C.facade);
+  B(X(120.3),0,Z(16.8),X(122),12,Z(17.1),WALLH,{pat:11});B(X(130),0,Z(16.8),X(143.8),12,Z(17.1),WALLH,{pat:11});
+  for(const y0 of[4.2,10.2])B(X(122),y0,Z(16.8),X(130),y0+1.8,Z(17.1),WALLH,{pat:11});
+  B(X(143.8),0,Z(3),X(144.1),12,Z(17.1),WALLH,{pat:11});B(X(143.8),5,-3,X(144.1),12,3,WALLH,{pat:11});
+  // upper floor: a landing off the walkway and balconies along the side walls (the stairs are in the middle, below)
+  B(X(119.9),5.6,Z(3),X(126),6,Z(16.8),C.floor,{pat:1,s:.6});B(X(126),5.6,Z(9.6),X(143.8),6,Z(16.8),C.floor,{pat:1,s:.6});
+  rail(X(126),Z(3),X(126),Z(9.6));rail(X(126),Z(9.6),X(143.8),Z(9.6));
+  // shop displays under the balcony and up on it, keeping the walkways clear
+  const c=ctx(0,rnd(0,360)),c6=ctx(6,rnd(0,360));
+  for(const z of[11.6,14])rack(c,Z(z),Math.min(X(129),X(136)),Math.max(X(129),X(136)),()=>hsl(rnd(0,360),rnd(.3,.7),rnd(.3,.7)));
+  for(let k=0;k<3;k++)glowCase(c,Math.min(X(138+k*1.8),X(139.4+k*1.8)),Z(11)-.7,Math.max(X(138+k*1.8),X(139.4+k*1.8)),Z(11)+.7);
+  for(let k=0;k<5;k++)mannequin(c6,X(128+k*3.2),Z(15.6),rnd(0,360));for(let k=0;k<4;k++)mannequin(c,X(129+k*3.6),Z(16.2),rnd(0,360));
+  for(const x of[132,140]){B(X(x)-.9,5.5,Z(13)-.9,X(x)+.9,5.55,Z(13)+.9,C.white,{e:2.2,solid:false});light(X(x),5.1,Z(13),C.warm,6,9)}
+  for(const x of[124,134,142]){B(X(x)-.9,11.55,Z(12)-.9,X(x)+.9,11.6,Z(12)+.9,C.white,{e:2.2,solid:false});light(X(x),11,Z(12),C.warm,7,11)}
+  planter(X(122.5),Z(13))}
+ B(X(119.9),5.6,-3,X(126),6,3,C.floor,{pat:1,s:.6});
+ for(let i=0;i<14;i++)B(X(126+i*.6),0,-3,X(126.6+i*.6),5.6-.4*i,3,STONE,{pat:7,s:.4});
+ for(const z of[-3.05,3.05]){B(X(126),0,z-.06,X(134.6),5.2,z+.06,STONE,{pat:7,s:.4,solid:false});stick(X(126),7.05,z,X(134.6),1.45,z,.07,C.steel);
+  for(let k=0;k<=7;k++){const x=126+k*1.2,y=6-.4*Math.min(13,k*2);stick(X(x),y,z,X(x),y+1.05,z,.05,C.steel)}}
+ // the gate: a glowing portal with a big sign above it, seen from all the way down the concourse
+ for(const z of[-3.4,3])B(X(143.6),0,z,X(144.1),5.4,z+.4,GRN,{e:3});B(X(143.6),5,-3.4,X(144.1),5.4,3.4,GRN,{e:3});
+ box(X(143.6),8.3,0,.2,2,11,GRN,{e:3.4,sign:addName('Explore  →','900 {s} system-ui,sans-serif',1),face:sd>0?3:2,solid:false});
+ box(X(120.6),10.6,0,.2,1.1,10,hsl(45,.9,.6),{e:3,sign:addName('The Grand Gate','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:sd>0?2:3,solid:false});
+ for(const x of[130,139]){model('Chandelier_01',X(x),8.2,0,0,3);light(X(x),9.2,0,C.warm,10,16)}
+ light(X(141),4,0,GRN,6,10);for(let x=124;x<=140;x+=8)light(X(x),3.5,0,C.warm,5,10);
+ for(const sz of[-1,1])bench(X(140),sz*12,1)};
 const gateSign=(x,z,face)=>{box(x,4.6,z,face<2?5.6:.2,.9,face<2?.2:5.6,hsl(150,.9,.55),{e:3.2,sign:addName('Explore  →','900 {s} system-ui,sans-serif',1),face,solid:false})};
 for(const sd of[-1,1]){
  B(144*sd,0,-3.3,150*sd,5,-3,C.facade);B(144*sd,0,3,150*sd,5,3.3,C.facade);B(144*sd,5,-3.3,150*sd,5.4,3.3,C.ceil);
  for(let x=145;x<150;x+=2){B(x*sd-.4,4.95,-.3,x*sd+.4,5,.3,C.white,{e:2.5,solid:false});light(x*sd,4.6,0,C.warm,5,6)}
- doors.push({x:150*sd,z:0,dx:sd,dz:0});gateSign(141*sd,0,sd>0?3:2);
+ doors.push({x:150*sd,z:0,dx:sd,dz:0});gateHall(sd);
  for(const wx of[-60,60]){B(wx-3.3,0,77*sd,wx-3,5,85*sd,C.facade);B(wx+3,0,77*sd,wx+3.3,5,85*sd,C.facade);B(wx-3.3,5,77*sd,wx+3.3,5.4,85*sd,C.ceil);
   for(let z=78;z<85;z+=2){B(wx-.3,4.95,z*sd-.4,wx+.3,5,z*sd+.4,C.white,{e:2.5,solid:false});light(wx,4.6,z*sd,C.warm,5,6)}
   doors.push({x:wx,z:85*sd,dx:0,dz:sd});gateSign(wx,74*sd,sd>0?1:0)}}
