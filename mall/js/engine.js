@@ -477,9 +477,20 @@ function rideStep(dt){const R=P.ride,s=R.s,p=s.p,L=s.L;let i=0;while(i<L.length-
 // RB, RT or a stick click runs, B flies down, Y toggles flying, X day and night, Back returns to the concourse, Start opens the menu
 const PADKEYS={0:'Space',1:'KeyC',2:'KeyN',3:'KeyF',8:'KeyR'};let padPrev=[],padMove=[0,0],padRun=false;
 const padKey=(type,code)=>dispatchEvent(new KeyboardEvent(type,{code,key:code}));
+// the menu with a controller: d-pad or left stick moves between the buttons (left/right along the detail row), A presses
+let menuSel=0,menuRep=0;window.__menu=()=>({menuSel,menuRep,b:navigator.getGamepads?.()[0]?.buttons.map(x=>x.pressed?1:0).join("")});
+function menuPad(b,gp,dt){if(!body.classList.contains('r'))return;const rows=[[$('d')],[$('zm')],[...$('q').querySelectorAll('button')]];
+ const ax=gp.axes[0]||0,ay=gp.axes[1]||0,up=b[12]||ay<-.5,down=b[13]||ay>.5,left=b[14]||ax<-.5,right=b[15]||ax>.5;
+ let row=menuSel<1?0:menuSel<2?1:2,col=row<2?0:menuSel-2;menuRep-=dt;
+ if((up||down||left||right)&&menuRep<=0){menuRep=.22;if(up)row=Math.max(0,row-1);if(down)row=Math.min(2,row+1);if(row===2){if(left)col=Math.max(0,col-1);if(right)col=Math.min(rows[2].length-1,col+1)}}
+ else if(!(up||down||left||right))menuRep=0;
+ if(row===2&&col===0&&menuSel<2)col=rows[2].findIndex(x=>x.classList.contains('on'));menuSel=row<2?row:2+Math.max(0,col);
+ const el=row<2?rows[row][0]:rows[2][Math.max(0,col)];for(const r of rows)for(const x of r)x.classList.toggle('padsel',x===el);
+ if(b[0]&&!padPrev[0])el.click()}
 function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamepads?.()||[])].find(g=>g&&g.connected);if(!gp)return;
  const b=gp.buttons.map(x=>x.pressed||x.value>.5),dz=v=>Math.abs(v||0)<.15?0:(v-Math.sign(v)*.15)/.85,edge=i=>b[i]&&!padPrev[i];
  if(edge(9))padKey('keydown','Escape');
+ if(!playing)menuPad(b,gp,dt);else for(const x of document.querySelectorAll('.padsel'))x.classList.remove('padsel');
  if(playing){for(const[i,c0]of Object.entries(PADKEYS)){const code=ZM&&i==='2'?'KeyE':c0;if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
   padMove=[-dz(gp.axes[1])+(b[12]?1:0)-(b[13]?1:0),dz(gp.axes[0])+(b[15]?1:0)-(b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){ZM.fire(!!(b[7]||b[6]));if(edge(4))ZM.swap(-1);if(edge(5))ZM.swap(1)}
   P.yaw-=dz(gp.axes[2])*2.6*dt;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt))}
