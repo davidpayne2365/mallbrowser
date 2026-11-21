@@ -660,7 +660,7 @@ function frame(now){
  setFrustum(VP);window.__drawn=DRAWN.tris;DRAWN.tris=0;stepPeople(dt,t%1000);audioFrame(fwd);if(ZM&&playing)ZM.update(dt);
  ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set([fwd[0],fwd[1],fwd[2],ZM&&ZM.torch()?2.6:0],148);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
  // day and night: in the hub they swap under each bridge; every district has its own
- const zone=BRIDGES.filter(b=>P.x>b).length,nightT=nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
+ const zone=BRIDGES.filter(b=>P.x>b).length,nightT=PHONE?0:nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
  const nk=nightK*nightK*(3-2*nightK);
  for(let i=0;i<3;i++)ub[84+i]=SKY.sunE[i]*SUNSCALE*(1-nk)+MOONC[i]*nk;ub[87]=.0022*(1-nk)+.003*nk;
  SKY.sh.forEach((c,i)=>{for(let j=0;j<3;j++)ub[104+i*4+j]=c[j]*(1-nk)+SKY.shN[i][j]*NGAIN/SKYSCALE*nk});
