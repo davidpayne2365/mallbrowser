@@ -201,7 +201,8 @@ function setFrustum(m){const R=i=>[m[i],m[4+i],m[8+i],m[12+i]],r0=R(0),r1=R(1),r
  [r3.map((v,k)=>v+r0[k]),r3.map((v,k)=>v-r0[k]),r3.map((v,k)=>v+r1[k]),r3.map((v,k)=>v-r1[k]),r2,r3.map((v,k)=>v-r2[k])].forEach((q,i)=>FR.set(q,i*4))}
 function inView(b){if(NOCULL)return true;for(let i=0;i<24;i+=4){const a=FR[i],c=FR[i+1],d=FR[i+2];if(a*(a>0?b[3]:b[0])+c*(c>0?b[4]:b[1])+d*(d>0?b[5]:b[2])+FR[i+3]<0)return false}return true}
 const DRAWN={tris:0};
-function drawCells(p,cells,ni){let s=-1,e=-1;const far=PHONE&&detail<0;for(const c of cells){if(!inView(c.b))continue;if(far){const b=c.b;if(Math.hypot(Math.max(b[0]-P.x,0,P.x-b[3]),Math.max(b[2]-P.z,0,P.z-b[5]))>PH_DRAW)continue}DRAWN.tris+=c.n*ni/3;if(c.first===e)e+=c.n;else{if(s>=0)p.drawIndexed(ni,e-s,0,0,s);s=c.first;e=c.first+c.n}}if(s>=0)p.drawIndexed(ni,e-s,0,0,s)}
+function drawCells(p,cells,ni){let s=-1,e=-1;const far=PHONE&&detail<0;for(const c of cells){if(!inView(c.b))continue;if(far){const b=c.b,d=Math.hypot(Math.max(b[0]-P.x,0,P.x-b[3]),Math.max(b[2]-P.z,0,P.z-b[5]));if(d>PH_DRAW)continue;
+   if(d>30&&c.r<20){const fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw),dx=(b[0]+b[3])/2-P.x,dz=(b[2]+b[5])/2-P.z;if(Math.abs(dx*fz-dz*fx)>24)continue}}DRAWN.tris+=c.n*ni/3;if(c.first===e)e+=c.n;else{if(s>=0)p.drawIndexed(ni,e-s,0,0,s);s=c.first;e=c.first+c.n}}if(s>=0)p.drawIndexed(ni,e-s,0,0,s)}
 let instCells=[],glassCells=[];
 const cat=(key,fix)=>{const n=LOADED.reduce((s,r)=>s+(r[key]?.length||0),0),out=new Float32Array(n);let o=0;for(const r of LOADED){const a=r[key];if(!a)continue;out.set(a,o);if(fix)fix(out,o,a.length,r);o+=a.length}return out};
 let lightBuf=null,gridBuf=null,LGRID=[0,0,6,1,1],sceneBG=null,pplData=new Float32Array(0),NP=0;
@@ -246,6 +247,7 @@ const cat2=k=>{const n=LOADED.reduce((s,r)=>s+(r.rides?.[k]?.length||0),0),out=n
 const angLerp=(a,b,k)=>{let d=(b-a+Math.PI)%(2*Math.PI);if(d<0)d+=2*Math.PI;return a+(d-Math.PI)*k};
 // in zombie mode a person who is infected, down or fleeing (p.zs) is moved by js/zombies.js; everyone else keeps shopping
 function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p of r.P){
+  if(PHONE&&Math.abs(p.x-P.x)+Math.abs(p.z-P.z)>70)continue;
   if(p.zs){if(p.zs.st==='gone')continue}
   else if(p.g){const g=p.g;let A=N[g.from],Bn=N[g.to];
    if(p.wait>0){p.wait-=dt;p.pose=1;p.speed=0;if(Bn.shop)p.ty=Math.atan2(Bn.shop.nx,Bn.shop.nz)+Math.sin(t*.3+p.ph*9)*.8;if(p.wait<=0)p.pose=0}
@@ -667,8 +669,8 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 // detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
 if(touchMode){const tq=$('tq');tq.style.display='';const B=[...tq.querySelectorAll('button')];
- const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Swipe '+(TS.steer?'turns':'strafes');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');
-  B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty,TS.ink][i]))};B[5].onclick=()=>{TS.ink=!TS.ink;if(TS.ink&&detail>=0)setDetail(-1);saveTS();draw();resize()};
+ const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Swipe '+(TS.steer?'turns':'strafes');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');B[6].textContent='FPS '+(stats?'on':'off');B[6].classList.toggle('on2',stats);
+  B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty,TS.ink][i]))};B[6].onclick=()=>{stats=!stats;if(!stats)$('i').textContent='';draw()};B[5].onclick=()=>{TS.ink=!TS.ink;if(TS.ink&&detail>=0)setDetail(-1);saveTS();draw();resize()};
  B[0].onclick=()=>{TS.sens=Math.max(.4,+(TS.sens-.1).toFixed(1));saveTS();draw()};B[1].onclick=()=>{TS.sens=Math.min(2.5,+(TS.sens+.1).toFixed(1));saveTS();draw()};
  B[2].onclick=()=>{TS.gyro=!TS.gyro;if(TS.gyro)askGyro();saveTS();draw()};B[3].onclick=()=>{TS.steer=!TS.steer;saveTS();draw()};
  B[4].onclick=()=>{TS.lefty=!TS.lefty;saveTS();location.reload()};draw()}
@@ -690,15 +692,16 @@ function inv4(m){const a=m,r=new Array(16);
  r[12]=(a[5]*b07-a[4]*b09-a[6]*b06)*d;r[13]=(a[0]*b09-a[1]*b07+a[2]*b06)*d;r[14]=(a[13]*b01-a[12]*b03-a[14]*b00)*d;r[15]=(a[8]*b03-a[9]*b01+a[10]*b00)*d;return r}
 
 const pp=new Float32Array(4),VP=new Array(16);
-let phT=0,phN=0,last=performance.now(),fpsT=0,fpsN=0,fps=0,frames=0,fogK=[.0016,.05,.045,.042];
+let DRAWN_LAST=0;const CPU=[0,0,0,0];let phT=0,phN=0,last=performance.now(),fpsT=0,fpsN=0,fps=0,frames=0,fogK=[.0016,.05,.045,.042];
 // streaming: districts appear ahead of you, a minute's walk apart, and what you have left behind is dropped
 function stream(){const r=regionAt(P.x,P.z);if(r&&r!==CUR)enter(r);if(!CUR)return;
- for(const d of CUR.doors){if(d.link)continue;if(Math.hypot(P.x-d.x,P.z-d.z)<85)spawnAt(CUR,d)}
+ let built=false;for(const d of CUR.doors){if(d.link)continue;if(Math.hypot(P.x-d.x,P.z-d.z)<85){spawnAt(CUR,d);built=true;if(PHONE)break}}
+ if(PHONE&&built)return;
  if(dirty)rebuildWorld();if(regionChanged){regionChanged=false;if(detail>=0)bakeVis(CUR);makeSceneBG();if(detail>=0)shadowPass()}}
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000);last=now;fpsT+=dt;fpsN++;if(fpsT>.5){fps=Math.round(fpsN/fpsT);fpsT=fpsN=0}
  if(PHONE&&T.low&&playing){phT+=dt;phN++;if(phT>2){const f=phN/phT;phT=phN=0;const ns=f<48?Math.max(.6,phScale-.15):f>57?Math.min(phMax,phScale+.05):phScale;if(Math.abs(ns-phScale)>.01){phScale=ns;resize()}}}
- stream();
+ const c0=performance.now();stream();const c1=performance.now();
  const{fwd}=update(dt),t=now/1000;
  const e=[P.x,P.y,P.z],upv=[0,1,0],r=[fwd[1]*upv[2]-fwd[2]*upv[1],fwd[2]*upv[0]-fwd[0]*upv[2],fwd[0]*upv[1]-fwd[1]*upv[0]],rl=Math.hypot(...r);r[0]/=rl;r[1]/=rl;r[2]/=rl;
  const uu=[r[1]*fwd[2]-r[2]*fwd[1],r[2]*fwd[0]-r[0]*fwd[2],r[0]*fwd[1]-r[1]*fwd[0]];
@@ -706,7 +709,7 @@ function frame(now){
  const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*(ZM?1-ZM.zoom()*.72:1)*Math.PI/360),n=.05,fr=900;
  const Pm=[fy/asp,0,0,0,0,fy,0,0,0,0,fr/(n-fr),-1,0,0,n*fr/(n-fr),0];
  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=Pm[k*4+i]*V[j*4+k];VP[j*4+i]=s}
- setFrustum(VP);window.__drawn=DRAWN.tris;DRAWN.tris=0;stepPeople(dt,t%1000);audioFrame(fwd);if(ZM&&playing)ZM.update(dt);
+ setFrustum(VP);window.__drawn=DRAWN_LAST=DRAWN.tris;DRAWN.tris=0;const c2=performance.now();stepPeople(dt,t%1000);audioFrame(fwd);const c3=performance.now();if(ZM&&playing)ZM.update(dt);const c4=performance.now();
  ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set([fwd[0],fwd[1],fwd[2],ZM&&ZM.torch()?2.6:0],148);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
  // day and night: in the hub they swap under each bridge; every district has its own
  const zone=BRIDGES.filter(b=>P.x>b).length,nightT=PHONE?0:nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
@@ -750,7 +753,8 @@ function frame(now){
  if(snapBuf){const W=T.W,H=T.H;snapBuf.mapAsync(GPUMapMode.READ).then(()=>{const src=new Uint8Array(snapBuf.getMappedRange()),c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),im=g.createImageData(W,H);
   const bgr=fmt.startsWith('bgra');for(let y=0;y<H;y++)for(let x=0;x<W;x++){const s=y*bpr+x*4,d=(y*W+x)*4;im.data[d]=src[s+(bgr?2:0)];im.data[d+1]=src[s+1];im.data[d+2]=src[s+(bgr?0:2)];im.data[d+3]=255}
   g.putImageData(im,0,0);window.__snap=c.toDataURL('image/png')})}
- if(stats)$('i').textContent=`${fps} fps · ${T.W}×${T.H}\n${CUR?(CUR===HUB?'Skylight Galleria':CUR.title):'—'} · ${LOADED.length} areas loaded · ${districtCount} districts found\n${NP} people · ${instB.n+glassB.n+folB.n+leafB.n+dropB.n} objects · ${modelB.n} models · ${NLIGHTS} lights\nx ${P.x.toFixed(1)}  y ${P.y.toFixed(1)}  z ${P.z.toFixed(1)}`;
+ {const a=Math.min(1,dt*2);const ms=[c1-c0,c3-c2,c4-c3,performance.now()-c0];CPU.forEach((v,k)=>CPU[k]=v+(ms[k]-v)*a)}
+ if(stats)$('i').textContent=`${fps} fps · ${T.W}×${T.H} · ${Math.round(DRAWN_LAST/1000)}k triangles\nCPU ${CPU[3].toFixed(1)} ms of ${(1000/Math.max(1,fps)).toFixed(1)} ms per frame (world ${CPU[0].toFixed(1)} · crowd ${CPU[1].toFixed(1)} · zombies ${CPU[2].toFixed(1)})${CPU[3]>.75*1000/Math.max(1,fps)?' → processor-bound':' → graphics-bound'}\n${CUR?(CUR===HUB?'Skylight Galleria':CUR.title):'—'} · ${LOADED.length} areas loaded · ${districtCount} districts found\n${NP} people · ${instB.n+glassB.n+folB.n+leafB.n+dropB.n} objects · ${modelB.n} models · ${NLIGHTS} lights\nx ${P.x.toFixed(1)}  y ${P.y.toFixed(1)}  z ${P.z.toFixed(1)}`;
  window.__dbg={inst:instB.n,glass:glassB.n,fol:folB.n,leaf:leafB.n,drop:dropB.n,bird:birdB.n,ppl:pplB.n,regions:LOADED.map(r=>r.theme+':'+(r.leaves?.length/16))};window.__frames=++frames;window.__where=CUR?(CUR===HUB?'hub':CUR.theme):'none';window.__found=districtCount;
  requestAnimationFrame(frame)}
 // first build
@@ -767,7 +771,7 @@ prog(1);await tick();
 body.classList.remove('l');body.classList.add('r');
 if(QS.has('go'))play();
 // zombie mode: the menu's mode button switches between the two; the mode itself lives in js/zombies.js
-if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,lefty:touchMode&&TS.lefty,gbuf:()=>gbuf(GU.VERTEX),
+if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,phone:PHONE,lefty:touchMode&&TS.lefty,gbuf:()=>gbuf(GU.VERTEX),
  get actx(){return actx},get master(){return master},kick,
  // world position -> CSS pixels on screen (for damage numbers), or null when behind you
  project:(x,y,z)=>{const cx=VP[0]*x+VP[4]*y+VP[8]*z+VP[12],cy=VP[1]*x+VP[5]*y+VP[9]*z+VP[13],cw=VP[3]*x+VP[7]*y+VP[11]*z+VP[15];if(cw<=.05)return null;return[(cx/cw*.5+.5)*innerWidth,(.5-cy/cw*.5)*innerHeight]}});window.__zm=ZM;

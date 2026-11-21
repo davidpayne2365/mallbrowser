@@ -349,7 +349,7 @@ function makeZombieMode(api){
   gridT-=dt;if(gridT<0){gridT=.2;rebuild()}
   assist(dt);if((firing||(autoF&&aTgt&&!forgeOpen))&&deadT<=0&&swapT<=0){if(gun().beam)beamTick(dt);else if(cool<=0){shoot();cool=1/gun().rate}}
   frameNo++;
-  for(const r of api.LOADED)for(const p of r.P){const dd=Math.hypot(p.x-P.x,p.z-P.z);if(dd>90)continue;const z=p.zs;
+  const FAR=api.phone?55:90;for(const r of api.LOADED)for(const p of r.P){const dd=Math.hypot(p.x-P.x,p.z-P.z);if(dd>FAR)continue;const z=p.zs;
    if(!z){if(!p.fur&&gridZ.size)human(p,dt);continue}
    if(isZ(p)){if(dd>40){z.acc=(z.acc||0)+dt;if(((frameNo+z.k)&3)!==0)continue;zombie(p,Math.min(.2,z.acc));z.acc=0}else zombie(p,dt)}
    else if(z.st==='down'){z.t+=dt;if(z.t>z.turn)turn(p)}
