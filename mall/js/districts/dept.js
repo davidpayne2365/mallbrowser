@@ -8,6 +8,14 @@ for(const y of[6,12]){B(-DW,y-.4,0,DW,y,AZ0,C.floor,{pat:12});B(-DW,y-.4,AZ1,DW,
 for(const y of[6,12,H])for(let x=-54;x<=54;x+=12)for(let z=8;z<DD;z+=12){if(y<H&&Math.abs(x)<AX+2&&z>AZ0&&z<AZ1)continue;B(x-.9,y-.45,z-.9,x+.9,y-.4,z+.9,C.white,{e:2.3,solid:false});light(x,y-.9,z,C.warm,6,12)}
 vault(AX,6,12,'z',AZ0,AZ1,4,H);B(-AX,H,AZ0-.01,AX,H+.01,AZ0,C.ceil);
 for(const y0 of[0,6]){const z=AZ1-4;esc(y0?-6.8:6.8,z,y0?-1:1,y0)}
+// landings so the escalators meet the floors: the first lands on the east side of floor 2; a walkway across the
+// back of the atrium leads to the foot of the second, which lands on the west side of floor 3
+{const ez=AZ1-4,FL=(x0,y,z0,x1,z1)=>B(x0,y-.4,z0,x1,y,z1,C.floor,{pat:12});
+ FL(12.2,6,ez-1.4,AX,ez+1.4);FL(-AX,12,ez-1.4,-12.2,ez+1.4);
+ FL(-AX,6,AZ1-3,AX,AZ1);FL(-3.2,6,ez-1.4,1,AZ1-3);
+ rail(-AX,AZ1-3,-3.2,AZ1-3,6);rail(1,AZ1-3,12.2,AZ1-3,6);rail(1,ez-1.4,1,AZ1-3,6);rail(-3.2,ez-1.4,-1.9,ez-1.4,6);
+ rail(12.2,ez-1.4,AX,ez-1.4,6);rail(-AX,ez-1.4,-12.2,ez-1.4,12);
+ for(const[x,y]of[[13,6],[-13,12],[-1.6,6]]){B(x-.5,y+2.6,ez-.05,x+.5,y+3,ez+.05,hsl(45,.8,.6),{e:2.5,solid:false})}}
 for(let k=0;k<4;k++)model('Chandelier_01',0,H-4.2-k%2*1.5,AZ0+8+k*9,k*.6,2.4);for(let k=0;k<4;k++)light(0,H-5,AZ0+8+k*9,C.warm,10,18);
 // a marble fountain with a sculpture under the atrium
 B(-4,0,MID-4,4,.6,MID+4,hsl(40,.1,.85),{pat:7});B(-3.6,.45,MID-3.6,3.6,.55,MID+3.6,hsl(190,.6,.5),{e:.6,pat:8,solid:false});model('bronze_whale_statue',0,.6,MID,.5,1.4);
