@@ -5,6 +5,9 @@ const QS=new URLSearchParams(location.search);
 // game mode: '' (walk around) or 'zombies' (js/zombies.js); ZM is set once the world is built
 let MODE=QS.get('mode')==='zombies'?'zombies':'';let ZM=null;
 const coarse=matchMedia('(pointer:coarse)').matches;
+// touch settings (menu): look speed, gyro aim, steer with the stick, left-handed layout
+const TS={sens:1,gyro:false,steer:true,lefty:false,ink:false};try{Object.assign(TS,JSON.parse(localStorage.skyMallTouch||'{}'))}catch{}
+const saveTS=()=>{try{localStorage.skyMallTouch=JSON.stringify(TS)}catch{}};
 // phones (and small tablets) get their own fast path: Super low by default, a shorter view, half the crowd,
 // smaller textures and a resolution that adjusts itself to hold the frame rate. ?phone=1 / ?phone=0 forces it.
 const PHONE=QS.has('phone')?QS.get('phone')!=='0':coarse&&Math.min(screen.width,screen.height)<900,DKEY=PHONE?'skyMallDetailPhone':'skyMallDetail';
@@ -390,7 +393,7 @@ fn lum(p:vec2i)->f32{return dot(textureLoad(col,p,0).rgb,vec3f(.299,.587,.114));
  let t=smoothstep(.12,.8,l0);var g=mix(.16,1.,floor(t*4.+.5)/4.*.75+t*.25);g=mix(g,1.,smoothstep(35.,95.,c));if(textureLoad(dep,p,0)>=.99999){g=1.;}
  return vec4f(vec3f(g*(1.-edge))*vec3f(1.,.985,.95),1.);}`;
 const inkPipe=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:device.createShaderModule({code:INK_WGSL}),entryPoint:'vs'},fragment:{module:device.createShaderModule({code:INK_WGSL}),entryPoint:'fs',targets:[{format:fmt}]},primitive:{topology:'triangle-list'}}),inkU=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
-const inkOn=()=>QS.has('ink')?QS.get('ink')!=='0':touchMode&&TS.ink;
+const inkOn=()=>QS.has('ink')?QS.get('ink')!=='0':coarse&&TS.ink;
 const drawDyn=(p,mesh,g)=>{if(!g.n)return;p.setVertexBuffer(0,mesh.vb);p.setIndexBuffer(mesh.ib,mesh.fmt||'uint16');p.setVertexBuffer(1,g.b);p.drawIndexed(mesh.n,g.n)};
 const fsPipe=(code,ep,targets)=>{const m=device.createShaderModule({code});return device.createRenderPipelineAsync({layout:'auto',vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:ep,targets},primitive:{topology:'triangle-list'}})};
 const ADD={color:{srcFactor:'one',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one',operation:'add'}},H16={format:'rgba16float'};
@@ -455,9 +458,6 @@ const keys=new Set(),ptrs=new Map();let primary=null,playing=false,stats=false,m
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 // controls: mouse look (click to capture the pointer) and WASD; on phones hold to walk, drag to look, two fingers to run
 const touchMode=coarse;let touches=0,lookId=null,moveId=null,joy0=null;const joyV={x:0,y:0},JR=58,pend={x:0,y:0};
-// touch settings (menu): look speed, gyro aim, steer with the stick, left-handed layout
-const TS={sens:1,gyro:false,steer:true,lefty:false,ink:false};try{Object.assign(TS,JSON.parse(localStorage.skyMallTouch||'{}'))}catch{}
-const saveTS=()=>{try{localStorage.skyMallTouch=JSON.stringify(TS)}catch{}};
 // stop pinch-zoom, double-tap zoom and page scrolling while playing
 document.addEventListener('gesturestart',e=>e.preventDefault());document.addEventListener('touchmove',e=>{if(playing)e.preventDefault()},{passive:false});
 document.addEventListener('dblclick',e=>e.preventDefault());
