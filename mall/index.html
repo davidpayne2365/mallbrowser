@@ -25,9 +25,15 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
 #q{display:flex;align-items:center;gap:.4em;padding:.4em}#q span{flex:1;color:#ffb3d6}
 #q button{flex:1.2;padding:.7em 0;background:none;box-shadow:none;color:#fff4e8}#q button:hover{background:#ff9ccb33}
 #q .on{background:linear-gradient(#ffe39a,#ff6fb0);box-shadow:inset 0 -.2em #0003;color:#2d0320;pointer-events:none}
-#k{display:flex;justify-content:center;gap:2em;text-align:left}
-#k p{display:grid;grid-template-columns:auto auto;align-content:start;align-items:center;gap:.55em .9em}
-#k p+p{padding-left:2em;border-left:2px solid #ff9ccb40}
+#a{width:min(36em,100%)}
+#k{display:grid;grid-template-columns:1fr 1fr;gap:1.6em;text-align:left;justify-items:center}
+#k>div+div{padding-left:1.6em;border-left:2px solid #ff9ccb40}
+#k h3{margin:0 0 .7em;font-size:1em;letter-spacing:.14em;color:#ffb3d6}
+#k p{display:grid;grid-template-columns:auto auto;align-content:start;align-items:center;gap:.5em .9em}
+body.zmode #m .mall,body:not(.zmode) #m .zom{display:none}
+/* the game's own overlays stay hidden while the menu is up */
+body:not(.g) .zhud,body:not(.g) #t{display:none}
+@media (max-width:640px){#k{grid-template-columns:1fr}#k>div+div{padding-left:0;border-left:0}}
 #k i{display:flex;justify-self:end;align-items:center;gap:.25em;font-style:normal}
 #k b{min-width:1.1em;padding:.2em .5em;border-radius:.35em;background:#fff4e8;box-shadow:inset 0 -.15em #0004;color:#2d0320;text-align:center}
 #h{display:none}
@@ -50,21 +56,34 @@ button:hover{transform:translateY(-.12em);filter:brightness(1.15)}button:active{
       <button id=zm>Zombie Mode</button>
       <p id=q><span>Detail</span><button>Super low</button><button>Low</button><button>Medium</button><button>High</button></p>
       <div id=k>
-        <p><i><b>Mouse</b></i>Look
-          <i><b>Click</b></i>Capture mouse
-          <i><b>W</b><b>A</b><b>S</b><b>D</b></i>Walk
-          <i><b>Space</b></i>Jump
-          <i><b>Shift</b></i>Run</p>
-        <p><i><b>1</b>–<b>6</b></i>Viewpoints
-          <i><b>Esc</b></i>Menu
-          <i><b>M</b></i>Mute
-          <i><b>N</b></i>Day / night
-          <i><b>R</b></i>Back to the hub
-          <i><b>F</b></i>Fly mode
-          <i><b>H</b></i>Stats</p>
-        <p><i><b>Controller</b></i>Left stick walk · right stick look · A jump · RT run · Y fly · X day / night · Back to the concourse · Start menu</p>
+        <div><h3>Keyboard &amp; mouse</h3><p>
+          <i><b>Mouse</b></i><span>Look</span>
+          <i><b>W</b><b>A</b><b>S</b><b>D</b></i><span>Move</span>
+          <i><b>Space</b></i><span>Jump</span>
+          <i class=zom><b>Click</b></i><span class=zom>Fire (hold)</span>
+          <i class=zom><b>Wheel</b> <b>1</b>–<b>6</b></i><span class=zom>Switch gun</span>
+          <i class=zom><b>E</b></i><span class=zom>Take a gun</span>
+          <i class=mall><b>Shift</b></i><span class=mall>Run</span>
+          <i class=mall><b>1</b>–<b>6</b></i><span class=mall>Viewpoints</span>
+          <i class=mall><b>F</b></i><span class=mall>Fly</span>
+          <i class=mall><b>N</b></i><span class=mall>Day / night</span>
+          <i class=mall><b>R</b></i><span class=mall>Back to the mall</span>
+          <i><b>M</b></i><span>Mute</span>
+          <i><b>Esc</b></i><span>Menu</span></p></div>
+        <div><h3>Controller</h3><p>
+          <i><b>L stick</b></i><span>Move</span>
+          <i><b>R stick</b></i><span>Look</span>
+          <i><b>A</b></i><span>Jump</span>
+          <i class=zom><b>RT</b></i><span class=zom>Fire</span>
+          <i class=zom><b>LB</b> <b>RB</b></i><span class=zom>Switch gun</span>
+          <i class=zom><b>X</b></i><span class=zom>Take a gun</span>
+          <i class=mall><b>RT</b></i><span class=mall>Run</span>
+          <i class=mall><b>Y</b></i><span class=mall>Fly</span>
+          <i class=mall><b>X</b></i><span class=mall>Day / night</span>
+          <i class=mall><b>Back</b></i><span class=mall>Back to the mall</span>
+          <i><b>Start</b></i><span>Menu</span></p></div>
       </div>
-      <p id=h>Hold to walk · drag to look around · two fingers to run</p>
+      <p id=h><span class=mall>Hold to walk · drag to look around · two fingers to run</span><span class=zom>Hold to walk · drag to look · Fire, Swap and Jump buttons · tap a gun's card to take it</span></p>
     </div>
   </div>
 </div>

@@ -19,7 +19,7 @@ function makeZombieMode(api){
 
  // ---- HUD
  const css='position:fixed;z-index:5;pointer-events:none;font:600 14px/1.3 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000';
- const el=(style,html='')=>{const d=document.createElement('div');d.style.cssText=css+';'+style;d.innerHTML=html;document.body.appendChild(d);return d};
+ const el=(style,html='')=>{const d=document.createElement('div');d.className='zhud';d.style.cssText=css+';'+style;d.innerHTML=html;document.body.appendChild(d);return d};
  const hud={cross:el('left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border:2px solid rgba(255,255,255,.85);border-radius:50%'),
   hp:el('left:16px;bottom:18px;width:220px;height:16px;background:rgba(0,0,0,.5);border-radius:8px;overflow:hidden','<div style="height:100%;width:100%;background:linear-gradient(#ff6a5a,#c81e1e);transition:width .2s"></div>'),
   hpn:el('left:22px;bottom:19px;font-size:12px'),
@@ -32,7 +32,7 @@ function makeZombieMode(api){
  const showHud=v=>{for(const k in hud)if(!['banner','red','card','nums'].includes(k))hud[k].style.display=v?'':'none'};
  // touch: fire, swap, jump, and take (shown on a weapon card)
  if(api.touchMode){const bs='position:fixed;z-index:6;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:700 13px system-ui;touch-action:none';
-  const btn=(label,style,down,upf)=>{const b=document.createElement('button');b.textContent=label;b.style.cssText=bs+';'+style;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();down()});
+  const btn=(label,style,down,upf)=>{const b=document.createElement('button');b.className='zhud';b.textContent=label;b.style.cssText=bs+';'+style;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();down()});
    b.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();upf&&upf()});b.addEventListener('pointercancel',()=>upf&&upf());document.body.appendChild(b);return b};
   btn('FIRE','right:22px;bottom:90px;width:84px;height:84px',()=>firing=true,()=>firing=false);btn('SWAP','right:118px;bottom:40px;width:56px;height:56px',()=>swap(1));
   btn('JUMP','right:22px;bottom:186px;width:60px;height:60px',()=>{keys.add('Space');setTimeout(()=>keys.delete('Space'),150)})}

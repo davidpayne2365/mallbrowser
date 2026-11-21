@@ -698,7 +698,7 @@ if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get C
  // world position -> CSS pixels on screen (for damage numbers), or null when behind you
  project:(x,y,z)=>{const cx=VP[0]*x+VP[4]*y+VP[8]*z+VP[12],cy=VP[1]*x+VP[5]*y+VP[9]*z+VP[13],cw=VP[3]*x+VP[7]*y+VP[11]*z+VP[15];if(cw<=.05)return null;return[(cx/cw*.5+.5)*innerWidth,(.5-cy/cw*.5)*innerHeight]}});window.__zm=ZM;
  // always night in zombie mode
- nightOverride=1;nightK=1;$('d').textContent='Start Zombie Mode';$('zm').textContent='Back to normal mode'}
+ nightOverride=1;nightK=1;$('d').textContent='Start Zombie Mode';body.classList.add('zmode');$('zm').textContent='Back to normal mode'}
 $('zm').onclick=()=>{location.search=MODE?'':'?mode=zombies'};
 requestAnimationFrame(frame);
 })();
