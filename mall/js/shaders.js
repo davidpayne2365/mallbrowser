@@ -1,8 +1,11 @@
 /* ============================== SHADERS ============================== */
 //WGSL-START
 const COMMON=`
-struct U{vp:mat4x4f,view:mat4x4f,ivp:mat4x4f,lvp:mat4x4f,cam:vec4f,grid:vec4f,misc:vec4f,fog:vec4f,sun:vec4f,sunC:vec4f,vis:vec4f,skyp:vec4f,scr:vec4f,proj:vec4f,sh:array<vec4f,9>,nite:vec4f,rgn:vec4f};
+struct U{vp:mat4x4f,view:mat4x4f,ivp:mat4x4f,lvp:mat4x4f,cam:vec4f,grid:vec4f,misc:vec4f,fog:vec4f,sun:vec4f,sunC:vec4f,vis:vec4f,skyp:vec4f,scr:vec4f,proj:vec4f,sh:array<vec4f,9>,nite:vec4f,rgn:vec4f,fl:vec4f};
 @group(0)@binding(0)var<uniform>u:U;
+// the player's flashlight: a wide cone from the eye (fl.xyz = direction, fl.w = brightness)
+fn torch(wp:vec3f,N:vec3f)->f32{if(u.fl.w<=0.){return 0.;}let d=u.cam.xyz+vec3f(0.,-.15,0.)-wp;let d2=dot(d,d);let Ld=d*inverseSqrt(max(d2,1e-4));
+ let cs=dot(-Ld,u.fl.xyz);let cone=smoothstep(.72,.9,cs)*.7+smoothstep(.9,.97,cs)*.3;return u.fl.w*cone*max(dot(N,Ld),0.)/(1.+d2*.045);}
 const PI=3.14159265;
 fn ss(a:f32,b:f32,x:f32)->f32{let t=clamp((x-a)/(b-a),0.,1.);return t*t*(3.-2.*t);}
 fn h31(p:vec3f)->f32{var q=fract(p*vec3f(.1031,.1030,.0973));q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
@@ -201,6 +204,7 @@ fn shade(wp:vec3f,Ng:vec3f,N:vec3f,V:vec3f,dist:f32,base:vec3f,rough:f32,metal:f
    acc+=L.c.rgb*att*nd*(dif*(.4+.6*ao)+ggx(N,V,Ld,max(rough,.12),F0)*PI*.6);
   }
  }
+ acc+=vec3f(1.,.94,.82)*torch(wp,N)*(dif+F0*.3);
  var col=acc+emis;
  col=mix(col,u.fog.yzw,1.-exp(-dist*u.fog.x));
  let vn3=(u.view*vec4f(N,0.)).xyz;
@@ -385,6 +389,7 @@ fn inlay(wp:vec3f,w:f32)->f32{
  let nk=u.nite.x;let L=normalize(u.sun.xyz);let ndl=max(dot(N,L),0.);
  let amb=mix(vec3f(.5,.53,.58),vec3f(.2,.22,.3),nk)*(.72+.28*N.y);
  var c=i.col*(amb+mix(vec3f(.65,.6,.52),vec3f(.08,.09,.14),nk)*ndl)+i.col*i.m.x*.6;
+ c+=i.col*vec3f(1.,.94,.82)*torch(i.wp,N)*.8;
  c=mix(c,mix(vec3f(.62,.7,.82),vec3f(.03,.04,.07),nk),1.-exp(-dist*u.fog.x*.8));
  return vec4f(pow(clamp(c,vec3f(0.),vec3f(1.)),vec3f(1./2.2)),1.);}
 // ---- Poly Haven models and foliage cards: textured meshes, instanced ----

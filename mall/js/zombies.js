@@ -142,7 +142,7 @@ function makeZombieMode(api){
  function shoot(){const g=gun();shots++;let oc=false;if(has(g,'overcharge')){g.ocN=(g.ocN||0)+1;if(g.ocN>=10){g.ocN=0;oc=true;boomSound()}}
   const sides=has(g,'twin')?[1,-1]:[1];recoil=Math.min(1,recoil+(oc||g.type==='sniper'||g.type==='launcher'||g.type==='shotgun'||g.shape.arc?1:.5));gunSound(g);
   for(const side of sides)fireFrom(g,side,oc,sides.length>1?.7:1)}
- function fireFrom(g,side,oc,mul){const o=eye(),{f,r,u}=dirs(),muz=muzzle(side),ghost=has(g,'ghost');fx.push({k:'flash',a:muz,col:oc?[1,1,1]:g.ecol,life:oc?.12:.05,t:0});
+ function fireFrom(g,side,oc,mul){const o=eye(),{f,r,u}=dirs(),muz=muzzle(side),ghost=has(g,'ghost');
   if(g.shape.arc){cleave(g,o,side,oc,mul);return}
   const dmg=g.dmg*mul*(oc?6:1),range=g.range*(oc?1.5:1),pierce=g.pierce+(oc?5:0),zs=zombiesNear(o,range);
   for(let q=0;q<g.pellets;q++){const ja=R()*6.283,jr=oc?0:g.spread*Math.sqrt(R());let d=[f[0]+(r[0]*Math.cos(ja)+u[0]*Math.sin(ja))*jr,f[1]+(r[1]*Math.cos(ja)+u[1]*Math.sin(ja))*jr,f[2]+(r[2]*Math.cos(ja)+u[2]*Math.sin(ja))*jr];
@@ -168,13 +168,16 @@ function makeZombieMode(api){
     left-=wd;s=b;from=b;bounces--}
    if(g.blast)blast(end,g.blast,dmg,g);if(oc)blast(end,3.5,g.dmg*3,g);fx.push({k:'spark',a:end,col:g.ecol,life:.12,t:0})}}
  // the Plasma Cleaver: a crescent that sweeps out and hits everything in its arc, slicing limbs off
- function cleave(g,o,side,oc,mul){const R0=g.range*(oc?1.8:1),half=g.shape.arc/2*Math.PI/180*(oc?1.3:1),fy=-Math.sin(P.yaw),fz=-Math.cos(P.yaw),gc={...g,cleave:2.5},ghost=has(g,'ghost');
-  fx.push({k:'arc',o:[o[0],o[1]-.25-(side<0?.25:0),o[2]],yaw:P.yaw,half,R:R0,col:oc?[1,.9,1]:g.ecol,life:.3,t:0,w:oc?.1:.05});
-  for(const p of zombiesNear(o,R0)){const dx=p.x-o[0],dz=p.z-o[2],dist=Math.hypot(dx,dz);if(dist>R0||Math.abs(p.y+1-o[1])>2.4)continue;
-   const a=Math.acos(Math.max(-1,Math.min(1,(dx*fy+dz*fz)/(dist||1))));if(a>half)continue;
-   if(!ghost&&dist>1&&wallDist([o[0],o[1]-.4,o[2]],[dx/dist,0,dz/dist],dist)<dist-.3)continue;
-   const lim=['la','ra','ll','rl'].filter((x,i)=>!(p.limb&(1<<i))),part=R()<.12?'head':R()<.45&&lim.length?lim[Math.floor(R()*lim.length)]:'torso',at=[p.x,p.y+1.2,p.z];
-   hitsN++;hurt(p,g.dmg*mul*(oc?4:1),gc,part,at);if(has(g,'explode'))blast(at,2.5,g.dmg*.5,g)}}
+ function cleave(g,o,side,oc,mul){const{f,r,u}=dirs(),R0=g.range*(oc?1.8:1),half=g.shape.arc/2*Math.PI/180*(oc?1.3:1),gc={...g,cleave:2.5},ghost=has(g,'ghost');
+  const c0=[o[0]-u[0]*.2,o[1]-u[1]*.2,o[2]-u[2]*.2],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  fx.push({k:'arc',o:c0,f,r,half,R:R0,col:oc?[1,.9,1]:g.ecol,life:.3,t:0,w:oc?.32:.22});
+  for(const p of zombiesNear(o,R0+1)){let best=null;const hs=p.zs.crawl?[['head',.5],['torso',.3]]:[['head',1.62],['torso',1.15],['legs',.45]];
+   for(const[part,h]of hs){const v=[p.x-c0[0],p.y+h*p.s[1]-c0[1],p.z-c0[2]],a=dot(v,f),b=dot(v,r),c=Math.abs(dot(v,u));
+    if(a<=0||Math.hypot(a,b)>R0||Math.atan2(Math.abs(b),a)>half||c>.55)continue;if(!best||c<best.c)best={part,c,v,d:Math.hypot(...v)}}
+   if(!best)continue;if(!ghost&&best.d>1&&wallDist(c0,best.v.map(x=>x/best.d),best.d)<best.d-.3)continue;
+   const have=k=>['la','ra','ll','rl'].filter((x,i)=>k.includes(x)&&!(p.limb&(1<<i))),pk=a=>a[Math.floor(R()*a.length)];
+   let part=best.part;if(part==='legs'){const l=have(['ll','rl']);part=l.length?pk(l):'torso'}else if(part==='torso'&&R()<.4){const l=have(['la','ra']);if(l.length)part=pk(l)}
+   const at=[p.x,p.y+1.2,p.z];hitsN++;hurt(p,g.dmg*mul*(oc?4:1),gc,part,at);if(has(g,'explode'))blast(at,2.5,g.dmg*.5,g)}}
  // boomerang discs: out up to 16 m (or until a wall), then back to you, hitting each zombie once each way
  function stepProjs(dt){const o=eye();for(let i=projs.length-1;i>=0;i--){const q=projs[i];q.t+=dt;const a=[...q.p];
    if(q.out){for(let k=0;k<3;k++)q.p[k]+=q.d[k]*22*dt;q.dist+=22*dt;if(q.dist>16||api.solid(...q.p))q.out=false}
@@ -255,32 +258,46 @@ function makeZombieMode(api){
 
  // ---- the forge: pick one aspect from every gun you hold and they combine into one gun (and the rest break).
  // Open it any time with Q (Y on a controller, FORGE on a phone); the game doesn't pause, so find somewhere safe.
- let forgeOpen=false,picks=[],cur2={row:0,col:0};
+ // sniper zoom (right mouse, LT or RB) and the flashlight (F, R3 or the LIGHT button)
+ let aimM=false,aimP=false,zoomK=0,torchOn=false;const isSniper=()=>gun().type==='sniper';
+ const scopeEl=el('left:0;top:0;width:100vw;height:100vh;opacity:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 34vmin,rgba(0,0,0,.92) 35vmin);display:block');
+ scopeEl.innerHTML='<div style="position:absolute;left:50%;top:15vh;width:1px;height:70vh;background:rgba(0,0,0,.8)"></div><div style="position:absolute;top:50%;left:calc(50% - 35vmin);width:70vmin;height:1px;background:rgba(0,0,0,.8)"></div>';
+ const toggleTorch=()=>{torchOn=!torchOn;banner('',torchOn?'Flashlight on':'Flashlight off',.8)};
+ let forgeOpen=false,sel=null,cur2={row:0,col:0},forgeMsg='';const MAXAB=3;
  const forgeEl=el('left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:84vh;overflow:auto;padding:14px 16px;border-radius:12px;background:rgba(10,10,18,.9);border:1px solid rgba(255,255,255,.15);display:none;pointer-events:auto;text-shadow:none');
- function aspects(g){const A=[{k:'frame',label:'Frame',tip:`${g.rar.name} ${GUN_TYPES[g.type].name} by ${g.makerName}: ${Math.round(g.base.dmg)} damage${g.base.pellets>1?' ×'+g.base.pellets:''}, ${g.base.rate.toFixed(1)} shots/s. The body of the new gun.`},
-  {k:'power',label:'Power',tip:`${g.rar.name} power: ×${g.rar.mul} damage, put on whichever frame you choose.`}];
+ const x2=v=>'×'+v.toFixed(2);
+ function aspects(g){const T=g.shape,A=[{k:'frame',label:'Frame',tip:`${g.rar.name} ${GUN_TYPES[g.type].name} by ${g.makerName}: the body of the new gun (its type, pellets, range and built-in traits).`},
+  {k:'dmg',label:'Damage '+x2(g.base.dmg/T.dmg),tip:`Damage roll ${x2(g.base.dmg/T.dmg)} (vs a plain ${T.name}), put on whichever Frame you choose.`},
+  {k:'rate',label:'Fire rate '+x2(g.base.rate/T.rate),tip:`Fire rate roll ${x2(g.base.rate/T.rate)} (vs a plain ${T.name}), put on whichever Frame you choose.`},
+  {k:'skin',label:'Skin',tip:`The ${g.makerName} finish of this gun.`}];
   if(g.elem)A.push({k:'elem',v:g.elem,label:ELEMENTS[g.elem].name,tip:`${ELEMENTS[g.elem].name} element on every shot.`});
   for(const a of g.abil)A.push({k:'abil',v:a,label:ABILITIES[a].name,tip:ABILITIES[a].tip+'.'});return A}
- function forged(){const frames=picks.map((p,i)=>p!=null&&aspects(inv[i])[p].k==='frame'?i:-1).filter(i=>i>=0);
-  if(inv.length<2)return{err:'You need at least two guns to forge'};if(picks.some(p=>p==null))return{err:'Pick one aspect from every gun'};
-  if(frames.length!==1)return{err:frames.length?'Pick only one Frame':'Pick a Frame from one of your guns'};
-  const fg=inv[frames[0]],g={...fg,base:{...fg.base},abil:[]};g.rarity=Math.max(...inv.map(x=>x.rarity));g.rar=RARITIES[g.rarity];g.col=g.rar.col;
-  if(!fg.shape.elem)g.elem=null;
-  picks.forEach((p,i)=>{const a=aspects(inv[i])[p];if(a.k==='elem'&&!g.beam)g.elem=a.v;if(a.k==='abil'&&!g.abil.includes(a.v))g.abil.push(a.v);if(a.k==='power')g.base.dmg*=inv[i].rar.mul/fg.rar.mul});
-  g.abil=g.abil.filter(a=>fitsGun(g,a));applyAbilities(g);g.ocN=0;g.ecol=g.elem?ELEMENTS[g.elem].col:g.shape.arc?[1,.4,1]:g.col;
+ const isSel=(r,a)=>a.k==='abil'?sel.abil.some(x=>x[0]===r&&x[1]===a.v):sel[a.k]===r;
+ function forged(){if(inv.length<2)return{err:'You need at least two guns to forge'};if(sel.frame==null)return{err:'Pick a Frame from one of your guns'};
+  const fg=inv[sel.frame],T=fg.shape,g={...fg,base:{...fg.base},abil:[]};g.rarity=Math.max(...inv.map(x=>x.rarity));g.rar=RARITIES[g.rarity];g.col=g.rar.col;
+  if(sel.dmg!=null){const s2=inv[sel.dmg];g.base.dmg=T.dmg*s2.base.dmg/s2.shape.dmg}
+  if(sel.rate!=null){const s2=inv[sel.rate];g.base.rate=T.rate*s2.base.rate/s2.shape.rate}
+  if(sel.skin!=null){const s2=inv[sel.skin];g.skin=s2.skin;g.tint=s2.tint}
+  if(sel.elem!=null&&!g.beam&&!T.elem)g.elem=inv[sel.elem].elem;
+  for(const[,a]of sel.abil)if(!g.abil.includes(a)&&fitsGun(g,a))g.abil.push(a);
+  applyAbilities(g);g.ocN=0;g.ecol=g.elem?ELEMENTS[g.elem].col:g.shape.arc?[1,.4,1]:g.col;
   g.name=`Forged ${g.makerName} ${GUN_TYPES[g.type].name}`;g.parts=gunParts(g,R);return{g}}
- function drawForge(){const res=forged(),focus=cur2.row<inv.length?aspects(inv[cur2.row])[cur2.col]:null;
-  const chip=(r,c,a)=>{const sel=picks[r]===c,cur=cur2.row===r&&cur2.col===c,g=inv[r];return`<span data-r="${r}" data-c="${c}" style="display:inline-block;margin:3px 4px 0 0;padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;background:${sel?g.rar.css:'rgba(255,255,255,.08)'};color:${sel?'#111':'#eee'};outline:${cur?'2px solid #fff':'none'}">${a.label}</span>`};
-  forgeEl.innerHTML=`<div style="font-size:20px;font-weight:800">Forge</div><div style="font-size:12px;opacity:.75;margin-bottom:8px">Pick one aspect from every gun (one must be a Frame). Forging breaks all your guns into one. The game keeps going.</div>`+
+ function drawForge(){const res=forged(),focus=cur2.row<inv.length?aspects(inv[cur2.row])[cur2.col]:null,fg=sel.frame!=null?inv[sel.frame]:null;
+  const chip=(r,c,a)=>{const on=isSel(r,a),cur=cur2.row===r&&cur2.col===c,g=inv[r],bad=a.k==='abil'&&fg&&!fitsGun(fg,a.v);
+   return`<span data-r="${r}" data-c="${c}" style="display:inline-block;margin:3px 4px 0 0;padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;background:${on?g.rar.css:'rgba(255,255,255,.08)'};color:${on?'#111':'#eee'};opacity:${bad?.4:1};text-decoration:${bad?'line-through':'none'};outline:${cur?'2px solid #fff':'none'}">${a.k==='abil'?'◆ ':''}${a.label}</span>`};
+  const ftip=focus?focus.tip+(focus.k==='abil'&&fg&&!fitsGun(fg,focus.v)?` <span style="color:#f88">(doesn't work on a ${GUN_TYPES[fg.type].name} frame)</span>`:''):'';
+  forgeEl.innerHTML=`<div style="font-size:20px;font-weight:800">Forge</div><div style="font-size:12px;opacity:.75;margin-bottom:8px">Build one gun from the guns you carry: pick a <b>Frame</b>, then take <b>Damage</b>, <b>Fire rate</b>, <b>Skin</b>, an element and up to ${MAXAB} <b>abilities</b> from any of them. Anything you don't pick comes from the Frame. Forging breaks all your guns into the new one. The game keeps going.</div>`+
    inv.map((g,r)=>`<div style="margin:6px 0;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04)"><div style="font-weight:700;color:${g.rar.css}">${r+1}. ${g.name}</div>${aspects(g).map((a,c)=>chip(r,c,a)).join('')}</div>`).join('')+
-   `<div style="min-height:34px;margin-top:6px;font-size:13px;color:#ffd77a">${focus?focus.tip:''}</div>`+
-   `<div style="margin-top:4px;font-size:13px">${res.err?`<span style="opacity:.8">${res.err}</span>`:`Result: <b style="color:${res.g.rar.css}">${res.g.name}</b> · ${Math.round(res.g.dmg)}${res.g.pellets>1?'×'+res.g.pellets:''} dmg · ${res.g.rate.toFixed(1)}/s${res.g.elem?' · '+ELEMENTS[res.g.elem].name:''}${res.g.abil.length?' · '+res.g.abil.map(a=>ABILITIES[a].name).join(', '):''}`}</div>`+
+   `<div style="min-height:34px;margin-top:6px;font-size:13px;color:#ffd77a">${forgeMsg?`<span style="color:#f88">${forgeMsg}</span>`:ftip}</div>`+
+   `<div style="margin-top:4px;font-size:13px">${res.err?`<span style="opacity:.8">${res.err}</span>`:`Result: <b style="color:${res.g.rar.css}">${res.g.name}</b> · ${Math.round(res.g.dmg)}${res.g.pellets>1?'×'+res.g.pellets:''} dmg · ${res.g.rate.toFixed(1)}/s${res.g.elem?' · '+ELEMENTS[res.g.elem].name:''}${res.g.abil.length?' · '+res.g.abil.map(a=>ABILITIES[a].name).join(', '):''} · ${res.g.abil.length}/${MAXAB} abilities`}</div>`+
    `<div data-forge="1" style="margin-top:10px;padding:9px;border-radius:8px;text-align:center;font-weight:800;cursor:pointer;background:${res.err?'rgba(255,255,255,.08)':'linear-gradient(#ffe39a,#ff9a1f)'};color:${res.err?'#888':'#2a1300'};outline:${cur2.row===inv.length?'2px solid #fff':'none'}">FORGE</div>`+
-   `<div style="margin-top:6px;font-size:11px;opacity:.65;text-align:center">${api.touchMode?'Tap aspects, then Forge':'Click, or arrows + Enter · d-pad + A on a controller · Q / B to close'}</div>`}
+   `<div style="margin-top:6px;font-size:11px;opacity:.65;text-align:center">${api.touchMode?'Tap to pick or unpick, then Forge':'Click, or arrows + Enter · d-pad + A on a controller · Q / B to close'}</div>`}
  function setForge(v){if(v&&inv.length<2){banner('Forge','You need at least two guns to forge',1.8);return}forgeOpen=v;forgeEl.style.display=v?'':'none';firing=false;
-  if(v){picks=inv.map(()=>null);cur2={row:0,col:0};drawForge();if(document.pointerLockElement)document.exitPointerLock()}}
- function forgeAct(){if(cur2.row>=inv.length){const res=forged();if(res.g){inv.splice(0,inv.length,res.g);ci=0;setForge(false);chime();banner(`<span style="color:${res.g.rar.css}">${res.g.name}</span>`,'Your guns were forged into one',2.6)}return}
-  picks[cur2.row]=picks[cur2.row]===cur2.col?null:cur2.col;if(cur2.row<inv.length-1){cur2.row++;cur2.col=0}else cur2.row=inv.length;drawForge()}
+  if(v){sel={frame:ci,dmg:null,rate:null,skin:null,elem:null,abil:[]};forgeMsg='';cur2={row:0,col:0};drawForge();if(document.pointerLockElement)document.exitPointerLock()}}
+ function forgeAct(){if(cur2.row>=inv.length){const res=forged();if(res.g){inv.splice(0,inv.length,res.g);ci=0;setForge(false);chime();banner(`<span style="color:${res.g.rar.css}">${res.g.name}</span>`,'Your guns were forged into one',2.4)}return}
+  const r=cur2.row,a=aspects(inv[r])[cur2.col];forgeMsg='';
+  if(a.k==='abil'){const i=sel.abil.findIndex(x=>x[1]===a.v);if(i>=0&&sel.abil[i][0]===r)sel.abil.splice(i,1);else if(i>=0)sel.abil[i][0]=r;else if(sel.abil.length>=MAXAB)forgeMsg=`You can take up to ${MAXAB} abilities. Unpick one first.`;else sel.abil.push([r,a.v])}
+  else sel[a.k]=sel[a.k]===r?null:r;drawForge()}
  function forgeMove(dr,dc){const rows=inv.length+1;cur2.row=(cur2.row+dr+rows)%rows;if(cur2.row<inv.length){const n=aspects(inv[cur2.row]).length;cur2.col=Math.max(0,Math.min(n-1,cur2.col+dc))}drawForge()}
  forgeEl.addEventListener('pointerdown',e=>{e.stopPropagation();const t=e.target.closest('[data-r],[data-forge]');if(!t)return;e.preventDefault();
   if(t.dataset.forge){cur2.row=inv.length}else{cur2.row=+t.dataset.r;cur2.col=+t.dataset.c}forgeAct()});
@@ -293,6 +310,9 @@ function makeZombieMode(api){
   if(ed(3))setForge(!forgeOpen);
   if(forgeOpen){padRepF-=dt;const d=[[12,-1,0],[13,1,0],[14,0,-1],[15,0,1]].find(([i])=>b[i]);if(d&&padRepF<=0){padRepF=.2;forgeMove(d[1],d[2])}else if(!d)padRepF=0;if(ed(0))forgeAct();if(ed(1))setForge(false)}
   padF=b}
+ if(api.touchMode){for(const[lab,bot,dn,up]of[['LIGHT',90,toggleTorch,null],['ZOOM',132,()=>{aimM=true},()=>{aimM=false}]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
+   b.style.cssText=`position:fixed;z-index:6;left:16px;bottom:${bot}px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
+   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dn()});if(up)for(const ev of['pointerup','pointercancel'])b.addEventListener(ev,up);document.body.appendChild(b)}}
  if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;left:16px;bottom:48px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();setForge(!forgeOpen)});document.body.appendChild(b)}
 
@@ -346,7 +366,7 @@ function makeZombieMode(api){
     if(e2.k==='gib'){e2.yaw+=e2.spin*dt;e2.pitch+=e2.spin*.7*dt;if(e2.a[1]<e2.ground+e2.size[1]*.3){e2.a[1]=e2.ground+e2.size[1]*.3;e2.v=e2.v.map(v=>v*.4);e2.v[1]=0;e2.spin*=.5;e2.pitch=1.5708}}}}
   for(let i=fx.length-1;i>=0;i--)if(fx[i].t>fx[i].life)fx.splice(i,1);
   findHeli();if(heli&&!flyT&&deadT<=0&&Math.hypot(heli.x-P.x,heli.z-P.z)<4&&Math.abs(P.feet-heli.y)<2){flyT=.001;firing=false;banner('Get in!','',2)}
-  forgePad(dt);
+  forgePad(dt);zoomK+=((isSniper()&&(aimM||aimP)&&!forgeOpen&&deadT<=0?1:0)-zoomK)*Math.min(1,dt*12);scopeEl.style.opacity=zoomK>.5?Math.min(1,(zoomK-.5)*3):0;
   stepNums(dt);write(t)}
 
  // ---- parts to draw: your gun (metal finishes), beams, flames, blasts, health bars, dropped guns, potions
@@ -355,15 +375,16 @@ function makeZombieMode(api){
   const drawGun=(g,at,yaw,pitch,sc)=>{for(const[f,u,r,w,h,l,m]of g.parts){const p=at(f*sc,u*sc,r*sc);
     if(m==='b')part(...p,yaw,w*sc,h*sc,l*sc,g.tint,pitch,0,g.skin);else if(m==='d')part(...p,yaw,w*sc,h*sc,l*sc,DARK,pitch,0,41);
     else part(...p,yaw,w*sc,h*sc,l*sc,m==='g'?g.col:g.ecol,pitch,m==='g'?1.6:2.2)}};
-  if(deadT<=0){const o=eye(),{f,r,u}=dirs(),k=.46-recoil*.06-swapT*.6,dn=.2+swapT*.4,p0=[o[0]+r[0]*.24-u[0]*dn+f[0]*k,o[1]+r[1]*.24-u[1]*dn+f[1]*k,o[2]+r[2]*.24-u[2]*dn+f[2]*k];
+  if(deadT<=0&&zoomK<.6){const o=eye(),{f,r,u}=dirs(),k=.46-recoil*.06-swapT*.6,dn=.2+swapT*.4,p0=[o[0]+r[0]*.24-u[0]*dn+f[0]*k,o[1]+r[1]*.24-u[1]*dn+f[1]*k,o[2]+r[2]*.24-u[2]*dn+f[2]*k];
    drawGun(gun(),(df,du,dr)=>[p0[0]+f[0]*df+u[0]*du+r[0]*dr,p0[1]+f[1]*df+u[1]*du+r[1]*dr,p0[2]+f[2]*df+u[2]*du+r[2]*dr],P.yaw,P.pitch+recoil*.08,1);
    // Twin Fire: a mirrored copy in the left hand
    if(has(gun(),'twin')){const q0=[p0[0]-r[0]*.48,p0[1]-r[1]*.48,p0[2]-r[2]*.48];drawGun(gun(),(df,du,dr)=>[q0[0]+f[0]*df+u[0]*du-r[0]*dr,q0[1]+f[1]*df+u[1]*du-r[1]*dr,q0[2]+f[2]*df+u[2]*du-r[2]*dr],P.yaw,P.pitch+recoil*.08,1)}}
   for(const e of fx){const a=1-e.t/e.life;
    if(e.k==='gib'){part(...e.a,e.yaw,...e.size,e.col,e.pitch,0);continue}
    if(e.k==='puff'){const s=e.s0+(e.s1-e.s0)*(e.t/e.life);part(...e.a,e.t*7,s,s,s,e.col,e.t*5,3.5*a);continue}
-   if(e.k==='arc'){const n=18,k0=e.t/e.life,rr=1+(e.R-1)*Math.pow(k0,.6);for(let k=0;k<n;k++){const a=-e.half+(k+.5)/n*2*e.half,ang=e.yaw+a,dx=-Math.sin(ang),dz=-Math.cos(ang);
-     part(e.o[0]+dx*rr,e.o[1],e.o[2]+dz*rr,ang+1.5708,e.w,.3*(1-k0*.5),rr*2*e.half/n*1.1,e.col,0,5*(1-k0))}continue}
+   if(e.k==='arc'){const n=18,k0=e.t/e.life,rr=1+(e.R-1)*Math.pow(k0,.6);for(let k=0;k<n;k++){const a=-e.half+(k+.5)/n*2*e.half,ca=Math.cos(a),sa=Math.sin(a);
+     const d=[0,1,2].map(i=>e.f[i]*ca+e.r[i]*sa),tg=[0,1,2].map(i=>-e.f[i]*sa+e.r[i]*ca);
+     part(e.o[0]+d[0]*rr,e.o[1]+d[1]*rr,e.o[2]+d[2]*rr,Math.atan2(-tg[0],-tg[2]),e.w*(1-k0*.5),.05,rr*2*e.half/n*1.1,e.col,Math.asin(Math.max(-1,Math.min(1,tg[1]))),5*(1-k0))}continue}
    if(e.k==='vortex'){const k0=e.t/e.life;for(let k=0;k<10;k++){const a=k/10*6.283+t*9,rr=1.8*(1-k0)+.15;part(e.a[0]+Math.cos(a)*rr,e.a[1]+Math.sin(a*1.7)*.4,e.a[2]+Math.sin(a)*rr,a,.08,.08,.08,e.col,0,3.5)}continue}
    if(e.k==='boom'){const s=e.rad*(.3+e.t/e.life*.9);part(...e.a,0,s,s,s,[1,.55,.15],0,5*a);continue}
    if(e.k==='beam'){const[x0,y0,z0]=e.a,[x1,y1,z1]=e.b,dx=x1-x0,dy=y1-y0,dz=z1-z0,l=Math.hypot(dx,dy,dz);if(l<.01)continue;const w=e.w||.012;
@@ -400,6 +421,6 @@ function makeZombieMode(api){
  const give=(type,rarity=2)=>{inv.push(makeGun(R,{type,rarity}));ci=inv.length-1};if(QSZ.get('zgun'))give(QSZ.get('zgun'),+(QSZ.get('zrar')||2));
  if(QSZ.get('zab')){const g=gun();g.abil=QSZ.get('zab').split(',');applyAbilities(g)}
  showHud(true);banner('Zombie Mode','Fight your way through the mall to the Grand Exit',4);
- return{forgeOpen:()=>forgeOpen,gun,allies:allyCount,flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
+ return{zoom:()=>zoomK,aim:v=>{aimM=v},padAim:v=>{aimP=v},sniper:isSniper,torch:()=>torchOn,toggleTorch,forgeOpen:()=>forgeOpen,gun,allies:allyCount,flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
   // one speed: quick on your feet, no need to hold anything to run
   walk:5,run:5,jump:7.4}}

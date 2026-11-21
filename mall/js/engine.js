@@ -279,8 +279,8 @@ function lightMat(){const f=SUN.map(v=>-v);let r=[1-f[0]*f[0],-f[0]*f[1],-f[0]*f
  return[r[0]*sx,uu[0]*sy,f[0]*sz,0,r[1]*sx,uu[1]*sy,f[1]*sz,0,r[2]*sx,uu[2]*sy,f[2]*sz,0,-cx*sx,-cy*sy,-z0*sz,1]}
 
 // uniforms
-const ubuf=device.createBuffer({size:592,usage:GU.UNIFORM|GU.COPY_DST}),pbuf=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
-const ub=new Float32Array(148);
+const ubuf=device.createBuffer({size:608,usage:GU.UNIFORM|GU.COPY_DST}),pbuf=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
+const ub=new Float32Array(152);
 ub.set([0,0,6,1,1,1,ACOLS,AROWS,.0016,.05,.045,.042,...SUN,1,...SKY.sunE.map(v=>v*SUNSCALE),QS.has('vol')?+QS.get('vol'):.0022,-150,-1,-85,1,SKY.K,SKYSCALE,Math.cos(-beta),Math.sin(-beta)],68);
 SKY.sh.forEach((c,i)=>ub.set(c,104+i*4));ub.set([1,0,0,0],144);
 
@@ -432,8 +432,8 @@ cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCaptur
  if(!locked())lockMouse()});
 cv.addEventListener('pointermove',e=>{if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
  if(e.pointerType==='touch'&&e.pointerId!==lookId)return;look(dx,dy,e.pointerType==='touch'?.006:.004)});
-document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022)});
-document.addEventListener('mousedown',e=>{if(ZM&&playing&&locked()&&e.button===0)ZM.fire(true)});document.addEventListener('mouseup',e=>{if(ZM&&e.button===0)ZM.fire(false)});
+document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022*(ZM?1-ZM.zoom()*.65:1))});
+document.addEventListener('mousedown',e=>{if(ZM&&playing&&locked()&&e.button===0)ZM.fire(true);if(ZM&&playing&&e.button===2)ZM.aim(true)});document.addEventListener('mouseup',e=>{if(ZM&&e.button===0)ZM.fire(false);if(ZM&&e.button===2)ZM.aim(false)});
 addEventListener('wheel',e=>{if(ZM&&playing)ZM.swap(e.deltaY>0?1:-1)},{passive:true});
 const up=e=>{if(ptrs.delete(e.pointerId)&&e.pointerType==='touch')touches=Math.max(0,touches-1);if(e.pointerId===lookId){lookId=null;for(const[id]of ptrs){lookId=id;break}}};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
@@ -444,7 +444,7 @@ addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
  if(c==='Escape'){if(ZM&&ZM.forgeOpen())return;playing?pause():body.classList.contains('r')&&play();return}
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
- if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'&&!ZM){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
+ if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'&&!ZM){fly=!fly;if(!fly)settle()}if(c==='KeyF'&&ZM)ZM.toggleTorch();if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null});
 
 
@@ -492,8 +492,8 @@ function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamep
  if(edge(9))padKey('keydown','Escape');
  if(!playing)menuPad(b,gp,dt);else for(const x of document.querySelectorAll('.padsel'))x.classList.remove('padsel');
  if(playing){for(const[i,c0]of Object.entries(PADKEYS)){const code=ZM&&i==='2'?'KeyE':ZM&&i==='3'?'':c0;if(!code)continue;if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
-  const dp=!(ZM&&ZM.forgeOpen());padMove=[-dz(gp.axes[1])+(dp&&b[12]?1:0)-(dp&&b[13]?1:0),dz(gp.axes[0])+(dp&&b[15]?1:0)-(dp&&b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){ZM.fire(!ZM.forgeOpen()&&!!(b[7]||b[6]));if(edge(4))ZM.swap(-1);if(edge(5))ZM.swap(1)}
-  P.yaw-=dz(gp.axes[2])*2.6*dt;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt))}
+  const dp=!(ZM&&ZM.forgeOpen());padMove=[-dz(gp.axes[1])+(dp&&b[12]?1:0)-(dp&&b[13]?1:0),dz(gp.axes[0])+(dp&&b[15]?1:0)-(dp&&b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){const sn=ZM.sniper();ZM.fire(!ZM.forgeOpen()&&!!(b[7]||(!sn&&b[6])));ZM.padAim(sn&&!!(b[6]||b[5]));if(edge(4))ZM.swap(-1);if(edge(5)&&!sn)ZM.swap(1);if(edge(11))ZM.toggleTorch()}
+  const zk=ZM?1-ZM.zoom()*.65:1;P.yaw-=dz(gp.axes[2])*2.6*dt*zk;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt*zk))}
  padPrev=b}
 function update(dt){
  readPad(dt);
@@ -641,11 +641,11 @@ function frame(now){
  const e=[P.x,P.y,P.z],upv=[0,1,0],r=[fwd[1]*upv[2]-fwd[2]*upv[1],fwd[2]*upv[0]-fwd[0]*upv[2],fwd[0]*upv[1]-fwd[1]*upv[0]],rl=Math.hypot(...r);r[0]/=rl;r[1]/=rl;r[2]/=rl;
  const uu=[r[1]*fwd[2]-r[2]*fwd[1],r[2]*fwd[0]-r[0]*fwd[2],r[0]*fwd[1]-r[1]*fwd[0]];
  const V=[r[0],uu[0],-fwd[0],0,r[1],uu[1],-fwd[1],0,r[2],uu[2],-fwd[2],0,-dot3(r,e),-dot3(uu,e),dot3(fwd,e),1];
- const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*Math.PI/360),n=.05,fr=900;
+ const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*(ZM?1-ZM.zoom()*.72:1)*Math.PI/360),n=.05,fr=900;
  const Pm=[fy/asp,0,0,0,0,fy,0,0,0,0,fr/(n-fr),-1,0,0,n*fr/(n-fr),0];
  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=Pm[k*4+i]*V[j*4+k];VP[j*4+i]=s}
  setFrustum(VP);window.__drawn=DRAWN.tris;DRAWN.tris=0;stepPeople(dt,t%1000);audioFrame(fwd);if(ZM&&playing)ZM.update(dt);
- ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
+ ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set([fwd[0],fwd[1],fwd[2],ZM&&ZM.torch()?2.6:0],148);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
  // day and night: in the hub they swap under each bridge; every district has its own
  const zone=BRIDGES.filter(b=>P.x>b).length,nightT=nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
  const nk=nightK*nightK*(3-2*nightK);
