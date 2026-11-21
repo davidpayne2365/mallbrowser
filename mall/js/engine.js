@@ -365,6 +365,21 @@ const[dynPipe,dynShPipe]=await Promise.all([
 const lowPipe=(vs,buffers,cull)=>device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:vs,buffers},fragment:{module:sceneMod,entryPoint:'fsLow',targets:[{format:fmt}]},
  primitive:{topology:'triangle-list',cullMode:cull},depthStencil:{format:'depth24plus',depthWriteEnabled:true,depthCompare:'less'}});
 const[sceneLow,dynLow]=await Promise.all([lowPipe('vs',VBUF,'back'),lowPipe('vsDyn',VBUF2,'none')]);
+// ink mode (Super low): the frame is drawn off screen, then turned black and white with black outlines wherever
+// depth or brightness jumps (edges of shapes, people, shop fronts)
+const INK_WGSL=`@group(0)@binding(0)var col:texture_2d<f32>;@group(0)@binding(1)var dep:texture_depth_2d;@group(0)@binding(2)var<uniform>k:vec4f;
+@vertex fn vs(@builtin(vertex_index)i:u32)->@builtin(position)vec4f{return vec4f(f32(i32(i&1u)*4-1),f32(i32(i>>1u)*4-1),0.,1.);}
+fn lin(p:vec2i)->f32{let d=textureLoad(dep,p,0);return k.y*k.z/(k.z-d*(k.z-k.y));}
+fn lum(p:vec2i)->f32{return dot(textureLoad(col,p,0).rgb,vec3f(.299,.587,.114));}
+@fragment fn fs(@builtin(position)fc:vec4f)->@location(0)vec4f{
+ let mx=vec2i(textureDimensions(col))-1;let p=vec2i(fc.xy);let s=i32(k.x);let c=lin(p);let l0=lum(p);var e=0.;var el=0.;
+ for(var j=0;j<4;j++){let o=select(select(vec2i(0,s),vec2i(0,-s),j==3),select(vec2i(s,0),vec2i(-s,0),j==1),j<2);let q=clamp(p+o,vec2i(0),mx);
+  let d=lin(q);e=max(e,abs(d-c)/max(min(d,c),.05));el=max(el,abs(lum(q)-l0));}
+ var edge=max(smoothstep(.03,.07,e),smoothstep(.06,.14,el))*(1.-smoothstep(60.,95.,c));
+ let t=smoothstep(.12,.8,l0);var g=mix(.16,1.,floor(t*4.+.5)/4.*.75+t*.25);g=mix(g,1.,smoothstep(35.,95.,c));if(textureLoad(dep,p,0)>=.99999){g=1.;}
+ return vec4f(vec3f(g*(1.-edge))*vec3f(1.,.985,.95),1.);}`;
+const inkPipe=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:device.createShaderModule({code:INK_WGSL}),entryPoint:'vs'},fragment:{module:device.createShaderModule({code:INK_WGSL}),entryPoint:'fs',targets:[{format:fmt}]},primitive:{topology:'triangle-list'}}),inkU=device.createBuffer({size:16,usage:GU.UNIFORM|GU.COPY_DST});
+const inkOn=()=>QS.has('ink')?QS.get('ink')!=='0':touchMode&&TS.ink;
 const drawDyn=(p,mesh,g)=>{if(!g.n)return;p.setVertexBuffer(0,mesh.vb);p.setIndexBuffer(mesh.ib,mesh.fmt||'uint16');p.setVertexBuffer(1,g.b);p.drawIndexed(mesh.n,g.n)};
 const fsPipe=(code,ep,targets)=>{const m=device.createShaderModule({code});return device.createRenderPipelineAsync({layout:'auto',vertex:{module:m,entryPoint:'vs'},fragment:{module:m,entryPoint:ep,targets},primitive:{topology:'triangle-list'}})};
 const ADD={color:{srcFactor:'one',dstFactor:'one',operation:'add'},alpha:{srcFactor:'one',dstFactor:'one',operation:'add'}},H16={format:'rgba16float'};
@@ -387,8 +402,9 @@ let T=null;
 function resize(){
  const low=detail<0,lim=device.limits.maxTextureDimension2D,k=low?(PHONE?phScale:Math.min(devicePixelRatio||1,2)):Math.min(devicePixelRatio||1,2)*SCALE[detail];
  const W=Math.min(lim,Math.max(16,Math.round(innerWidth*k))),H=Math.min(lim,Math.max(16,Math.round(innerHeight*k)));
- if(T&&T.W===W&&T.H===H&&T.low===low)return;if(T)T.list.forEach(t=>t.destroy());
- if(low){cv.width=W;cv.height=H;const list=[],d=device.createTexture({size:[W,H],format:'depth24plus',usage:RA});list.push(d);T={W,H,list,low,depthV:d.createView()};
+ const ink=low&&inkOn();if(T&&T.W===W&&T.H===H&&T.low===low&&T.ink===ink)return;if(T)T.list.forEach(t=>t.destroy());
+ if(low){cv.width=W;cv.height=H;const list=[],d=device.createTexture({size:[W,H],format:'depth24plus',usage:RA|TB});list.push(d);T={W,H,list,low,ink,depthV:d.createView()};
+  if(ink){const c=device.createTexture({size:[W,H],format:fmt,usage:RA|TB});list.push(c);T.inkV=c.createView();T.inkBG=bg(inkPipe,[T.inkV,T.depthV,{buffer:inkU}]);device.queue.writeBuffer(inkU,0,new Float32Array([Math.max(1,Math.round(H/480)),.05,900,0]))}
   if(SNAP){T.snapTex=device.createTexture({size:[W,H],format:fmt,usage:RA|TU.COPY_SRC});list.push(T.snapTex)}return}
  cv.width=W;cv.height=H;const list=[],mk=(w,h,f,u,sc=1)=>{const t=device.createTexture({size:[w,h],format:f,usage:u,sampleCount:sc});list.push(t);return t.createView()};
  const hw=Math.max(1,W>>1),hh=Math.max(1,H>>1);
@@ -429,7 +445,7 @@ cv.addEventListener('contextmenu',e=>e.preventDefault());
 // controls: mouse look (click to capture the pointer) and WASD; on phones hold to walk, drag to look, two fingers to run
 const touchMode=coarse;let touches=0,lookId=null,moveId=null,joy0=null;const joyV={x:0,y:0},JR=58,pend={x:0,y:0};
 // touch settings (menu): look speed, gyro aim, steer with the stick, left-handed layout
-const TS={sens:1,gyro:false,steer:true,lefty:false};try{Object.assign(TS,JSON.parse(localStorage.skyMallTouch||'{}'))}catch{}
+const TS={sens:1,gyro:false,steer:true,lefty:false,ink:false};try{Object.assign(TS,JSON.parse(localStorage.skyMallTouch||'{}'))}catch{}
 const saveTS=()=>{try{localStorage.skyMallTouch=JSON.stringify(TS)}catch{}};
 // stop pinch-zoom, double-tap zoom and page scrolling while playing
 document.addEventListener('gesturestart',e=>e.preventDefault());document.addEventListener('touchmove',e=>{if(playing)e.preventDefault()},{passive:false});
@@ -639,8 +655,8 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 // detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
 if(touchMode){const tq=$('tq');tq.style.display='';const B=[...tq.querySelectorAll('button')];
- const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Steer '+(TS.steer?'on':'off');B[4].textContent='Left hand '+(TS.lefty?'on':'off');
-  B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty][i]))};
+ const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Steer '+(TS.steer?'on':'off');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');
+  B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty,TS.ink][i]))};B[5].onclick=()=>{TS.ink=!TS.ink;if(TS.ink&&detail>=0)setDetail(-1);saveTS();draw();resize()};
  B[0].onclick=()=>{TS.sens=Math.max(.4,+(TS.sens-.1).toFixed(1));saveTS();draw()};B[1].onclick=()=>{TS.sens=Math.min(2.5,+(TS.sens+.1).toFixed(1));saveTS();draw()};
  B[2].onclick=()=>{TS.gyro=!TS.gyro;if(TS.gyro)askGyro();saveTS();draw()};B[3].onclick=()=>{TS.steer=!TS.steer;saveTS();draw()};
  B[4].onclick=()=>{TS.lefty=!TS.lefty;saveTS();location.reload()};draw()}
@@ -692,9 +708,10 @@ function frame(now){
  const enc=device.createCommandEncoder();
  let cur;
  if(T.low){cur=SNAP?T.snapTex:ctx.getCurrentTexture();const nk2=nightK,sc=PHONE?[.62*(1-nk2)+.13*nk2,.7*(1-nk2)+.14*nk2,.82*(1-nk2)+.19*nk2]:[.62*(1-nk2)+.03*nk2,.7*(1-nk2)+.04*nk2,.82*(1-nk2)+.07*nk2];
-  const q=enc.beginRenderPass({colorAttachments:[{view:cur.createView(),clearValue:{r:sc[0]**2.2,g:sc[1]**2.2,b:sc[2]**2.2,a:1},loadOp:'clear',storeOp:'store'}],depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
+  const q=enc.beginRenderPass({colorAttachments:[{view:T.ink?T.inkV:cur.createView(),clearValue:{r:sc[0]**2.2,g:sc[1]**2.2,b:sc[2]**2.2,a:1},loadOp:'clear',storeOp:'store'}],depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:T.ink?'store':'discard'}});
   q.setBindGroup(0,sceneBG);q.setVertexBuffer(0,cubeVB);q.setVertexBuffer(1,instB.b);q.setIndexBuffer(cubeIB,'uint16');if(instB.n){q.setPipeline(sceneLow);drawCells(q,instCells,36)}
-  q.setPipeline(dynLow);drawDyn(q,MESH.person,pplB);for(const k of RIDEKIND)drawDyn(q,MESH[k],rideB[k]);if(ZM)drawDyn(q,MESH.unit,ZM.fxB);q.end()}
+  q.setPipeline(dynLow);drawDyn(q,MESH.person,pplB);for(const k of RIDEKIND)drawDyn(q,MESH[k],rideB[k]);if(ZM)drawDyn(q,MESH.unit,ZM.fxB);q.end();
+  if(T.ink){const q2=enc.beginRenderPass({colorAttachments:[{view:cur.createView(),loadOp:'clear',clearValue:{r:1,g:1,b:1,a:1},storeOp:'store'}]});q2.setPipeline(inkPipe);q2.setBindGroup(0,T.inkBG);q2.draw(3);q2.end()}}
  else{
  let p=enc.beginRenderPass({colorAttachments:[
    {view:T.mC,resolveTarget:T.hdrV,clearValue:{r:0,g:0,b:0,a:1},loadOp:'clear',storeOp:'discard'},
