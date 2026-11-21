@@ -439,9 +439,9 @@ const up=e=>{if(ptrs.delete(e.pointerId)&&e.pointerType==='touch')touches=Math.m
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 const goFull=()=>{try{const d=document.documentElement,r=(d.requestFullscreen||d.webkitRequestFullscreen)?.call(d,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch{}};
 $('fs').onclick=()=>{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen)?.call(document)}else goFull()};
-document.addEventListener('pointerlockchange',()=>{if(!locked()&&playing)pause()});
+document.addEventListener('pointerlockchange',()=>{if(!locked()&&playing&&!(ZM&&ZM.forgeOpen()))pause()});
 addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
- if(c==='Escape'){playing?pause():body.classList.contains('r')&&play();return}
+ if(c==='Escape'){if(ZM&&ZM.forgeOpen())return;playing?pause():body.classList.contains('r')&&play();return}
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
  if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'&&!ZM){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
@@ -491,8 +491,8 @@ function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamep
  const b=gp.buttons.map(x=>x.pressed||x.value>.5),dz=v=>Math.abs(v||0)<.15?0:(v-Math.sign(v)*.15)/.85,edge=i=>b[i]&&!padPrev[i];
  if(edge(9))padKey('keydown','Escape');
  if(!playing)menuPad(b,gp,dt);else for(const x of document.querySelectorAll('.padsel'))x.classList.remove('padsel');
- if(playing){for(const[i,c0]of Object.entries(PADKEYS)){const code=ZM&&i==='2'?'KeyE':c0;if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
-  padMove=[-dz(gp.axes[1])+(b[12]?1:0)-(b[13]?1:0),dz(gp.axes[0])+(b[15]?1:0)-(b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){ZM.fire(!!(b[7]||b[6]));if(edge(4))ZM.swap(-1);if(edge(5))ZM.swap(1)}
+ if(playing){for(const[i,c0]of Object.entries(PADKEYS)){const code=ZM&&i==='2'?'KeyE':ZM&&i==='3'?'':c0;if(!code)continue;if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
+  const dp=!(ZM&&ZM.forgeOpen());padMove=[-dz(gp.axes[1])+(dp&&b[12]?1:0)-(dp&&b[13]?1:0),dz(gp.axes[0])+(dp&&b[15]?1:0)-(dp&&b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){ZM.fire(!ZM.forgeOpen()&&!!(b[7]||b[6]));if(edge(4))ZM.swap(-1);if(edge(5))ZM.swap(1)}
   P.yaw-=dz(gp.axes[2])*2.6*dt;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt))}
  padPrev=b}
 function update(dt){

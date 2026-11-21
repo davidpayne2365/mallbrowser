@@ -198,6 +198,49 @@ function makeZombieMode(api){
   if(inv.length<SLOTS){inv.push(d.g);ci=inv.length-1}else{const old=inv[ci];inv[ci]=d.g;drops.push({g:old,x:P.x,y:P.feet,z:P.z,t:0})}
   swapT=.25;chime();banner(`<span style="color:${d.g.rar.css}">${d.g.name}</span>`,`${d.g.rar.name} ${GUN_TYPES[d.g.type].name} · unlimited ammo`,2.2);near=null}
 
+ // ---- the forge: pick one aspect from every gun you hold and they combine into one gun (and the rest break).
+ // Open it any time with Q (Y on a controller, FORGE on a phone); the game doesn't pause, so find somewhere safe.
+ let forgeOpen=false,picks=[],cur2={row:0,col:0};
+ const forgeEl=el('left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:84vh;overflow:auto;padding:14px 16px;border-radius:12px;background:rgba(10,10,18,.9);border:1px solid rgba(255,255,255,.15);display:none;pointer-events:auto;text-shadow:none');
+ function aspects(g){const A=[{k:'frame',label:'Frame',tip:`${g.rar.name} ${GUN_TYPES[g.type].name} by ${g.makerName}: ${Math.round(g.base.dmg)} damage${g.base.pellets>1?' ×'+g.base.pellets:''}, ${g.base.rate.toFixed(1)} shots/s. The body of the new gun.`},
+  {k:'power',label:'Power',tip:`${g.rar.name} power: ×${g.rar.mul} damage, put on whichever frame you choose.`}];
+  if(g.elem)A.push({k:'elem',v:g.elem,label:ELEMENTS[g.elem].name,tip:`${ELEMENTS[g.elem].name} element on every shot.`});
+  for(const a of g.abil)A.push({k:'abil',v:a,label:ABILITIES[a].name,tip:ABILITIES[a].tip+'.'});return A}
+ function forged(){const frames=picks.map((p,i)=>p!=null&&aspects(inv[i])[p].k==='frame'?i:-1).filter(i=>i>=0);
+  if(inv.length<2)return{err:'You need at least two guns to forge'};if(picks.some(p=>p==null))return{err:'Pick one aspect from every gun'};
+  if(frames.length!==1)return{err:frames.length?'Pick only one Frame':'Pick a Frame from one of your guns'};
+  const fg=inv[frames[0]],g={...fg,base:{...fg.base},abil:[]};g.rarity=Math.max(...inv.map(x=>x.rarity));g.rar=RARITIES[g.rarity];g.col=g.rar.col;
+  if(!fg.shape.elem)g.elem=null;
+  picks.forEach((p,i)=>{const a=aspects(inv[i])[p];if(a.k==='elem'&&!g.beam)g.elem=a.v;if(a.k==='abil'&&!g.abil.includes(a.v))g.abil.push(a.v);if(a.k==='power')g.base.dmg*=inv[i].rar.mul/fg.rar.mul});
+  if(g.beam)g.abil=g.abil.filter(a=>!['split','ricochet','pierce','explode'].includes(a));applyAbilities(g);g.ecol=g.elem?ELEMENTS[g.elem].col:g.col;
+  g.name=`Forged ${g.makerName} ${GUN_TYPES[g.type].name}`;g.parts=gunParts(g,R);return{g}}
+ function drawForge(){const res=forged(),focus=cur2.row<inv.length?aspects(inv[cur2.row])[cur2.col]:null;
+  const chip=(r,c,a)=>{const sel=picks[r]===c,cur=cur2.row===r&&cur2.col===c,g=inv[r];return`<span data-r="${r}" data-c="${c}" style="display:inline-block;margin:3px 4px 0 0;padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;background:${sel?g.rar.css:'rgba(255,255,255,.08)'};color:${sel?'#111':'#eee'};outline:${cur?'2px solid #fff':'none'}">${a.label}</span>`};
+  forgeEl.innerHTML=`<div style="font-size:20px;font-weight:800">Forge</div><div style="font-size:12px;opacity:.75;margin-bottom:8px">Pick one aspect from every gun (one must be a Frame). Forging breaks all your guns into one. The game keeps going.</div>`+
+   inv.map((g,r)=>`<div style="margin:6px 0;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04)"><div style="font-weight:700;color:${g.rar.css}">${r+1}. ${g.name}</div>${aspects(g).map((a,c)=>chip(r,c,a)).join('')}</div>`).join('')+
+   `<div style="min-height:34px;margin-top:6px;font-size:13px;color:#ffd77a">${focus?focus.tip:''}</div>`+
+   `<div style="margin-top:4px;font-size:13px">${res.err?`<span style="opacity:.8">${res.err}</span>`:`Result: <b style="color:${res.g.rar.css}">${res.g.name}</b> · ${Math.round(res.g.dmg)}${res.g.pellets>1?'×'+res.g.pellets:''} dmg · ${res.g.rate.toFixed(1)}/s${res.g.elem?' · '+ELEMENTS[res.g.elem].name:''}${res.g.abil.length?' · '+res.g.abil.map(a=>ABILITIES[a].name).join(', '):''}`}</div>`+
+   `<div data-forge="1" style="margin-top:10px;padding:9px;border-radius:8px;text-align:center;font-weight:800;cursor:pointer;background:${res.err?'rgba(255,255,255,.08)':'linear-gradient(#ffe39a,#ff9a1f)'};color:${res.err?'#888':'#2a1300'};outline:${cur2.row===inv.length?'2px solid #fff':'none'}">FORGE</div>`+
+   `<div style="margin-top:6px;font-size:11px;opacity:.65;text-align:center">${api.touchMode?'Tap aspects, then Forge':'Click, or arrows + Enter · d-pad + A on a controller · Q / B to close'}</div>`}
+ function setForge(v){if(v&&inv.length<2){banner('Forge','You need at least two guns to forge',1.8);return}forgeOpen=v;forgeEl.style.display=v?'':'none';firing=false;
+  if(v){picks=inv.map(()=>null);cur2={row:0,col:0};drawForge();if(document.pointerLockElement)document.exitPointerLock()}}
+ function forgeAct(){if(cur2.row>=inv.length){const res=forged();if(res.g){inv.splice(0,inv.length,res.g);ci=0;setForge(false);chime();banner(`<span style="color:${res.g.rar.css}">${res.g.name}</span>`,'Your guns were forged into one',2.6)}return}
+  picks[cur2.row]=picks[cur2.row]===cur2.col?null:cur2.col;if(cur2.row<inv.length-1){cur2.row++;cur2.col=0}else cur2.row=inv.length;drawForge()}
+ function forgeMove(dr,dc){const rows=inv.length+1;cur2.row=(cur2.row+dr+rows)%rows;if(cur2.row<inv.length){const n=aspects(inv[cur2.row]).length;cur2.col=Math.max(0,Math.min(n-1,cur2.col+dc))}drawForge()}
+ forgeEl.addEventListener('pointerdown',e=>{e.stopPropagation();const t=e.target.closest('[data-r],[data-forge]');if(!t)return;e.preventDefault();
+  if(t.dataset.forge){cur2.row=inv.length}else{cur2.row=+t.dataset.r;cur2.col=+t.dataset.c}forgeAct()});
+ addEventListener('keydown',e=>{if(e.code==='KeyQ'&&!e.repeat){setForge(!forgeOpen);return}if(!forgeOpen)return;
+  const m={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]}[e.code];if(m){keys.delete(e.code);forgeMove(...m);e.preventDefault()}
+  if(e.code==='Enter'||e.code==='NumpadEnter')forgeAct();if(e.code==='Escape')setForge(false)});
+ addEventListener('keyup',e=>{if(forgeOpen&&e.code.startsWith('Arrow'))keys.delete(e.code)});
+ let padF=[],padRepF=0;
+ function forgePad(dt){const gp=[...(navigator.getGamepads?.()||[])].find(g=>g&&g.connected);if(!gp)return;const b=gp.buttons.map(x=>x.pressed),ed=i=>b[i]&&!padF[i];
+  if(ed(3))setForge(!forgeOpen);
+  if(forgeOpen){padRepF-=dt;const d=[[12,-1,0],[13,1,0],[14,0,-1],[15,0,1]].find(([i])=>b[i]);if(d&&padRepF<=0){padRepF=.2;forgeMove(d[1],d[2])}else if(!d)padRepF=0;if(ed(0))forgeAct();if(ed(1))setForge(false)}
+  padF=b}
+ if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;left:16px;bottom:48px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
+  b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();setForge(!forgeOpen)});document.body.appendChild(b)}
+
  // ---- every frame
  // ---- the helicopter: at the far end of the Grand Exit car park; reach it and it flies you away
  let escaped=false,reached=false,heli=null,flyT=0;
@@ -245,6 +288,7 @@ function makeZombieMode(api){
     if(e2.k==='gib'){e2.yaw+=e2.spin*dt;e2.pitch+=e2.spin*.7*dt;if(e2.a[1]<e2.ground+e2.size[1]*.3){e2.a[1]=e2.ground+e2.size[1]*.3;e2.v=e2.v.map(v=>v*.4);e2.v[1]=0;e2.spin*=.5;e2.pitch=1.5708}}}}
   for(let i=fx.length-1;i>=0;i--)if(fx[i].t>fx[i].life)fx.splice(i,1);
   findHeli();if(heli&&!flyT&&deadT<=0&&Math.hypot(heli.x-P.x,heli.z-P.z)<4&&Math.abs(P.feet-heli.y)<2){flyT=.001;firing=false;banner('Get in!','',2)}
+  forgePad(dt);
   stepNums(dt);write(t)}
 
  // ---- parts to draw: your gun (metal finishes), beams, flames, blasts, health bars, dropped guns, potions
@@ -291,6 +335,6 @@ function makeZombieMode(api){
  // for automated tests: give yourself a gun of a type and rarity (?zgun=flamer etc. does it at the start)
  const give=(type,rarity=2)=>{inv.push(makeGun(R,{type,rarity}));ci=inv.length-1};if(QSZ.get('zgun'))give(QSZ.get('zgun'),+(QSZ.get('zrar')||2));
  showHud(true);banner('Zombie Mode','Fight your way through the mall to the Grand Exit',4);
- return{flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
+ return{forgeOpen:()=>forgeOpen,flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
   // one speed: quick on your feet, no need to hold anything to run
   walk:5,run:5,jump:7.4}}

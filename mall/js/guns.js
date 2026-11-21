@@ -33,6 +33,8 @@ const ABILITIES={ricochet:{name:'Ricochet',tip:'Bullets bounce to another zombie
  split:{name:'Split',tip:'Every shot splits in three',word:'Splitting'},crit:{name:'Deadeye',tip:'Headshots do far more damage',word:'Deadeye'},
  rapid:{name:'Rapid',tip:'Fires much faster',word:'Hasty'},heavy:{name:'Heavy',tip:'Much more damage per shot',word:'Heavy'}};
 const LEGEND_NAMES=['Clearance Sale','The Mall Cop','Food Court Fury','Black Friday','Last Call','Lost & Found','Store Credit','Escalator','Final Markdown','Closing Time','Gift Wrap','Price Check'];
+// stats = the gun's base roll with its abilities applied (used again when guns are forged together)
+function applyAbilities(g){Object.assign(g,g.base);for(const a of g.abil){if(a==='pierce')g.pierce+=2;if(a==='split')g.pellets*=3,g.spread=Math.max(g.spread,.03)*1.3;if(a==='crit')g.crit*=1.8;if(a==='rapid')g.rate*=1.5;if(a==='heavy')g.dmg*=1.5,g.rate*=.85}}
 function makeGun(rand,o={}){
  const pick=a=>a[Math.floor(rand()*a.length)];
  const types=Object.keys(GUN_TYPES),type=o.type||pick(types),T=GUN_TYPES[type],M=o.maker?GUN_MAKERS.find(m=>m.id===o.maker):pick(GUN_MAKERS);
@@ -45,7 +47,7 @@ function makeGun(rand,o={}){
  let n=Rr.abil+(M.mod.extra?1:0);const pool=Object.keys(ABILITIES).filter(a=>!(g.beam&&(a==='split'||a==='ricochet'||a==='pierce'||a==='explode')));   // beams can't use per-shot abilities
  if(M.mod.ability&&!g.beam)g.abil.push(M.mod.ability);
  while(n-->0){const a=pick(pool);if(!g.abil.includes(a))g.abil.push(a)}
- for(const a of g.abil){if(a==='pierce')g.pierce+=2;if(a==='split')g.pellets*=3,g.spread=Math.max(g.spread,.03)*1.3;if(a==='crit')g.crit*=1.8;if(a==='rapid')g.rate*=1.5;if(a==='heavy')g.dmg*=1.5,g.rate*=.85}
+ g.base={dmg:g.dmg,rate:g.rate,pellets:g.pellets,spread:g.spread,pierce:g.pierce,crit:g.crit};applyAbilities(g);
  g.col=Rr.col;g.ecol=g.elem?ELEMENTS[g.elem].col:Rr.col;
  const word=g.abil.length?ABILITIES[g.abil[0]].word:g.elem?ELEMENTS[g.elem].word:'';
  g.name=ri===4?`“${pick(LEGEND_NAMES)}”`:`${word?word+' ':''}${M.name} ${T.name}`;
