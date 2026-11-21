@@ -199,7 +199,14 @@ function makeZombieMode(api){
   swapT=.25;chime();banner(`<span style="color:${d.g.rar.css}">${d.g.name}</span>`,`${d.g.rar.name} ${GUN_TYPES[d.g.type].name} · unlimited ammo`,2.2);near=null}
 
  // ---- every frame
- let escaped=false,zoneLast='',gunLast='',groanT=0,countT=0,frameNo=0;const count=new Map();
+ // ---- the helicopter: at the far end of the Grand Exit car park; reach it and it flies you away
+ let escaped=false,reached=false,heli=null,flyT=0;
+ function findHeli(){const r=api.LOADED.find(q=>q.theme==='exit');if(!r){heli=null;return}if(heli&&heli.r===r)return;const d=r.doors[0],ix=-d.dx,iz=-d.dz;
+  heli={r,x:d.x+ix*122,z:d.z+iz*122,y:0,yaw:Math.atan2(ix,iz),fx:ix,fz:iz}}
+ function flyStep(dt){flyT+=dt;const h=heli,t=flyT,up=Math.min(1,t/4);h.y=up*up*14+Math.max(0,t-4)*4;const fwd=Math.max(0,t-3.5)*Math.max(0,t-3.5)*1.2;
+  h.x+=h.fx*fwd*dt;h.z+=h.fz*fwd*dt;P.x=h.x-h.fx*.3;P.z=h.z-h.fz*.3;P.feet=h.y+.55;P.ey=P.feet+1.15;P.y=P.ey;P.vx=P.vz=P.vy=0;
+  if(t>9&&!escaped){escaped=true;chime();banner('You escaped Skylight Galleria!','Thanks for playing · press Esc for the menu',9999)}}
+ let zoneLast='',gunLast='',groanT=0,countT=0,frameNo=0;const count=new Map();
  function update(dt){const t=performance.now()/1000;
   for(const r of api.LOADED)seedZone(r);
   if(deadT>0){deadT-=dt;if(deadT<=0)respawn()}
@@ -223,12 +230,12 @@ function makeZombieMode(api){
   // counts per zone, and the reward for clearing one: a rare-or-better gun and a full heal
   countT-=dt;if(countT<0){countT=.4;for(const r of api.LOADED){let zs=0,down=0,hum=0;for(const p of r.P){if(isZ(p))zs++;else if(p.zs&&p.zs.st==='down')down++;else if(isHuman(p))hum++}count.set(r.theme,{zs,down,hum});
 }
-    if(api.CUR&&api.CUR.theme==='exit'&&!escaped){escaped=true;chime();banner('You made it out!','You fought your way through Skylight Galleria',6)}}
+    if(api.CUR&&api.CUR.theme==='exit'&&!reached){reached=true;chime();banner('The helicopter is waiting!','Get to the helipad at the far end of the car park',5)}}
   groanT-=dt;if(groanT<0){groanT=2+R()*3;const a=zombiesNear([P.x,0,P.z],14);if(a.length)groan(a[Math.floor(R()*a.length)])}
   // HUD
   const CUR=api.CUR,c=CUR&&count.get(CUR.theme),title=CUR?(CUR.theme==='hub'?'The Mall':(typeof TITLES!=='undefined'&&TITLES[CUR.theme])||CUR.title||CUR.theme):'';
   const line=!c?'':cleared.has(CUR.theme)?'cleared':`${c.zs} zombies${c.down?` · ${c.down} turning`:''}${c.hum?` · ${c.hum} people left`:''}`;
-  const zl=`${title}${c?` · ${c.zs} zombies here`:''}<br><span style="font-size:12px;opacity:.85">${escaped?'You made it out':'Get through the mall to the Grand Exit'}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
+  const zl=`${title}${c?` · ${c.zs} zombies here`:''}<br><span style="font-size:12px;opacity:.85">${escaped?'You escaped!':reached?'Get to the helicopter':'Get through the mall to the Grand Exit'}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
   hud.hp.firstChild.style.width=health+'%';hud.hpn.textContent=Math.ceil(health)+' / 100';
   const g=gun(),gl=`<div style="font-size:18px;font-weight:800;color:${g.rar.css}">${g.name} <span style="opacity:.8;color:#fff">∞</span></div><div style="font-size:12px;opacity:.85">${g.rar.name} ${GUN_TYPES[g.type].name} · ${g.makerName}${g.elem?' · '+ELEMENTS[g.elem].name:''}${g.abil.length?' · '+g.abil.map(a=>ABILITIES[a].name).join(', '):''}</div>
    <div style="margin-top:4px">${inv.map((x,i)=>`<span style="display:inline-block;min-width:18px;margin-left:3px;padding:1px 4px;border-radius:4px;font-size:11px;background:${i===ci?x.rar.css:'rgba(0,0,0,.5)'};color:${i===ci?'#111':x.rar.css};border:1px solid ${x.rar.css}">${i+1}</span>`).join('')}</div>`;
@@ -237,6 +244,7 @@ function makeZombieMode(api){
   for(const e2 of fx){e2.t+=dt;if((e2.k==='gib'||e2.k==='puff')&&e2.v){if(e2.k==='gib')e2.v[1]-=9.8*dt;else e2.v=e2.v.map(v=>v*(1-dt*2.5));for(let j=0;j<3;j++)e2.a[j]+=e2.v[j]*dt;
     if(e2.k==='gib'){e2.yaw+=e2.spin*dt;e2.pitch+=e2.spin*.7*dt;if(e2.a[1]<e2.ground+e2.size[1]*.3){e2.a[1]=e2.ground+e2.size[1]*.3;e2.v=e2.v.map(v=>v*.4);e2.v[1]=0;e2.spin*=.5;e2.pitch=1.5708}}}}
   for(let i=fx.length-1;i>=0;i--)if(fx[i].t>fx[i].life)fx.splice(i,1);
+  findHeli();if(heli&&!flyT&&deadT<=0&&Math.hypot(heli.x-P.x,heli.z-P.z)<4&&Math.abs(P.feet-heli.y)<2){flyT=.001;firing=false;banner('Get in!','',2)}
   stepNums(dt);write(t)}
 
  // ---- parts to draw: your gun (metal finishes), beams, flames, blasts, health bars, dropped guns, potions
@@ -267,6 +275,13 @@ function makeZombieMode(api){
   for(const q of potions){if(q.r&&!api.LOADED.includes(q.r))continue;const y=q.y+.35+Math.sin(t*2.5+q.x)*.05;
    part(q.x,y,q.z,t,.16,.2,.16,[1,.12,.15],0,2.4);part(q.x,y+.15,q.z,t,.06,.1,.06,[.8,.9,1],0,.5);part(q.x,y+.22,q.z,t,.07,.04,.07,[.45,.3,.15],0,0);
    for(let k=0;k<6;k++){const b=k/6*6.283+t;part(q.x+Math.cos(b)*.3,q.y+.03,q.z+Math.sin(b)*.3,b,.07,.02,.03,[1,.2,.25],0,2)}}
+  // the helicopter and its helipad
+  if(heli){const h=heli,fw=[h.fx,0,h.fz],rt=[h.fz,0,-h.fx],at=(f,u,r)=>[h.x+fw[0]*f+rt[0]*r,h.y+u,h.z+fw[2]*f+rt[2]*r],yaw=Math.atan2(-fw[0],-fw[2]),BODY=[.15,.3,.2],DK=[.05,.05,.06];
+   if(!flyT||h.y<.5)for(let k=0;k<24;k++){const b=k/24*6.283;part(heli.x+Math.cos(b)*6,.03,heli.z+Math.sin(b)*6,b,.9,.03,.15,[1,.85,.2],0,1.2)}
+   part(...at(0,1.3,0),yaw,2.2,1.9,4.2,BODY,0,0,43);part(...at(1.7,1.45,0),yaw,1.9,1.3,1.2,[.12,.18,.25],0,.3);part(...at(-3.8,1.75,0),yaw,.35,.4,3.8,BODY,0,0,43);
+   part(...at(-5.6,2.4,0),yaw,.12,1.2,.7,BODY,0,0,43);for(const s of[-1,1]){part(...at(0,.1,s*1.05),yaw,.1,.1,4,DK,0,0);part(...at(.9,.45,s*1.05),yaw,.08,.7,.08,DK,0,0);part(...at(-.9,.45,s*1.05),yaw,.08,.7,.08,DK,0,0)}
+   part(...at(0,2.35,0),yaw,.25,.35,.25,DK,0,0);const spin=t*(flyT?30:6);for(const k of[0,1.5708])part(...at(0,2.55,0),spin+k,.25,.04,11,DK,0,0);
+   part(...at(-5.6,2.6,.2),yaw,.05,1.4,.12,DK,spin,0);part(...at(-5.9,1.9,0),yaw,.12,.12,.12,[1,.1,.1],0,4);part(...at(2.2,.9,0),yaw,.2,.15,.1,[1,1,.9],0,5)}
   fxB.set(fData.subarray(0,nF*16))}
 
  // for automated tests: nearest live zombie and counts
@@ -276,6 +291,6 @@ function makeZombieMode(api){
  // for automated tests: give yourself a gun of a type and rarity (?zgun=flamer etc. does it at the start)
  const give=(type,rarity=2)=>{inv.push(makeGun(R,{type,rarity}));ci=inv.length-1};if(QSZ.get('zgun'))give(QSZ.get('zgun'),+(QSZ.get('zrar')||2));
  showHud(true);banner('Zombie Mode','Fight your way through the mall to the Grand Exit',4);
- return{debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
+ return{flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
   // one speed: quick on your feet, no need to hold anything to run
   walk:5,run:5,jump:7.4}}

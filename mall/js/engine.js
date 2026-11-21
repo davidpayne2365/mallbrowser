@@ -491,6 +491,7 @@ function update(dt){
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
  if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')+(touches?1:0);s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft');vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(touches>1)fast=true;f+=padMove[0];s+=padMove[1];if(padRun)fast=true}
  f=Math.max(-1,Math.min(1,f));s=Math.max(-1,Math.min(1,s));
+ if(ZM&&ZM.flying()){ZM.flyStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(P.carry&&!fly){carryStep();const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(P.ride&&!fly){rideStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(fly){
