@@ -547,14 +547,15 @@ function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamep
  padPrev=b}
 function update(dt){
  readPad(dt);
- if(pend.x||pend.y){const a=Math.min(1,dt*30),dx=pend.x*a,dy=pend.y*a;pend.x-=dx;pend.y-=dy;if(Math.abs(pend.x)<.01)pend.x=0;if(Math.abs(pend.y)<.01)pend.y=0;look(dx,dy,.006*TS.sens*(ZM?1-ZM.zoom()*.65:1))}
+ if(pend.x||pend.y){const a=Math.min(1,dt*30),dx=pend.x*a,dy=pend.y*a;pend.x-=dx;pend.y-=dy;if(Math.abs(pend.x)<.01)pend.x=0;if(Math.abs(pend.y)<.01)pend.y=0;look(dx,0,.006*TS.sens*(ZM?1-ZM.zoom()*.65:1))}
+ if(touchMode&&playing&&!P.ride)P.pitch+=(0-P.pitch)*Math.min(1,dt*6);
  // steer with the stick: pushing it sideways slowly turns the view that way (while no finger is looking)
- if(touchMode&&TS.steer&&playing&&moveId!==null&&lookId===null&&Math.abs(joyV.x)>.3)P.yaw-=(joyV.x-Math.sign(joyV.x)*.3)*1.6*dt;
- if(gyroR.y||gyroR.p){const g=TS.sens*(ZM?1-ZM.zoom()*.5:1);P.yaw+=gyroR.y*g;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch+gyroR.p*g));gyroR.y=gyroR.p=0}
+ if(touchMode&&TS.steer&&playing&&moveId!==null)P.yaw-=joyV.x*Math.abs(joyV.x)*2.6*TS.sens*dt;
+ if(gyroR.y||gyroR.p){const g=TS.sens*(ZM?1-ZM.zoom()*.5:1);P.yaw+=gyroR.y*g;P.pitch=touchMode?P.pitch:Math.max(-1.45,Math.min(1.45,P.pitch+gyroR.p*g));gyroR.y=gyroR.p=0}
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
- if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')-joyV.y;s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft')+joyV.x;vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if(Math.hypot(joyV.x,joyV.y)>.92)fast=true;f+=padMove[0];s+=padMove[1];if(padRun)fast=true}
+ if(playing){f=k('KeyW')+k('ArrowUp')-k('KeyS')-k('ArrowDown')-joyV.y;s=k('KeyD')+k('ArrowRight')-k('KeyA')-k('ArrowLeft')+(touchMode&&TS.steer?0:joyV.x);vu=k('KeyE')+k('Space')-k('KeyQ')-k('KeyC');if((touchMode&&TS.steer?Math.abs(joyV.y):Math.hypot(joyV.x,joyV.y))>.92)fast=true;f+=padMove[0];s+=padMove[1];if(padRun)fast=true}
  f=Math.max(-1,Math.min(1,f));s=Math.max(-1,Math.min(1,s));
  if(ZM&&ZM.flying()){ZM.flyStep(dt);const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
  if(P.carry&&!fly){carryStep();const c2=Math.cos(P.yaw),s2=Math.sin(P.yaw),c3=Math.cos(P.pitch),s3=Math.sin(P.pitch);return{fwd:[-s2*c3,s3,-c2*c3]}}
@@ -666,7 +667,7 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 // detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
 if(touchMode){const tq=$('tq');tq.style.display='';const B=[...tq.querySelectorAll('button')];
- const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Steer '+(TS.steer?'on':'off');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');
+ const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Stick '+(TS.steer?'turns':'strafes');B[4].textContent='Left hand '+(TS.lefty?'on':'off');B[5].textContent='Ink '+(TS.ink?'on':'off');
   B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty,TS.ink][i]))};B[5].onclick=()=>{TS.ink=!TS.ink;if(TS.ink&&detail>=0)setDetail(-1);saveTS();draw();resize()};
  B[0].onclick=()=>{TS.sens=Math.max(.4,+(TS.sens-.1).toFixed(1));saveTS();draw()};B[1].onclick=()=>{TS.sens=Math.min(2.5,+(TS.sens+.1).toFixed(1));saveTS();draw()};
  B[2].onclick=()=>{TS.gyro=!TS.gyro;if(TS.gyro)askGyro();saveTS();draw()};B[3].onclick=()=>{TS.steer=!TS.steer;saveTS();draw()};
