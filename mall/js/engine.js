@@ -444,7 +444,7 @@ addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
  if(c==='Escape'){playing?pause():body.classList.contains('r')&&play();return}
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
- if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
+ if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'&&!ZM){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null});
 
 

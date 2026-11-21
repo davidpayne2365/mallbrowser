@@ -29,7 +29,7 @@ const RARITIES=[
 const ELEMENTS={fire:{name:'Fire',col:[1,.45,.1],css:'#ff8a3a',word:'Scorching'},frost:{name:'Frost',col:[.6,.9,1],css:'#9fe6ff',word:'Frozen'},
  shock:{name:'Shock',col:[.5,.7,1],css:'#7fb0ff',word:'Shocking'},acid:{name:'Acid',col:[.5,1,.25],css:'#8cff5a',word:'Corrosive'}};
 const ABILITIES={ricochet:{name:'Ricochet',tip:'Bullets bounce to another zombie',word:'Bouncing'},pierce:{name:'Pierce',tip:'Shots pass through 2 more zombies',word:'Piercing'},
- explode:{name:'Explosive',tip:'Hits explode',word:'Volatile'},lifesteal:{name:'Lifesteal',tip:'Kills heal you',word:'Hungry'},
+ explode:{name:'Explosive',tip:'Hits explode',word:'Volatile'},
  split:{name:'Split',tip:'Every shot splits in three',word:'Splitting'},crit:{name:'Deadeye',tip:'Headshots do far more damage',word:'Deadeye'},
  rapid:{name:'Rapid',tip:'Fires much faster',word:'Hasty'},heavy:{name:'Heavy',tip:'Much more damage per shot',word:'Heavy'}};
 const LEGEND_NAMES=['Clearance Sale','The Mall Cop','Food Court Fury','Black Friday','Last Call','Lost & Found','Store Credit','Escalator','Final Markdown','Closing Time','Gift Wrap','Price Check'];

@@ -7,7 +7,7 @@
 // zm.fxB holds the glowing and metal parts this mode draws: your gun, beams, flames, numbers' targets, drops, potions.
 function makeZombieMode(api){
  const{P,keys}=api,R=rng(1313),QSZ=new URLSearchParams(location.search);
- const GUN_DROP=.06,POTION_DROP=.02,HIDDEN_POTIONS=3,POTION_HEAL=50,SLOTS=6;
+ const GUN_DROP=.06,POTION_DROP=.03,HIDDEN_POTIONS=0,POTION_HEAL=50,SLOTS=6;
  const TURN=[10,16];                               // seconds before someone pulled down gets up as a zombie
  // zombies never start within 30 m of you (?zclose, for testing, lets them start right in front)
  const MINDIST=QSZ.has('zclose')?3:30;
@@ -115,7 +115,6 @@ function makeZombieMode(api){
   for(let k=0;k<10;k++)fx.push({k:'gib',a:[x,y,zz],v:[(R()-.5)*3,1+R()*2.5,(R()-.5)*3],ground:p.y,size:[.04,.04,.04],col:[.45,.02,.02],yaw:0,pitch:0,spin:0,life:1.2+R(),t:0});
   if(!arm&&!z.crawl){z.crawl=true;z.spd=.35+R()*.15}}
  function kill(p,g){const z=p.zs;if(z.st==='dead')return;z.st='dead';z.t=0;p.pose=4;p.zsp=0;groan(p,true);
-  if(g&&g.abil.includes('lifesteal')&&deadT<=0)health=Math.min(100,health+8);
   if(drops.length<40&&R()<GUN_DROP)drops.push({g:makeGun(R),x:p.x,y:p.y,z:p.z,t:0});
   else if(R()<POTION_DROP)potions.push({x:p.x,y:p.y,z:p.z,r:null})}
  // explosions hurt every zombie nearby, less towards the edge
@@ -200,7 +199,7 @@ function makeZombieMode(api){
   swapT=.25;chime();banner(`<span style="color:${d.g.rar.css}">${d.g.name}</span>`,`${d.g.rar.name} ${GUN_TYPES[d.g.type].name} · unlimited ammo`,2.2);near=null}
 
  // ---- every frame
- let zoneLast='',gunLast='',groanT=0,countT=0,frameNo=0;const count=new Map();
+ let escaped=false,zoneLast='',gunLast='',groanT=0,countT=0,frameNo=0;const count=new Map();
  function update(dt){const t=performance.now()/1000;
   for(const r of api.LOADED)seedZone(r);
   if(deadT>0){deadT-=dt;if(deadT<=0)respawn()}
@@ -223,14 +222,13 @@ function makeZombieMode(api){
    if(health<100&&Math.hypot(q.x-P.x,q.z-P.z)<1.2&&Math.abs(q.y-P.feet)<1.5){potions.splice(i,1);health=Math.min(100,health+POTION_HEAL);chime();banner('<span style="color:#ff5a6a">Health potion</span>',`+${POTION_HEAL} health`,1.6)}}
   // counts per zone, and the reward for clearing one: a rare-or-better gun and a full heal
   countT-=dt;if(countT<0){countT=.4;for(const r of api.LOADED){let zs=0,down=0,hum=0;for(const p of r.P){if(isZ(p))zs++;else if(p.zs&&p.zs.st==='down')down++;else if(isHuman(p))hum++}count.set(r.theme,{zs,down,hum});
-    if(!cleared.has(r.theme)&&seeded.get(r.theme)===r&&zs===0&&down===0&&r.P.length){cleared.add(r.theme);const all=ZONES.every(th=>cleared.has(th));
-     const g=makeGun(R,{minRarity:2}),{f}=dirs();drops.push({g,x:P.x+f[0]*2,y:P.feet,z:P.z+f[2]*2,t:0});health=100;chime();
-     banner(all?'You cleared Skylight Galleria!':'Zone cleared!',`Reward: <span style="color:${g.rar.css}">${g.name}</span> · full health · ${cleared.size} of ${ZONES.length} zones cleared`,5)}}}
+}
+    if(api.CUR&&api.CUR.theme==='exit'&&!escaped){escaped=true;chime();banner('You made it out!','You fought your way through Skylight Galleria',6)}}
   groanT-=dt;if(groanT<0){groanT=2+R()*3;const a=zombiesNear([P.x,0,P.z],14);if(a.length)groan(a[Math.floor(R()*a.length)])}
   // HUD
   const CUR=api.CUR,c=CUR&&count.get(CUR.theme),title=CUR?(CUR.theme==='hub'?'The Mall':(typeof TITLES!=='undefined'&&TITLES[CUR.theme])||CUR.title||CUR.theme):'';
   const line=!c?'':cleared.has(CUR.theme)?'cleared':`${c.zs} zombies${c.down?` · ${c.down} turning`:''}${c.hum?` · ${c.hum} people left`:''}`;
-  const zl=`${title} · ${line}<br><span style="font-size:12px;opacity:.85">Zones cleared ${cleared.size} / ${ZONES.length}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
+  const zl=`${title}${c?` · ${c.zs} zombies here`:''}<br><span style="font-size:12px;opacity:.85">${escaped?'You made it out':'Get through the mall to the Grand Exit'}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
   hud.hp.firstChild.style.width=health+'%';hud.hpn.textContent=Math.ceil(health)+' / 100';
   const g=gun(),gl=`<div style="font-size:18px;font-weight:800;color:${g.rar.css}">${g.name} <span style="opacity:.8;color:#fff">∞</span></div><div style="font-size:12px;opacity:.85">${g.rar.name} ${GUN_TYPES[g.type].name} · ${g.makerName}${g.elem?' · '+ELEMENTS[g.elem].name:''}${g.abil.length?' · '+g.abil.map(a=>ABILITIES[a].name).join(', '):''}</div>
    <div style="margin-top:4px">${inv.map((x,i)=>`<span style="display:inline-block;min-width:18px;margin-left:3px;padding:1px 4px;border-radius:4px;font-size:11px;background:${i===ci?x.rar.css:'rgba(0,0,0,.5)'};color:${i===ci?'#111':x.rar.css};border:1px solid ${x.rar.css}">${i+1}</span>`).join('')}</div>`;
@@ -277,7 +275,7 @@ function makeZombieMode(api){
   return{alive:a.length,limbs,crawl,near:a[0],health,gun:gun().name,guns:inv.length,drops:drops.length,potions:potions.length,shots,hits:hitsN,nums:nums.length}};
  // for automated tests: give yourself a gun of a type and rarity (?zgun=flamer etc. does it at the start)
  const give=(type,rarity=2)=>{inv.push(makeGun(R,{type,rarity}));ci=inv.length-1};if(QSZ.get('zgun'))give(QSZ.get('zgun'),+(QSZ.get('zrar')||2));
- showHud(true);banner('Zombie Mode','Everyone has turned · clear every zone · loot their guns',4);
+ showHud(true);banner('Zombie Mode','Fight your way through the mall to the Grand Exit',4);
  return{debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
   // one speed: quick on your feet, no need to hold anything to run
-  walk:5,run:5,jump:6.4}}
+  walk:5,run:5,jump:7.4}}
