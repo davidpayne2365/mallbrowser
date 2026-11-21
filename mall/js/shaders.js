@@ -30,13 +30,17 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   var sw=sin(ph)*.48*mv;
   if(pose==1){sw=sin(t*.6+c.w*40.)*.05;}
   if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2){ang=-1.45;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
-  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  let zomb=pose>=3;
+  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
   if(pose==2){p.y-=.43;}
+  if(pose==3){p=rx(p-vec3f(0.,.9,0.),.22)+vec3f(0.,.9,0.);n=rx(n,.22);}
+  if(pose==4){p=rx(p,-1.5708)+vec3f(0.,.14,0.);n=rx(n,-1.5708);}
   if(pose==0){p.y+=abs(cos(ph))*.035*mv;}
   let h=c.w*97.13;
-  let sk=hs1(h+1.);let skin=mix(vec3f(.07,.035,.02),vec3f(.62,.42,.32),sk*sk*.8+sk*.2);
+  let sk=hs1(h+1.);var skin=mix(vec3f(.07,.035,.02),vec3f(.62,.42,.32),sk*sk*.8+sk*.2);
   let pi=i32(hs1(h+2.)*5.);var pants=vec3f(.04,.07,.15);
   if(pi==1){pants=vec3f(.015);}else if(pi==2){pants=vec3f(.3,.24,.15);}else if(pi==3){pants=vec3f(.12,.12,.13);}else if(pi==4){pants=c.rgb*.5;}
+  if(zomb){skin=mix(skin,vec3f(.16,.22,.11),.75);pants*=.55;}
   let hi=i32(hs1(h+3.)*4.);var hair=vec3f(.012,.01,.008);
   if(hi==1){hair=vec3f(.07,.035,.015);}else if(hi==2){hair=vec3f(.38,.25,.1);}else if(hi==3&&hs1(h+4.)>.5){hair=vec3f(.3,.3,.3);}
   if(pt==2||pt==3||pt==7){o.col=pants;}
@@ -47,11 +51,12 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   if(pt==8){o.col=vec3f(.62,.6,.58);}
   if(pt==9){let ei=hs1(h+8.);o.col=select(select(vec3f(.025,.012,.006),vec3f(.03,.08,.16),ei>.75),vec3f(.04,.07,.03),ei>.9);}
   if(pt==10){o.col=skin*vec3f(.78,.45,.45);}
+  if(zomb&&pt==9){o.col=vec3f(.75,.72,.35);}
   let longHair=hs1(h+7.)<.45;let beard=!longHair&&hs1(h+9.)>.72;
   if((pt==11&&!longHair)||(pt==12&&!beard)){p=vec3f(0.,1.62,0.);}
   // extras: shopping bags, a long coat, a hat, glasses, a backpack, a bun; and a heavier or slimmer build
   let bag=hs1(h+12.)<.45;let bag2=bag&&hs1(h+13.)<.3;let coat=hs1(h+14.)<.3;let hat=hs1(h+15.)<.15;let specs=hs1(h+16.)<.22;let pack=!bag&&hs1(h+17.)<.2;let bun=longHair&&hs1(h+18.)<.3;
-  if(pt>=13&&(d.x>.5||(pt==13&&!bag)||(pt==14&&!bag2)||(pt==15&&!coat)||(pt==16&&!hat)||(pt==17&&!specs)||(pt==18&&!pack)||(pt==19&&!bun))){p=vec3f(0.,1.2,0.);}
+  if(pt>=13&&(zomb||d.x>.5||(pt==13&&!bag)||(pt==14&&!bag2)||(pt==15&&!coat)||(pt==16&&!hat)||(pt==17&&!specs)||(pt==18&&!pack)||(pt==19&&!bun))){p=vec3f(0.,1.2,0.);}
   if(pt==13||pt==14){o.col=.15+.7*vec3f(hs1(h+20.+f32(pt)),hs1(h+21.+f32(pt)),hs1(h+22.+f32(pt)));if(hs1(h+23.)<.3){o.col=vec3f(.55,.42,.28);}}
   if(pt==15){o.col=select(c.rgb*.55,mix(vec3f(.08,.08,.09),vec3f(.35,.27,.18),hs1(h+24.)),hs1(h+25.)<.6);}
   if(pt==16){o.col=select(c.rgb*.7,vec3f(.05,.05,.06),hs1(h+26.)<.5);}
@@ -209,7 +214,7 @@ fn shade(wp:vec3f,Ng:vec3f,N:vec3f,V:vec3f,dist:f32,base:vec3f,rough:f32,metal:f
 @vertex fn vsDyn(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)part:f32,@location(3)a:vec4f,@location(4)b:vec4f,@location(5)c:vec4f,@location(6)d:vec4f)->VO{
  let r=dynXf(p,n,part,a,b,c,d);var o:VO;
  let kind=i32(b.w+.5);var em=0.;var sp=.12;
- if(kind==3){em=.5;sp=.97;}else if(kind==4){sp=.3;}else if(kind==1){sp=.2;}
+ if(kind==3){em=.5;sp=.97;}else if(kind==4){sp=.3;}else if(kind==1){sp=.2;}else if(kind==8){em=d.z;sp=.4;}
  var col=r.col;
  if(kind>=5&&kind<=7){sp=.5;if(part>.5&&part<1.5&&kind!=5){em=3.;col=mix(r.col,vec3f(1.,.7,.3),.5)*(.6+.4*sin(u.cam.w*3.+p.x*2.+p.y*3.+p.z*2.));}if(part>1.5&&part<2.5){col=vec3f(.9,.88,.85);sp=.7;}if(part>2.5&&part<3.5){col=vec3f(.62,.43,.34);}if(part>3.5&&part<4.5){col=vec3f(.42,.06,.03);}if(part>4.5&&part<5.5){col=vec3f(.5,.25,.6);sp=.9;}}
  o.wp=r.p;o.n=r.n;o.col=col;o.m=vec4f(em,sp,0.,0.);o.lp=p;o.ln=n;o.sg=vec4f(-1.,0.,0.,0.);

@@ -2,6 +2,8 @@
 (async()=>{
 const $=id=>document.getElementById(id),body=document.body,cv=$('c'),bar=$('b'),msg=$('s');
 const QS=new URLSearchParams(location.search);
+// game mode: '' (walk around) or 'zombies' (js/zombies.js); ZM is set once the world is built
+const MODE=QS.get('mode')==='zombies'?'zombies':'';let ZM=null;
 const coarse=matchMedia('(pointer:coarse)').matches;
 let detail=coarse?1:2;try{const d=localStorage.skyMallDetail;if(d!=null)detail=+d}catch{}
 if(QS.has('d'))detail=+QS.get('d');
@@ -223,7 +225,7 @@ const cat2=k=>{const n=LOADED.reduce((s,r)=>s+(r.rides?.[k]?.length||0),0),out=n
 
 /* ---------- crowd stepping ---------- */
 const angLerp=(a,b,k)=>{let d=(b-a+Math.PI)%(2*Math.PI);if(d<0)d+=2*Math.PI;return a+(d-Math.PI)*k};
-function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p of r.P){
+function stepPeople(dt,t){let i=0;if(ZM){pplB.n=0;return}for(const r of LOADED){const N=r.N;for(const p of r.P){
   if(p.g){const g=p.g;let A=N[g.from],Bn=N[g.to];
    if(p.wait>0){p.wait-=dt;p.pose=1;p.speed=0;if(Bn.shop)p.ty=Math.atan2(Bn.shop.nx,Bn.shop.nz)+Math.sin(t*.3+p.ph*9)*.8;if(p.wait<=0)p.pose=0}
    else{const len=Math.max(.01,Math.hypot(Bn.x-A.x,Bn.y-A.y,Bn.z-A.z)),sp=g.esc?.6:p.base;p.speed+=(sp-p.speed)*Math.min(1,dt*3);p.pose=g.esc?1:0;
@@ -422,6 +424,8 @@ cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCaptur
 cv.addEventListener('pointermove',e=>{if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
  if(e.pointerType==='touch'&&e.pointerId!==lookId)return;look(dx,dy,e.pointerType==='touch'?.006:.004)});
 document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022)});
+document.addEventListener('mousedown',e=>{if(ZM&&playing&&locked()&&e.button===0)ZM.fire(true)});document.addEventListener('mouseup',e=>{if(ZM&&e.button===0)ZM.fire(false)});
+addEventListener('wheel',e=>{if(ZM&&playing)ZM.swap(e.deltaY>0?1:-1)},{passive:true});
 const up=e=>{if(ptrs.delete(e.pointerId)&&e.pointerType==='touch')touches=Math.max(0,touches-1);if(e.pointerId===lookId){lookId=null;for(const[id]of ptrs){lookId=id;break}}};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 const goFull=()=>{try{const d=document.documentElement,r=(d.requestFullscreen||d.webkitRequestFullscreen)?.call(d,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch{}};
@@ -431,7 +435,7 @@ addEventListener('keydown',e=>{if(e.repeat)return;const c=e.code;
  if(c==='Escape'){playing?pause():body.classList.contains('r')&&play();return}
  if(!playing)return;keys.add(c);
  if(c==='KeyM')setMute(!muted);if(c==='KeyH'){stats=!stats;if(!stats)$('i').textContent=''}
- if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
+ if(ZM&&/^Digit[1-7]$/.test(c))ZM.select(+c[5]-1);else if(/^Digit[1-6]$/.test(c))view(+c[5]-1);if(c==='KeyF'){fly=!fly;if(!fly)settle()}if(c==='KeyR')backToHub();if(c==='KeyN')nightOverride=nightOverride===null?(nightK>.5?0:1):nightOverride?0:1});
 addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{keys.clear();ptrs.clear();primary=null;touches=0;lookId=null});
 
 
@@ -468,7 +472,7 @@ function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamep
  const b=gp.buttons.map(x=>x.pressed||x.value>.5),dz=v=>Math.abs(v||0)<.15?0:(v-Math.sign(v)*.15)/.85,edge=i=>b[i]&&!padPrev[i];
  if(edge(9))padKey('keydown','Escape');
  if(playing){for(const[i,code]of Object.entries(PADKEYS)){if(edge(i))padKey('keydown',code);if(!b[i]&&padPrev[i])padKey('keyup',code)}
-  padMove=[-dz(gp.axes[1])+(b[12]?1:0)-(b[13]?1:0),dz(gp.axes[0])+(b[15]?1:0)-(b[14]?1:0)];padRun=!!(b[5]||b[7]||b[10]);
+  padMove=[-dz(gp.axes[1])+(b[12]?1:0)-(b[13]?1:0),dz(gp.axes[0])+(b[15]?1:0)-(b[14]?1:0)];padRun=ZM?!!b[10]:!!(b[5]||b[7]||b[10]);if(ZM){ZM.fire(!!(b[7]||b[6]));if(edge(4))ZM.swap(-1);if(edge(5))ZM.swap(1)}
   P.yaw-=dz(gp.axes[2])*2.6*dt;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dz(gp.axes[3])*2*dt))}
  padPrev=b}
 function update(dt){
@@ -490,7 +494,7 @@ function update(dt){
   return{fwd}}
  // walking: move along the floor, whatever the head's pitch
  const hx=-sy,hz=-cy;let wx=hx*f+rt[0]*s,wz=hz*f+rt[2]*s;const l=Math.hypot(wx,wz);if(l>1){wx/=l;wz/=l}
- const spd=fast?5.2:2.3,a=Math.min(1,dt*(l?6:8));P.vx+=(wx*spd-P.vx)*a;P.vz+=(wz*spd-P.vz)*a;
+ const spd=ZM?(fast?ZM.run:ZM.walk):(fast?5.2:2.3),a=Math.min(1,dt*(l?6:8));P.vx+=(wx*spd-P.vx)*a;P.vz+=(wz*spd-P.vz)*a;
  const ox=P.x,oz=P.z,stuck=blocked(P.x,P.feet,P.z);
  for(const ax of['x','z']){const n={x:P.x,z:P.z};n[ax]+=P['v'+ax]*dt;
   const g=groundAt(n.x,P.feet+STEP,n.z);
@@ -502,7 +506,7 @@ function update(dt){
  grounded=P.feet-g<.03;
  if(grounded&&playing&&rideStart())return{fwd};
  if(grounded&&playing&&boardCheck())return{fwd};
- if(grounded&&playing&&keys.has('Space')&&!P.jumped){P.vy=4.6;P.feet+=.02;grounded=false;P.jumped=true}if(!keys.has('Space'))P.jumped=false;
+ if(grounded&&playing&&keys.has('Space')&&!P.jumped){P.vy=ZM?ZM.jump:5.4;P.feet+=.02;grounded=false;P.jumped=true}if(!keys.has('Space'))P.jumped=false;
  // eye height eases over steps; a light bob while walking
  const moved=Math.hypot(P.x-ox,P.z-oz);if(grounded){bobPh+=moved*Math.PI/.75;stepDist+=moved}
  const target=P.feet+EYE+Math.sin(bobPh)*.025*Math.min(1,moved/dt/2);
@@ -618,7 +622,7 @@ function frame(now){
  const asp=T.W/T.H,fy=1/Math.tan((asp<1?78:68)*Math.PI/360),n=.05,fr=900;
  const Pm=[fy/asp,0,0,0,0,fy,0,0,0,0,fr/(n-fr),-1,0,0,n*fr/(n-fr),0];
  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=Pm[k*4+i]*V[j*4+k];VP[j*4+i]=s}
- setFrustum(VP);window.__drawn=DRAWN.tris;DRAWN.tris=0;stepPeople(dt,t%1000);audioFrame(fwd);
+ setFrustum(VP);window.__drawn=DRAWN.tris;DRAWN.tris=0;stepPeople(dt,t%1000);audioFrame(fwd);if(ZM&&playing)ZM.update(dt);
  ub.set(VP,0);ub.set(V,16);ub.set(inv4(VP),32);ub.set([P.x,P.y,P.z,t%1000],64);ub.set([T.W,T.H,1/T.W,1/T.H,fy/asp,fy,n,fr],96);ub.set(LGRID.slice(0,4),68);ub[72]=LGRID[4];
  // day and night: in the hub they swap under each bridge; every district has its own
  const zone=BRIDGES.filter(b=>P.x>b).length,nightT=nightOverride??(CUR===HUB||!CUR?(zone%2?1:0):(CUR.night?1:0));nightK+=(nightT-nightK)*Math.min(1,dt/1.2);
@@ -636,7 +640,7 @@ function frame(now){
    {view:T.mA,resolveTarget:T.axV,clearValue:{r:1,g:0,b:0,a:0},loadOp:'clear',storeOp:'discard'}],
   depthStencilAttachment:{view:T.depthV,depthClearValue:1,depthLoadOp:'clear',depthStoreOp:'discard'}});
  p.setBindGroup(0,sceneBG);p.setVertexBuffer(0,cubeVB);p.setVertexBuffer(1,instB.b);p.setIndexBuffer(cubeIB,'uint16');if(!SK.has('scene')&&instB.n){p.setPipeline(scenePipe);drawCells(p,instCells,36)}
- p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);drawDyn(p,MESH.bird,birdB);
+ p.setPipeline(dynPipe);drawDyn(p,MESH.unit,folB);drawDyn(p,QS.has('leafbox')?MESH.unit:MESH.leaf,leafB);drawDyn(p,MESH.unit,dropB);drawDyn(p,MESH.person,pplB);if(ZM){drawDyn(p,MESH.person,ZM.zomB);drawDyn(p,MESH.unit,ZM.fxB)}drawDyn(p,MESH.bird,birdB);
  for(const k of RIDEKIND)drawDyn(p,MESH[k],rideB[k]);
  p.setPipeline(modelPipe);drawModels(p,false);
  if(!SK.has('sky')){p.setPipeline(skyPipe);p.draw(3)}
@@ -671,5 +675,9 @@ if(QS.has('dist')){const d=HUB.doors.find(d=>!d.theme),r=spawnAt(HUB,d,QS.get('d
 prog(1);await tick();
 body.classList.remove('l');body.classList.add('r');
 if(QS.has('go'))play();
+// zombie mode: the menu's mode button switches between the two; the mode itself lives in js/zombies.js
+if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,gbuf:()=>gbuf(GU.VERTEX),
+ get actx(){return actx},get master(){return master},kick});window.__zm=ZM;$('d').textContent='Start Zombie Mode';$('zm').textContent='Back to normal mode'}
+$('zm').onclick=()=>{location.search=MODE?'':'?mode=zombies'};
 requestAnimationFrame(frame);
 })();

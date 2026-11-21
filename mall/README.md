@@ -28,6 +28,24 @@ Controls: you walk through the mall on foot, in first person.
 
 The ⛶ button toggles full screen, and phones go full screen when you enter. Other keys: 1–6 jump to viewpoints, N switches day and night, F toggles flying, H shows stats, M mutes, and Esc opens the menu.
 
+## Zombie Mode
+
+Pick **Zombie Mode** on the menu (or open `index.html?mode=zombies`). The mall is overrun: every zone (the car park, the mall, each of the nine districts and the exit) has slow, shambling zombies that come at you. Clear them all; the top of the screen shows how many are left in the zone you're in and how many zones you've cleared. You run faster and jump higher than in the normal mode, and if they bite you to nothing you go back to the start of that zone.
+
+You start with a pistol with unlimited bullets. Other weapons are hidden around the map, one per zone along the route; each has its own spread and kind of damage:
+
+| Weapon | What it does |
+|---|---|
+| Pistol | Steady, accurate shots |
+| Shotgun | Nine pellets in a wide spread |
+| SMG | Very fast fire with some spread |
+| Rail Rifle | One heavy shot that goes through four zombies |
+| Ember Gun | Short range; sets zombies on fire |
+| Tesla Coil | Lightning that jumps to three more zombies |
+| Frost Ray | Freezes zombies, slowing them right down |
+
+Headshots do two and a half times the damage. Controls: hold the left mouse button to fire, the wheel or 1–7 to switch weapons. On a controller, RT fires and LB/RB switch; on a phone there are Fire, Swap and Jump buttons. The mode's code is in `js/zombies.js`.
+
 ## What's in it
 
 - **No flicker:** the lights stay steady.
@@ -89,6 +107,7 @@ No build step: `index.html` loads plain script files in order.
 | `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z and leave at (0,140) into the next district. `lot.js` holds the starting car park and the Grand Exit, which are not in the rotation |
 | `js/models.js`, `models/` | Poly Haven props and leaf cards, built by `tools/build_models.py` into one geometry file and texture layers. Then `tools/build_lods.mjs` adds lighter far-away versions (`cd tools && npm install && node build_lods.mjs`) |
 | `js/route.js` | The fixed order of the districts along the line |
+| `js/zombies.js` | Zombie Mode: zombies, weapons, hidden pickups and the HUD |
 | `js/engine.js` | Loading, streaming districts in and out, collision, walking, the crowd, audio, controls and the render loop |
 
 Each area is built by its own file from a fixed seed (taken from its name), so it comes out the same every time. To upgrade an area, edit its file; everyone sees the change. To add a new area, copy a district file, rename the function, add a `<script>` tag for it in `index.html`, and put its name in `js/route.js` where you want it in the line.
