@@ -427,23 +427,34 @@ let titleT=0;function showTitle(r){const el=$('t');if(!el)return;el.textContent=
 const keys=new Set(),ptrs=new Map();let primary=null,playing=false,stats=false,muted=false;
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 // controls: mouse look (click to capture the pointer) and WASD; on phones hold to walk, drag to look, two fingers to run
-const touchMode=coarse;let touches=0,lookId=null,moveId=null,joy0=null;const joyV={x:0,y:0},JR=58;
+const touchMode=coarse;let touches=0,lookId=null,moveId=null,joy0=null;const joyV={x:0,y:0},JR=58,pend={x:0,y:0};
+// touch settings (menu): look speed, gyro aim, steer with the stick, left-handed layout
+const TS={sens:1,gyro:false,steer:true,lefty:false};try{Object.assign(TS,JSON.parse(localStorage.skyMallTouch||'{}'))}catch{}
+const saveTS=()=>{try{localStorage.skyMallTouch=JSON.stringify(TS)}catch{}};
+// stop pinch-zoom, double-tap zoom and page scrolling while playing
+document.addEventListener('gesturestart',e=>e.preventDefault());document.addEventListener('touchmove',e=>{if(playing)e.preventDefault()},{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault());
 // touch: a thumbstick appears wherever your left thumb lands (left side of the screen); the rest of the screen looks around
+const gyroR={y:0,p:0};let gyroT=0;
+addEventListener('devicemotion',e=>{const rr=e.rotationRate,now=performance.now(),dt=Math.min(.05,(now-gyroT)/1000);gyroT=now;if(!TS.gyro||!playing||!rr||rr.alpha==null)return;
+ const D=Math.PI/180,a=rr.alpha*D,b=rr.beta*D,c=rr.gamma*D,ang=((screen.orientation&&screen.orientation.angle)??(window.orientation||0)+360)%360;
+ let y,p;if(ang===90){y=b;p=c}else if(ang===270){y=-b;p=-c}else if(ang===180){y=-c;p=b}else{y=c;p=-b}gyroR.y+=y*dt;gyroR.p+=p*dt});
+const askGyro=()=>{try{if(typeof DeviceMotionEvent!=='undefined'&&DeviceMotionEvent.requestPermission)DeviceMotionEvent.requestPermission().catch(()=>{})}catch{}};
 const stickB=document.createElement('div'),stickK=document.createElement('div');
-stickB.style.cssText=`position:fixed;z-index:5;width:${JR*2}px;height:${JR*2}px;margin:-${JR}px 0 0 -${JR}px;border-radius:50%;border:2px solid rgba(255,255,255,.45);background:rgba(0,0,0,.18);pointer-events:none;left:${JR+34}px;top:calc(100vh - ${JR+60}px);opacity:.45;display:none`;
+stickB.style.cssText=`position:fixed;z-index:5;width:${JR*2}px;height:${JR*2}px;margin:-${JR}px 0 0 -${JR}px;border-radius:50%;border:2px solid rgba(255,255,255,.45);background:rgba(0,0,0,.18);pointer-events:none;left:${JR+34}px;top:calc(100vh - ${JR+60}px);opacity:.45;display:none`;setTimeout(()=>stickHome(),0);
 stickK.style.cssText='position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.8)';
 stickB.appendChild(stickK);document.body.appendChild(stickB);
-const stickHome=()=>{stickB.style.left=(JR+34)+'px';stickB.style.top=`calc(100vh - ${JR+60}px)`;stickB.style.opacity=.45;stickK.style.transform=''};
+const stickHome=()=>{stickB.style.left=TS.lefty?`calc(100vw - ${JR+34}px)`:(JR+34)+'px';stickB.style.top=`calc(100vh - ${JR+60}px)`;stickB.style.opacity=.45;stickK.style.transform=''};
 const look=(dx,dy,k)=>{P.yaw-=dx*k;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-dy*k))};
 const locked=()=>document.pointerLockElement===cv;
 const lockMouse=()=>{try{const r=cv.requestPointerLock?.();if(r&&r.catch)r.catch(()=>{})}catch{}};
 cv.addEventListener('pointerdown',e=>{if(!playing)return;try{cv.setPointerCapture(e.pointerId)}catch{}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
- if(e.pointerType==='touch'){if(moveId===null&&e.clientX<innerWidth*.42&&e.clientY>innerHeight*.3){moveId=e.pointerId;joy0={x:e.clientX,y:e.clientY};stickB.style.left=e.clientX+'px';stickB.style.top=e.clientY+'px';stickB.style.opacity=1;return}
+ if(e.pointerType==='touch'){if(moveId===null&&(TS.lefty?e.clientX>innerWidth*.58&&e.clientX<innerWidth-18:e.clientX<innerWidth*.42&&e.clientX>18)&&e.clientY>innerHeight*.3){moveId=e.pointerId;joy0={x:e.clientX,y:e.clientY};stickB.style.left=e.clientX+'px';stickB.style.top=e.clientY+'px';stickB.style.opacity=1;return}
   touches++;if(lookId===null)lookId=e.pointerId;return}
  if(!locked())lockMouse()});
-cv.addEventListener('pointermove',e=>{if(e.pointerId===moveId){let dx=e.clientX-joy0.x,dy=e.clientY-joy0.y;const l=Math.hypot(dx,dy);if(l>JR){dx*=JR/l;dy*=JR/l}joyV.x=dx/JR;joyV.y=dy/JR;stickK.style.transform=`translate(${dx}px,${dy}px)`;return}
+cv.addEventListener('pointermove',e=>{if(e.pointerId===moveId){let dx=e.clientX-joy0.x,dy=e.clientY-joy0.y;const l=Math.hypot(dx,dy);if(l>JR){dx*=JR/l;dy*=JR/l}const DZ=.14*JR,m=l<DZ?0:(Math.min(l,JR)-DZ)/(JR-DZ)/Math.max(1e-3,Math.min(l,JR));joyV.x=dx*m;joyV.y=dy*m;stickK.style.transform=`translate(${dx}px,${dy}px)`;return}
  if(e.pointerType!=='touch'&&locked())return;const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
- if(e.pointerType==='touch'&&e.pointerId!==lookId)return;look(dx,dy,e.pointerType==='touch'?.006:.004)});
+ if(e.pointerType==='touch'&&e.pointerId!==lookId)return;if(e.pointerType==='touch'){pend.x+=dx;pend.y+=dy;return}look(dx,dy,.004)});
 document.addEventListener('mousemove',e=>{if(playing&&locked())look(e.movementX||0,e.movementY||0,.0022*(ZM?1-ZM.zoom()*.65:1))});
 document.addEventListener('mousedown',e=>{if(ZM&&playing&&locked()&&e.button===0)ZM.fire(true);if(ZM&&playing&&e.button===2)ZM.aim(true)});document.addEventListener('mouseup',e=>{if(ZM&&e.button===0)ZM.fire(false);if(ZM&&e.button===2)ZM.aim(false)});
 addEventListener('wheel',e=>{if(ZM&&playing)ZM.swap(e.deltaY>0?1:-1)},{passive:true});
@@ -509,6 +520,10 @@ function readPad(dt){padMove=[0,0];padRun=false;const gp=[...(navigator.getGamep
  padPrev=b}
 function update(dt){
  readPad(dt);
+ if(pend.x||pend.y){const a=Math.min(1,dt*30),dx=pend.x*a,dy=pend.y*a;pend.x-=dx;pend.y-=dy;if(Math.abs(pend.x)<.01)pend.x=0;if(Math.abs(pend.y)<.01)pend.y=0;look(dx,dy,.006*TS.sens*(ZM?1-ZM.zoom()*.65:1))}
+ // steer with the stick: pushing it sideways slowly turns the view that way (while no finger is looking)
+ if(touchMode&&TS.steer&&playing&&moveId!==null&&lookId===null&&Math.abs(joyV.x)>.3)P.yaw-=(joyV.x-Math.sign(joyV.x)*.3)*1.6*dt;
+ if(gyroR.y||gyroR.p){const g=TS.sens*(ZM?1-ZM.zoom()*.5:1);P.yaw+=gyroR.y*g;P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch+gyroR.p*g));gyroR.y=gyroR.p=0}
  const k=c=>keys.has(c)?1:0,cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);
  const fwd=[-sy*cp,sp,-cy*cp],rt=[cy,0,-sy];
  let f=0,s=0,vu=0,fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
@@ -623,6 +638,12 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
 /* ---------- menu ---------- */
 // detail buttons: Super low, Low, Medium, High (detail -1 to 2)
 const qb=[...$('q').querySelectorAll('button')];
+if(touchMode){const tq=$('tq');tq.style.display='';const B=[...tq.querySelectorAll('button')];
+ const draw=()=>{$('tsv').textContent=TS.sens.toFixed(1)+'×';B[2].textContent='Gyro '+(TS.gyro?'on':'off');B[3].textContent='Steer '+(TS.steer?'on':'off');B[4].textContent='Left hand '+(TS.lefty?'on':'off');
+  B.slice(2).forEach((b,i)=>b.classList.toggle('on2',[TS.gyro,TS.steer,TS.lefty][i]))};
+ B[0].onclick=()=>{TS.sens=Math.max(.4,+(TS.sens-.1).toFixed(1));saveTS();draw()};B[1].onclick=()=>{TS.sens=Math.min(2.5,+(TS.sens+.1).toFixed(1));saveTS();draw()};
+ B[2].onclick=()=>{TS.gyro=!TS.gyro;if(TS.gyro)askGyro();saveTS();draw()};B[3].onclick=()=>{TS.steer=!TS.steer;saveTS();draw()};
+ B[4].onclick=()=>{TS.lefty=!TS.lefty;saveTS();location.reload()};draw()}
 const setDetail=d=>{if(detail<0&&d>=0)regionChanged=true;detail=d;qb.forEach((b,i)=>b.classList.toggle('on',i-1===d));try{localStorage[DKEY]=d}catch{}resize()};setDetail(detail);
 qb.forEach((b,i)=>b.onclick=()=>setDetail(i-1));
 function play(){playing=true;body.classList.add('g');if(touchMode)stickB.style.display='';startAudio();if(touchMode)goFull();else lockMouse();cv.focus?.()}
@@ -717,7 +738,7 @@ prog(1);await tick();
 body.classList.remove('l');body.classList.add('r');
 if(QS.has('go'))play();
 // zombie mode: the menu's mode button switches between the two; the mode itself lives in js/zombies.js
-if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,gbuf:()=>gbuf(GU.VERTEX),
+if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get CUR(){return CUR},HUB,solid,groundAt,settle,EYE,touchMode,lefty:touchMode&&TS.lefty,gbuf:()=>gbuf(GU.VERTEX),
  get actx(){return actx},get master(){return master},kick,
  // world position -> CSS pixels on screen (for damage numbers), or null when behind you
  project:(x,y,z)=>{const cx=VP[0]*x+VP[4]*y+VP[8]*z+VP[12],cy=VP[1]*x+VP[5]*y+VP[9]*z+VP[13],cw=VP[3]*x+VP[7]*y+VP[11]*z+VP[15];if(cw<=.05)return null;return[(cx/cw*.5+.5)*innerWidth,(.5-cy/cw*.5)*innerHeight]}});window.__zm=ZM;

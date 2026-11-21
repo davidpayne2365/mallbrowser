@@ -34,8 +34,10 @@ function makeZombieMode(api){
  if(api.touchMode){const bs='position:fixed;z-index:6;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:700 13px system-ui;touch-action:none';
   const btn=(label,style,down,upf)=>{const b=document.createElement('button');b.className='zhud';b.textContent=label;b.style.cssText=bs+';'+style;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();down()});
    b.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();upf&&upf()});b.addEventListener('pointercancel',()=>upf&&upf());document.body.appendChild(b);return b};
-  btn('FIRE','right:22px;bottom:90px;width:84px;height:84px',()=>firing=true,()=>firing=false);btn('SWAP','right:118px;bottom:40px;width:56px;height:56px',()=>swap(1));
-  btn('JUMP','right:22px;bottom:186px;width:60px;height:60px',()=>{keys.add('Space');setTimeout(()=>keys.delete('Space'),150)})}
+  const SIDE=api.lefty?'left':'right',UP=api.lefty?44:0,at=(cx,cy,w)=>`${SIDE}:${cx-w/2}px;bottom:${cy-w/2+UP}px;width:${w}px;height:${w}px`;
+  btn('JUMP',at(64,70,88),()=>{keys.add('Space');setTimeout(()=>keys.delete('Space'),150)});
+  btn('FIRE',at(172,64,64),()=>firing=true,()=>firing=false);btn('SWAP',at(160,128,52),()=>swap(1));
+  btn('ZOOM',at(118,170,52),()=>{aimM=true},()=>{aimM=false});btn('LIGHT',at(60,182,52),()=>toggleTorch())}
  hud.card.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(near)take(near)});
 
  // ---- damage numbers: they pop off where you hit and drift up
@@ -115,6 +117,7 @@ function makeZombieMode(api){
   hits.sort((a,b)=>a.t-b.t);return{hits,wd}}
  // damage by where you hit: the head takes 4x (more with Deadeye and precise makers), the body 1x, arms and legs 0.7x
  // and are blown off after enough; elements add burning, acid, slowing or extra lightning; abilities add the rest
+ let buzzT=0;const buzz=ms=>{if(!api.touchMode||!navigator.vibrate)return;const n=performance.now();if(n-buzzT<70)return;buzzT=n;try{navigator.vibrate(ms)}catch{}};
  const LIMB={la:0,ra:1,ll:2,rl:3},HIT={torso:1,la:.7,ra:.7,ll:.7,rl:.7};
  const has=(g,a)=>g.abil&&g.abil.includes(a);
  function hurt(p,dmg,g,part='torso',at,quiet){const z=p.zs;if(!isZ(p))return 0;const head=part==='head',mult=head?4*g.crit:HIT[part],v=dmg*mult;
@@ -126,9 +129,9 @@ function makeZombieMode(api){
   if(has(g,'knockback')&&!quiet&&z.hp>0){const dx=p.x-P.x,dz=p.z-P.z,l=Math.hypot(dx,dz)||1,f=g.type==='shotgun'||g.shape?.arc?7:5;z.kb={vx:dx/l*f,vz:dz/l*f,t:.25};z.stag=.6}
   if(has(g,'vortex')&&!quiet&&at)vortexAt(at);
   const pos=at||[p.x,p.y+1.6*p.s[1],p.z],col=head?'#ffd23a':g.elem?ELEMENTS[g.elem].css:'#ffffff';
-  if(quiet){z.dot+=v;z.dcol=col}else popNum(pos[0],pos[1],pos[2],v,col,head);
+  if(quiet){z.dot+=v;z.dcol=col}else{popNum(pos[0],pos[1],pos[2],v,col,head);if(head&&g!==ALLY)buzz(14)}
   if(z.hp<=0)kill(p,g);return v}
- function sever(p,i){p.limb|=1<<i;const z=p.zs,cy=Math.cos(p.yaw),sy=Math.sin(p.yaw),side=i%2?1:-1,arm=i<2;
+ function sever(p,i){p.limb|=1<<i;buzz(28);const z=p.zs,cy=Math.cos(p.yaw),sy=Math.sin(p.yaw),side=i%2?1:-1,arm=i<2;
   const lx=side*(arm?.3:.1),ly=arm?1.35:.5,x=p.x+cy*lx,zz=p.z-sy*lx,y=p.y+ly;
   fx.push({k:'gib',a:[x,y,zz],v:[cy*side*2+(R()-.5)*2,2.5+R()*1.5,-sy*side*2+(R()-.5)*2],ground:p.y,size:arm?[.09,.55,.09]:[.13,.8,.13],col:arm?[.16,.22,.11]:p.zc.map(v=>v*.8),yaw:R()*6,pitch:R()*6,spin:6+R()*6,life:6,t:0});
   for(let k=0;k<10;k++)fx.push({k:'gib',a:[x,y,zz],v:[(R()-.5)*3,1+R()*2.5,(R()-.5)*3],ground:p.y,size:[.04,.04,.04],col:[.45,.02,.02],yaw:0,pitch:0,spin:0,life:1.2+R(),t:0});
@@ -252,7 +255,7 @@ function makeZombieMode(api){
    step(p,p.x+away[0]/l*4,p.z+away[1]/l*4,sp,dt);p.zsp=Math.min(1.6,sp*.7);p.pose=0}
   else if(z){z.t+=dt;z.run=Math.max(0,(z.run||0)-dt*.5);if(z.t>2.5){z.st='cower';p.pose=7;p.zsp=0}}}
 
- function damage(n){if(deadT>0)return;health-=n;hurtT=.4;if(health<=0){health=0;deadT=3;banner('You died','No second chances · starting over from the car park…',9999)}}
+ function damage(n){if(deadT>0)return;health-=n;hurtT=.4;buzz(health<=n?200:45);if(health<=0){health=0;deadT=3;banner('You died','No second chances · starting over from the car park…',9999)}}
  function respawn(){const r=api.CUR||api.HUB,d=r.doors[0],inx=-d.dx||0,inz=-d.dz||0;P.x=d.x+inx*4;P.z=d.z+inz*4;P.y=api.EYE+.1;api.settle();health=100;
   for(const q of r.P)if(isZ(q)&&Math.hypot(q.x-P.x,q.z-P.z)<10){q.x+=(q.x-P.x)*1.5;q.z+=(q.z-P.z)*1.5}}
 
@@ -298,7 +301,7 @@ function makeZombieMode(api){
   g.name=`Forged ${g.makerName} ${GUN_TYPES[g.type].name}`;g.parts=gunParts(g,R);return{g}}
  function drawForge(){const res=forged(),focus=cur2.row<inv.length?aspects(inv[cur2.row])[cur2.col]:null,fg=sel.frame!=null?inv[sel.frame]:null;
   const chip=(r,c,a)=>{const on=isSel(r,a),cur=cur2.row===r&&cur2.col===c,g=inv[r],bad=a.k==='abil'&&fg&&!fitsGun(fg,a.v);
-   return`<span data-r="${r}" data-c="${c}" style="display:inline-block;margin:3px 4px 0 0;padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;background:${on?g.rar.css:'rgba(255,255,255,.08)'};color:${on?'#111':'#eee'};opacity:${bad?.4:1};text-decoration:${bad?'line-through':'none'};outline:${cur?'2px solid #fff':'none'}">${a.k==='abil'?'◆ ':''}${a.label}</span>`};
+   return`<span data-r="${r}" data-c="${c}" style="display:inline-block;margin:3px 4px 0 0;padding:${api.touchMode?'9px 13px':'4px 9px'};border-radius:6px;cursor:pointer;font-size:${api.touchMode?15:13}px;background:${on?g.rar.css:'rgba(255,255,255,.08)'};color:${on?'#111':'#eee'};opacity:${bad?.4:1};text-decoration:${bad?'line-through':'none'};outline:${cur?'2px solid #fff':'none'}">${a.k==='abil'?'◆ ':''}${a.label}</span>`};
   const ftip=focus?focus.tip+(focus.k==='abil'&&fg&&!fitsGun(fg,focus.v)?` <span style="color:#f88">(doesn't work on a ${GUN_TYPES[fg.type].name} frame)</span>`:''):'';
   forgeEl.innerHTML=`<div style="font-size:20px;font-weight:800">Forge</div><div style="font-size:12px;opacity:.75;margin-bottom:8px">Build one gun from the guns you carry: pick a <b>Frame</b>, then take <b>Damage</b>, <b>Fire rate</b>, <b>Skin</b>, an element and up to ${MAXAB} <b>abilities</b> from any of them. Anything you don't pick comes from the Frame. Forging breaks all your guns into the new one. The game keeps going.</div>`+
    inv.map((g,r)=>`<div style="margin:6px 0;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04)"><div style="font-weight:700;color:${g.rar.css}">${r+1}. ${g.name}</div>${aspects(g).map((a,c)=>chip(r,c,a)).join('')}</div>`).join('')+
@@ -324,10 +327,10 @@ function makeZombieMode(api){
   if(ed(3))setForge(!forgeOpen);
   if(forgeOpen){padRepF-=dt;const d=[[12,-1,0],[13,1,0],[14,0,-1],[15,0,1]].find(([i])=>b[i]);if(d&&padRepF<=0){padRepF=.2;forgeMove(d[1],d[2])}else if(!d)padRepF=0;if(ed(0))forgeAct();if(ed(1))setForge(false)}
   padF=b}
- if(api.touchMode){for(const[lab,bot,dn,up]of[['AUTO',16,()=>{autoF=!autoF;autoB()},null],['LIGHT',100,toggleTorch,null],['ZOOM',176,()=>{aimM=true},()=>{aimM=false}]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
-   b.style.cssText=`position:fixed;z-index:6;right:${bot}px;top:12px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
+ if(api.touchMode){for(const[lab,bot,dn,up]of[['AUTO',16,()=>{autoF=!autoF;autoB()},null]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
+   b.style.cssText=`position:fixed;z-index:6;${api.lefty?'left':'right'}:${bot}px;top:12px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
    if(lab==='AUTO')autoBtn=b;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dn()});if(up)for(const ev of['pointerup','pointercancel'])b.addEventListener(ev,up);document.body.appendChild(b)}autoB()}
- if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;right:248px;top:12px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
+ if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;'+(api.lefty?'left':'right')+':104px;top:12px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();setForge(!forgeOpen)});document.body.appendChild(b)}
 
  // ---- every frame
@@ -357,6 +360,7 @@ function makeZombieMode(api){
   stepProjs(dt);
   // guns on the floor: the nearest one within reach shows its card
   near=null;let nd=2.2;for(let i=drops.length-1;i>=0;i--){const d=drops[i];d.t+=dt;if(d.t>180){drops.splice(i,1);continue}const dd=Math.hypot(d.x-P.x,d.z-P.z);if(dd<nd&&Math.abs(d.y-P.feet)<1.5){nd=dd;near=d}}
+  if(api.touchMode&&near&&!near.seen){near.seen=true;const D=x=>x.dmg*x.pellets*x.rate;if(D(near.g)>D(gun())*1.25&&near.g.rarity>=gun().rarity){take(near);near=null}}
   if(near!==cardFor){cardFor=near;hud.card.style.display=near?'':'none';if(near)hud.card.innerHTML=card(near.g)}
   const e=keys.has('KeyE');if(e&&!prevE&&near)take(near);prevE=e;
   // health potions
