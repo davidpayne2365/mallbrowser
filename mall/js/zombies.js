@@ -80,7 +80,20 @@ function makeZombieMode(api){
  function swap(dir){ci=(ci+dir+inv.length)%inv.length;swapT=.25;cool=Math.max(cool,.2)}
  function select(n){if(inv[n]){ci=n;swapT=.25}}
  function eye(){return[P.x,P.ey??P.y,P.z]}
- function dirs(){const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw),cp=Math.cos(P.pitch),sp=Math.sin(P.pitch);return{f:[-sy*cp,sp,-cy*cp],r:[cy,0,-sy],u:[sy*sp,cp,cy*sp]}}
+ // touch aim assist: the gun swings onto the chest of the nearest zombie in front of you (the camera stays yours),
+ // and Auto fire shoots whenever it has one locked
+ let AY=null,AP=null,aTgt=null,aT=0,autoF=!!api.touchMode;
+ const chest=p=>p.y+(p.zs.crawl?.3:1.2*p.s[1]);
+ const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a};
+ function assist(dt){if(!api.touchMode){AY=AP=null;aTgt=null;return}const o=eye(),rng=Math.min(gun().range,32);
+  const ok=p=>{if(!p||!isZ(p))return false;const dx=p.x-o[0],dz=p.z-o[2],d=Math.hypot(dx,dz);if(d>rng)return false;
+   if(Math.abs(wrapA(Math.atan2(-dx,-dz)-P.yaw))>.8)return false;const v=[dx,chest(p)-o[1],dz],l=Math.hypot(...v);return wallDist(o,v.map(x=>x/l),l)>=l-.4};
+  aT-=dt;if(aT<=0||!ok(aTgt)){aT=.15;let best=null,bd=1e9;for(const p of zombiesNear(o,rng)){const d=Math.hypot(p.x-o[0],p.z-o[2]);if(d<bd&&ok(p)){bd=d;best=p}}
+   if(best&&(!ok(aTgt)||bd<Math.hypot(aTgt.x-o[0],aTgt.z-o[2])-2))aTgt=best;else if(!ok(aTgt))aTgt=null}
+  let ty=P.yaw,tp=P.pitch;if(aTgt){const dx=aTgt.x-o[0],dy=chest(aTgt)-o[1],dz=aTgt.z-o[2];ty=Math.atan2(-dx,-dz);tp=Math.atan2(dy,Math.hypot(dx,dz))}
+  const k=Math.min(1,dt*16);if(AY==null){AY=P.yaw;AP=P.pitch}AY=P.yaw+wrapA(AY-P.yaw);AY+=wrapA(ty-AY)*k;AP+=(tp-AP)*k;
+  if(!aTgt&&Math.abs(wrapA(AY-P.yaw))<.01&&Math.abs(AP-P.pitch)<.01)AY=AP=null}
+ function dirs(cam){const yw=cam||AY==null?P.yaw:AY,pt=cam||AP==null?P.pitch:AP,cy=Math.cos(yw),sy=Math.sin(yw),cp=Math.cos(pt),sp=Math.sin(pt);return{f:[-sy*cp,sp,-cy*cp],r:[cy,0,-sy],u:[sy*sp,cp,cy*sp]}}
  function wallDist(o,d,max){for(let t=.3;t<max;t+=.25){if(api.solid(o[0]+d[0]*t,o[1]+d[1]*t,o[2]+d[2]*t))return t}return max}
  function raySphere(o,d,c,rad){const ox=o[0]-c[0],oy=o[1]-c[1],oz=o[2]-c[2],b=ox*d[0]+oy*d[1]+oz*d[2],cc=ox*ox+oy*oy+oz*oz-rad*rad,h=b*b-cc;if(h<0)return-1;const t=-b-Math.sqrt(h);return t>0?t:-1}
  function zombiesNear(o,range){const a=[];for(const r of api.LOADED)for(const p of r.P)if(isZ(p)&&Math.hypot(p.x-o[0],p.z-o[2])<range+2)a.push(p);return a}
@@ -258,6 +271,7 @@ function makeZombieMode(api){
 
  // ---- the forge: pick one aspect from every gun you hold and they combine into one gun (and the rest break).
  // Open it any time with Q (Y on a controller, FORGE on a phone); the game doesn't pause, so find somewhere safe.
+ let autoBtn=null;const autoB=()=>{if(autoBtn){autoBtn.textContent=autoF?'AUTO ON':'AUTO OFF';autoBtn.style.color=autoF?'#7f7':'#fff'}};
  // sniper zoom (right mouse, LT or RB) and the flashlight (F, R3 or the LIGHT button)
  let aimM=false,aimP=false,zoomK=0,torchOn=false;const isSniper=()=>gun().type==='sniper';
  const scopeEl=el('left:0;top:0;width:100vw;height:100vh;opacity:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 34vmin,rgba(0,0,0,.92) 35vmin);display:block');
@@ -310,10 +324,10 @@ function makeZombieMode(api){
   if(ed(3))setForge(!forgeOpen);
   if(forgeOpen){padRepF-=dt;const d=[[12,-1,0],[13,1,0],[14,0,-1],[15,0,1]].find(([i])=>b[i]);if(d&&padRepF<=0){padRepF=.2;forgeMove(d[1],d[2])}else if(!d)padRepF=0;if(ed(0))forgeAct();if(ed(1))setForge(false)}
   padF=b}
- if(api.touchMode){for(const[lab,bot,dn,up]of[['LIGHT',262,toggleTorch,null],['ZOOM',304,()=>{aimM=true},()=>{aimM=false}]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
-   b.style.cssText=`position:fixed;z-index:6;right:16px;bottom:${bot}px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
-   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dn()});if(up)for(const ev of['pointerup','pointercancel'])b.addEventListener(ev,up);document.body.appendChild(b)}}
- if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;right:16px;bottom:346px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
+ if(api.touchMode){for(const[lab,bot,dn,up]of[['AUTO',16,()=>{autoF=!autoF;autoB()},null],['LIGHT',100,toggleTorch,null],['ZOOM',176,()=>{aimM=true},()=>{aimM=false}]]){const b=document.createElement('button');b.className='zhud';b.textContent=lab;
+   b.style.cssText=`position:fixed;z-index:6;right:${bot}px;top:12px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#fff;font:800 12px system-ui;touch-action:none`;
+   if(lab==='AUTO')autoBtn=b;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();dn()});if(up)for(const ev of['pointerup','pointercancel'])b.addEventListener(ev,up);document.body.appendChild(b)}autoB()}
+ if(api.touchMode){const b=document.createElement('button');b.className='zhud';b.textContent='FORGE';b.style.cssText='position:fixed;z-index:6;right:248px;top:12px;padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);color:#ffd77a;font:800 12px system-ui;touch-action:none';
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();setForge(!forgeOpen)});document.body.appendChild(b)}
 
  // ---- every frame
@@ -330,7 +344,7 @@ function makeZombieMode(api){
   if(deadT>0){deadT-=dt;if(deadT<=0){deadT=99;location.reload()}}
   cool-=dt;swapT=Math.max(0,swapT-dt);recoil=Math.max(0,recoil-dt*6);hurtT=Math.max(0,hurtT-dt);
   gridT-=dt;if(gridT<0){gridT=.2;rebuild()}
-  if(firing&&deadT<=0&&swapT<=0){if(gun().beam)beamTick(dt);else if(cool<=0){shoot();cool=1/gun().rate}}
+  assist(dt);if((firing||(autoF&&aTgt&&!forgeOpen))&&deadT<=0&&swapT<=0){if(gun().beam)beamTick(dt);else if(cool<=0){shoot();cool=1/gun().rate}}
   frameNo++;
   for(const r of api.LOADED)for(const p of r.P){const dd=Math.hypot(p.x-P.x,p.z-P.z);if(dd>90)continue;const z=p.zs;
    if(!z){if(!p.fur&&gridZ.size)human(p,dt);continue}
@@ -375,10 +389,10 @@ function makeZombieMode(api){
   const drawGun=(g,at,yaw,pitch,sc)=>{for(const[f,u,r,w,h,l,m]of g.parts){const p=at(f*sc,u*sc,r*sc);
     if(m==='b')part(...p,yaw,w*sc,h*sc,l*sc,g.tint,pitch,0,g.skin);else if(m==='d')part(...p,yaw,w*sc,h*sc,l*sc,DARK,pitch,0,41);
     else part(...p,yaw,w*sc,h*sc,l*sc,m==='g'?g.col:g.ecol,pitch,m==='g'?1.6:2.2)}};
-  if(deadT<=0&&zoomK<.6){const o=eye(),{f,r,u}=dirs(),k=.46-recoil*.06-swapT*.6,dn=.2+swapT*.4,p0=[o[0]+r[0]*.24-u[0]*dn+f[0]*k,o[1]+r[1]*.24-u[1]*dn+f[1]*k,o[2]+r[2]*.24-u[2]*dn+f[2]*k];
-   drawGun(gun(),(df,du,dr)=>[p0[0]+f[0]*df+u[0]*du+r[0]*dr,p0[1]+f[1]*df+u[1]*du+r[1]*dr,p0[2]+f[2]*df+u[2]*du+r[2]*dr],P.yaw,P.pitch+recoil*.08,1);
+  if(deadT<=0&&zoomK<.6){const o=eye(),C=dirs(true),{f,r,u}=dirs(),k=.46-recoil*.06-swapT*.6,dn=.2+swapT*.4,p0=[o[0]+C.r[0]*.24-C.u[0]*dn+C.f[0]*k,o[1]+C.r[1]*.24-C.u[1]*dn+C.f[1]*k,o[2]+C.r[2]*.24-C.u[2]*dn+C.f[2]*k];
+   drawGun(gun(),(df,du,dr)=>[p0[0]+f[0]*df+u[0]*du+r[0]*dr,p0[1]+f[1]*df+u[1]*du+r[1]*dr,p0[2]+f[2]*df+u[2]*du+r[2]*dr],AY??P.yaw,(AP??P.pitch)+recoil*.08,1);
    // Twin Fire: a mirrored copy in the left hand
-   if(has(gun(),'twin')){const q0=[p0[0]-r[0]*.48,p0[1]-r[1]*.48,p0[2]-r[2]*.48];drawGun(gun(),(df,du,dr)=>[q0[0]+f[0]*df+u[0]*du-r[0]*dr,q0[1]+f[1]*df+u[1]*du-r[1]*dr,q0[2]+f[2]*df+u[2]*du-r[2]*dr],P.yaw,P.pitch+recoil*.08,1)}}
+   if(has(gun(),'twin')){const q0=[p0[0]-r[0]*.48,p0[1]-r[1]*.48,p0[2]-r[2]*.48];drawGun(gun(),(df,du,dr)=>[q0[0]+f[0]*df+u[0]*du-r[0]*dr,q0[1]+f[1]*df+u[1]*du-r[1]*dr,q0[2]+f[2]*df+u[2]*du-r[2]*dr],AY??P.yaw,(AP??P.pitch)+recoil*.08,1)}}
   for(const e of fx){const a=1-e.t/e.life;
    if(e.k==='gib'){part(...e.a,e.yaw,...e.size,e.col,e.pitch,0);continue}
    if(e.k==='puff'){const s=e.s0+(e.s1-e.s0)*(e.t/e.life);part(...e.a,e.t*7,s,s,s,e.col,e.t*5,3.5*a);continue}
