@@ -140,10 +140,12 @@ for(const e of r.ESC){const b=nd(e.bx,0,e.z),t=nd(e.tx,6,e.z);lk(b,t,1);
   if(sh.counter){const[x,z]=sh.w(0,sh.D-1.15);person(P,x,sh.fy,z,Math.atan2(-sh.nx,-sh.nz),1,0)}}}
 prepRegion(HUB);
 let LOADED=[HUB],CUR=HUB,PPL=[],dirty=true,districtCount=0;
-const ORDER=(()=>{const t=[...WORLD.themes];for(let i=t.length-1;i>0;i--){const j=Math.floor(PR()*(i+1));[t[i],t[j]]=[t[j],t[i]]}return t})();
-function spawnAt(from,door,theme){const n=districtCount++,th=theme||ORDER[n%ORDER.length];
+const SPECIAL=['lot','exit'];let themed=0;
+const ORDER=(()=>{const t=WORLD.themes.filter(x=>!SPECIAL.includes(x));for(let i=t.length-1;i>0;i--){const j=Math.floor(PR()*(i+1));[t[i],t[j]]=[t[j],t[i]]}return t})();
+// districts come one after another in a straight line; after all of them, the grand exit (and nothing beyond it)
+function spawnAt(from,door,theme){const n=districtCount++,th=theme||door.theme||(themed<ORDER.length?ORDER[themed]:'exit');const num=SPECIAL.includes(th)?0:++themed;
  const q=door.dz>.5?0:door.dx>.5?1:door.dz<-.5?2:3;
- const r=prepRegion(WORLD.district(n,th,{q,ox:door.x,oz:door.z}));r.doors[0].link=from;door.link=r;r.num=n+1;LOADED.push(r);dirty=true;return r}
+ const r=prepRegion(WORLD.district(n,th,{q,ox:door.x,oz:door.z}));r.doors[0].link=from;door.link=r;r.num=num;LOADED.push(r);dirty=true;return r}
 function enter(r){CUR=r;const keep=new Set([r,...r.doors.map(d=>d.link).filter(Boolean)]);
  for(const o of LOADED)if(!keep.has(o)){for(const d of o.doors)if(d.link&&keep.has(d.link)){/* forget the way back */}
   for(const k of keep)for(const d of k.doors)if(d.link===o)d.link=null;dropWater(o)}
@@ -393,7 +395,7 @@ const blocked=(x,feet,z)=>{for(const dy of[.65,1.1,1.6])for(const dx of[-.25,.25
 const VIEWS=[[-30,1.7,-6,-Math.PI/2-.04,.04],[-1.75,1.7,-21,Math.PI,.32],[14,7.7,-19,Math.PI*.75,-.05],[-100,7.7,5,-Math.PI/2,.1],[60,1.7,19,Math.PI,0],[100,1.7,-4.5,-Math.PI/2,.04]];
 const P={x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vy:0,vz:0};window.__P=P;
 const view=i=>{if(CUR!==HUB)backToHub();const v=VIEWS[i];P.x=v[0];P.y=v[1];P.z=v[2];P.yaw=v[3];P.pitch=v[4];P.vx=P.vy=P.vz=0;settle?.()};
-function backToHub(){for(const d of HUB.doors)d.link=null;for(const r of LOADED)if(r!==HUB)dropWater(r);LOADED=[HUB];CUR=null;dirty=true;
+function backToHub(){themed=0;for(const d of HUB.doors)d.link=null;for(const r of LOADED)if(r!==HUB)dropWater(r);LOADED=[HUB];CUR=null;dirty=true;
  P.x=-30;P.y=1.7;P.z=-6;P.yaw=-Math.PI/2-.04;P.pitch=.04;P.vx=P.vz=0;settle()}
 // title card as you walk into a new district
 let titleT=0;function showTitle(r){const el=$('t');if(!el)return;el.textContent=r===HUB?'Skylight Galleria':r.title+(r.num?'  ·  District '+r.num:'');el.classList.add('on');clearTimeout(titleT);titleT=setTimeout(()=>el.classList.remove('on'),3500)}
@@ -629,8 +631,11 @@ function frame(now){
 rebuildWorld();bakeVis(HUB);makeSceneBG();shadowPass();regionChanged=false;
 view(QS.has('v')?+QS.get('v'):0);
 if(QS.has('yaw'))P.yaw=+QS.get('yaw');if(QS.has('night')){nightOverride=+QS.get('night');nightK=nightOverride}if(QS.has('pitch'))P.pitch=+QS.get('pitch');if(QS.has('pos')){const q=QS.get('pos').split(',').map(Number);P.x=q[0];P.y=q[1];P.z=q[2]}settle();
+// you start outside, in the parking lot, facing the mall's grand entrance
+if(!QS.has('v')&&!QS.has('pos')&&!QS.has('dist')){const r=spawnAt(HUB,HUB.doors.find(d=>d.theme==='lot'));const[wx,wz]=XD(r.xf.q,0,70);P.x=wx+r.xf.ox;P.z=wz+r.xf.oz;P.y=1.7;
+ const[fx,fz]=XD(r.xf.q,0,-1);P.yaw=Math.atan2(-fx,-fz);P.pitch=.06;rebuildWorld();enter(r);stream();settle();nightK=0}
 // ?dist=theme opens a district straight away at the east gate (for testing and screenshots)
-if(QS.has('dist')){const d=HUB.doors[0],r=spawnAt(HUB,d,QS.get('dist'));const lz=+(QS.get('dz')||12),lx=+(QS.get('dx')||0);const[wx,wz]=XD(r.xf.q,lx,lz);P.x=wx+r.xf.ox;P.z=wz+r.xf.oz;P.y=1.7;
+if(QS.has('dist')){const d=HUB.doors.find(d=>!d.theme),r=spawnAt(HUB,d,QS.get('dist'));const lz=+(QS.get('dz')||12),lx=+(QS.get('dx')||0);const[wx,wz]=XD(r.xf.q,lx,lz);P.x=wx+r.xf.ox;P.z=wz+r.xf.oz;P.y=1.7;
  const[fx,fz]=XD(r.xf.q,0,1);P.yaw=Math.atan2(-fx,-fz)+(+(QS.get('turn')||0));if(QS.has('pitch'))P.pitch=+QS.get('pitch');rebuildWorld();enter(r);stream();settle();nightK=r.night?1:0}
 prog(1);await tick();
 body.classList.remove('l');body.classList.add('r');

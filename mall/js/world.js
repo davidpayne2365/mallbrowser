@@ -68,7 +68,7 @@ const palm=(x,z,h)=>{const lean=rnd(0,6.283),tilt=rnd(.03,.09);model('trunk_broa
 // water: each droplet arcs from a nozzle with its own velocity; level = where it disappears
 const jet=(x,y,z,vx,vy,vz,level,n,spread)=>{const[wx,wz]=xp(x,z);for(let k=0;k<n;k++){const[a,b]=xd(vx+rnd(-spread,spread),vz+rnd(-spread,spread));drops.push(wx,y,wz,level,.035,.06,.035,3,.55,.72,.85,k/n+rnd(0,.02),a,b,vy*rnd(.96,1.04),0)}};
 const bird=(cx,cy,cz,r,amp,w,col=[.025,.025,.03],sc=0)=>{const[wx,wz]=xp(cx,cz);birds.push(wx,cy,wz,0,r,amp,sc,2,col[0],col[1],col[2],R(),0,0,w,0)};
-function light(x,y,z,col,I,r,o){o=o||{};const[wx,wz]=xp(x,z);lights.push({x:wx,y,z:wz,r,c:col.map(v=>v*I),f:o.f?rnd(1,99):0,both:!!o.both})}
+function light(x,y,z,col,I,r,o){o=o||{};const[wx,wz]=xp(x,z);lights.push({x:wx,y,z:wz,r,c:col.map(v=>v*I),f:0,both:!!o.both})}
 function frame(px,pz,ax,az,nx,nz){
  const wx=(u,v)=>px+ax*u+nx*v,wz=(u,v)=>pz+az*u+nz*v;
  const F=(u0,y0,v0,u1,y1,v1,col,o)=>{const uc=(u0+u1)/2,vc=(v0+v1)/2,su=Math.abs(u1-u0),sv=Math.abs(v1-v0);
@@ -230,7 +230,7 @@ const kiosk=(x,z)=>{const h=rnd(0,360),k=hsl(h,.5,.4);B(x-1.4,0,z-.9,x+1.4,1,z+.
 /* ---------- themed districts ---------- */
 /* ---------- toolkit for district files ---------- */
 // Every district is 120 m wide and 140 m deep in its own frame: you arrive at (0,0) heading +z and can
-// leave ahead (0,140), left (-60,70) or right (60,70). A 6 m promenade runs along x=0 and z=70 and is kept clear.
+// leave straight ahead at (0,140) into the next district. A 6 m promenade runs along x=0 (and across at z=70) and is kept clear.
 let NK;
 const DW=60,DD=140,DH=3.2,MID=DD/2;
 const nn=(x,y,z)=>{const k=x.toFixed(1)+','+y+','+z.toFixed(1);if(NK.has(k))return NK.get(k);const[a,b]=xp(x,z);NAV.n.push({x:a,y,z:b});NK.set(k,NAV.n.length-1);return NAV.n.length-1};
@@ -246,19 +246,18 @@ function shell(o){
  const H=o.h??10,wc=o.wallCol??C.facade,wp=o.wallPat??11;
  B(-DW,-.4,0,DW,0,DD,o.floor??C.floor,{pat:o.floorPat??12,s:.3});
  const seg=(x0,z0,x1,z1)=>{if(o.glassWalls){B(x0,0,z0,x1,1.1,z1,wc,{pat:wp});B(x0,1.1,z0,x1,H,z1,GL,{glass:1})}else B(x0,0,z0,x1,H,z1,wc,{pat:wp})};
- for(const z of[0,DD]){const z0=z?DD-.4:0,z1=z?DD:.4;seg(-DW,z0,-DH,z1);seg(DH,z0,DW,z1);if(H>4.6)B(-DH,4.6,z0,DH,H,z1,wc,{pat:wp})}
- for(const sx of[-1,1]){const x0=sx<0?-DW:DW-.4,x1=sx<0?-DW+.4:DW;seg(x0,0,x1,MID-DH);seg(x0,MID+DH,x1,DD);if(H>4.6)B(x0,4.6,MID-DH,x1,H,MID+DH,wc,{pat:wp})}
+ if(!o.open){for(const z of[0,DD]){const z0=z?DD-.4:0,z1=z?DD:.4;if(z&&o.end){seg(-DW,z0,DW,z1);continue}seg(-DW,z0,-DH,z1);seg(DH,z0,DW,z1);if(H>4.6)B(-DH,4.6,z0,DH,H,z1,wc,{pat:wp})}
+  for(const sx of[-1,1]){const x0=sx<0?-DW:DW-.4,x1=sx<0?-DW+.4:DW;seg(x0,0,x1,DD)}}
  const dp=(x,z,dx,dz)=>{const[wx,wz]=xp(x,z),[a,b]=xd(dx,dz);doors.push({x:wx,z:wz,dx:a,dz:b})};
- dp(0,0,0,-1);dp(0,DD,0,1);dp(-DW,MID,-1,0);dp(DW,MID,1,0);
+ // one way in (behind you) and one way on (straight ahead): the districts form a single straight line
+ dp(0,0,0,-1);if(!o.end)dp(0,DD,0,1);  // o.end: the last area, nothing beyond it
  const sy=o.signY??(H>5?5.2:3.4),SC=hsl(150,.9,.55);
- box(0,sy,DD-1,5,.7,.2,SC,{e:3,sign:T('Explore →'),face:1,solid:false});
- box(-DW+1,sy,MID,.2,.7,5,SC,{e:3,sign:T('Explore →'),face:2,solid:false});
- box(DW-1,sy,MID,.2,.7,5,SC,{e:3,sign:T('Explore →'),face:3,solid:false});
- box(0,o.titleY??(H>7?7:3.8),12,16,1.8,.2,o.titleCol??hsl(45,.9,.62),{e:3.2,sign:addName(o.title,o.font??'900 {s} Georgia,serif',1),face:1,solid:false});
- if((o.titleY??(H>7?7:3.8))<5){B(-8.2,0,11.8,-7.9,(o.titleY??3.8)+.9,12.2,C.dark);B(7.9,0,11.8,8.2,(o.titleY??3.8)+.9,12.2,C.dark)}
+if(!o.end)box(0,sy,DD-1,5,.7,.2,SC,{e:3,sign:T('Explore →'),face:1,solid:false});
+ if(o.title)box(0,o.titleY??(H>7?7:3.8),12,16,1.8,.2,o.titleCol??hsl(45,.9,.62),{e:3.2,sign:addName(o.title,o.font??'900 {s} Georgia,serif',1),face:1,solid:false});
+ if(o.title&&(o.titleY??(H>7?7:3.8))<5){B(-8.2,0,11.8,-7.9,(o.titleY??3.8)+.9,12.2,C.dark);B(7.9,0,11.8,8.2,(o.titleY??3.8)+.9,12.2,C.dark)}
  if(o.roof==='flat'){B(-DW,H,0,DW,H+.4,DD,o.ceil??C.ceil);if(o.panels!==false)for(let x=-48;x<=48;x+=12)for(let z=8;z<DD;z+=12){B(x-.9,H-.05,z-.9,x+.9,H,z+.9,C.white,{e:2.3,solid:false});light(x,H-.6,z,o.lightCol??C.warm,o.lightI??7,13)}}
  if(o.roof==='glass')vault(DW,o.rise??14,24,'z',0,DD,10,H);
- npath(Array.from({length:41},(_,k)=>[0,1+k*3.45]));npath(Array.from({length:35},(_,k)=>[-59+k*118/34,MID]));
+ if(!o.open){npath(Array.from({length:41},(_,k)=>[0,1+k*3.45]));npath(Array.from({length:35},(_,k)=>[-59+k*118/34,MID]))}
 }
 const lamp=(x,z,h=4,col=C.warm,I=5)=>{B(x-.06,0,z-.06,x+.06,h,z+.06,C.dark);B(x-.22,h,z-.22,x+.22,h+.4,z+.22,col,{e:3,solid:false});light(x,h-.2,z,col,I,9)};
 const bulbs=(x0,z0,x1,z1,y,n,sag=.8)=>{for(let k=0;k<=n;k++){const t=k/n,x=x0+(x1-x0)*t,z=z0+(z1-z0)*t,yy=y-sag*4*t*(1-t);B(x-.06,yy-.06,z-.06,x+.06,yy+.06,z+.06,hsl([45,0,120,200,300][k%5],.9,.6),{e:4,solid:false})}};
@@ -420,11 +419,11 @@ const ANCH=['Grand Meridian','Holloway & Finch','The Emporium','Sterling & Vale'
 let ai=0;
 for(const lvl of[0,1]){ai=0;
  for(const sd of[-1,1]){ai++;
-  for(const wx of[-60,60])shop(wx,57*sd,1,0,0,sd,32,20,lvl,'apparel',{big:1,open:6,back:!lvl,signW:6,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1})}}
+  for(const wx of[-60,60])shop(wx,57*sd,1,0,0,sd,32,20,lvl,'apparel',{big:1,open:6,signW:6,signH:.9,name:ANCH[ai++]+(lvl?' · Upper':''),font:AF,up:1,marble:1})}}
 
-// gate halls: both ends of the main concourse open straight into a two-storey hall with the gate glowing ahead.
+// gate halls (the only ways out of the hub): both ends of the main concourse open straight into a two-storey hall with the gate glowing ahead.
 // Walk straight on along the ground floor, or along the upper walkway and down the wide stairs; either way you reach the gate.
-const gateHall=sd=>{const X=v=>v*sd,GRN=hsl(150,.9,.55),WALLH=hsl(35,.14,.8),MARB=hsl(35,.1,.86),STONE=hsl(35,.08,.82);
+const gateHall=sd=>{const X=v=>v*sd,IN=sd<0,GRN=IN?hsl(42,.95,.6):hsl(150,.9,.55),WALLH=hsl(35,.14,.8),MARB=hsl(35,.1,.86),STONE=hsl(35,.08,.82);
  B(X(120.3),0,-17,X(143.8),.03,17,MARB,{pat:7,s:.3,solid:false});
  for(const sz of[-1,1]){const Z=v=>v*sz;
   B(X(120),0,Z(7),X(120.3),12,Z(17),C.facade);
@@ -448,19 +447,18 @@ const gateHall=sd=>{const X=v=>v*sd,GRN=hsl(150,.9,.55),WALLH=hsl(35,.14,.8),MAR
   for(let k=0;k<=7;k++){const x=126+k*1.2,y=6-.4*Math.min(13,k*2);stick(X(x),y,z,X(x),y+1.05,z,.05,C.steel)}}
  // the gate: a glowing portal with a big sign above it, seen from all the way down the concourse
  for(const z of[-3.4,3])B(X(143.6),0,z,X(144.1),5.4,z+.4,GRN,{e:3});B(X(143.6),5,-3.4,X(144.1),5.4,3.4,GRN,{e:3});
- box(X(143.6),8.3,0,.2,2,11,GRN,{e:3.4,sign:addName('Explore  →','900 {s} system-ui,sans-serif',1),face:sd>0?3:2,solid:false});
- box(X(120.6),10.6,0,.2,1.1,10,hsl(45,.9,.6),{e:3,sign:addName('The Grand Gate','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:sd>0?2:3,solid:false});
+ box(X(143.6),8.3,0,.2,2,11,GRN,{e:3.4,sign:addName(IN?'Parking':'Explore  →','900 {s} system-ui,sans-serif',1),face:sd>0?3:2,solid:false});
+ box(X(120.6),10.6,0,.2,1.1,10,hsl(45,.9,.6),{e:3,sign:addName(IN?'Grand Entrance':'The Grand Gate','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:sd>0?2:3,solid:false});
+ // the west hall is the way in from the parking lot: a welcome sign greets you as you walk in
+ if(IN)box(X(121),10.6,0,.2,1.2,14,hsl(45,.9,.62),{e:3,sign:addName('Welcome to Skylight Galleria','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:2,solid:false});
  for(const x of[130,139]){model('Chandelier_01',X(x),8.2,0,0,3);light(X(x),9.2,0,C.warm,10,16)}
  light(X(141),4,0,GRN,6,10);for(let x=124;x<=140;x+=8)light(X(x),3.5,0,C.warm,5,10);
  for(const sz of[-1,1])bench(X(140),sz*12,1)};
-const gateSign=(x,z,face)=>{box(x,4.6,z,face<2?5.6:.2,.9,face<2?.2:5.6,hsl(150,.9,.55),{e:3.2,sign:addName('Explore  →','900 {s} system-ui,sans-serif',1),face,solid:false})};
 for(const sd of[-1,1]){
  B(144*sd,0,-3.3,150*sd,5,-3,C.facade);B(144*sd,0,3,150*sd,5,3.3,C.facade);B(144*sd,5,-3.3,150*sd,5.4,3.3,C.ceil);
  for(let x=145;x<150;x+=2){B(x*sd-.4,4.95,-.3,x*sd+.4,5,.3,C.white,{e:2.5,solid:false});light(x*sd,4.6,0,C.warm,5,6)}
- doors.push({x:150*sd,z:0,dx:sd,dz:0});gateHall(sd);
- for(const wx of[-60,60]){B(wx-3.3,0,77*sd,wx-3,5,85*sd,C.facade);B(wx+3,0,77*sd,wx+3.3,5,85*sd,C.facade);B(wx-3.3,5,77*sd,wx+3.3,5.4,85*sd,C.ceil);
-  for(let z=78;z<85;z+=2){B(wx-.3,4.95,z*sd-.4,wx+.3,5,z*sd+.4,C.white,{e:2.5,solid:false});light(wx,4.6,z*sd,C.warm,5,6)}
-  doors.push({x:wx,z:85*sd,dx:0,dz:sd});gateSign(wx,74*sd,sd>0?1:0)}}
+ doors.push({x:150*sd,z:0,dx:sd,dz:0,theme:sd<0?'lot':undefined});gateHall(sd);
+}
 return{name:'Skylight Galleria'};
 }
 function region(theme,build,xf,gs,seed){

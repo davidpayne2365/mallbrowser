@@ -27,6 +27,7 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 
 ## What's in it
 
+- **No flicker:** the lights stay steady.
 - **Day and night:** each time you pass under one of the upper-level bridges, the sky fades between day and a starry night with the Milky Way and a full moon.
 - **People:** each shopper has a face (eyes, eyebrows, nose, lips, ears), and some have long hair or beards. They wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters.
 - **Sound:** it starts when you enter. Crowd chatter gets louder near people, each shop plays its own style of music as you pass, and you can hear the fountains up close.
@@ -39,7 +40,9 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 
 ## Endless districts
 
-Walk straight down the main concourse, on either floor, and it opens into **The Grand Gate**, a two-storey hall with the glowing **Explore →** gate ahead. There is one at each end. On the upper floor, bridges cross the food court and a wide staircase leads down to the gate. The four department stores at the ends of the wings also have gates at the back. Walk through one and new districts keep appearing ahead of you, each about a minute's walk deep. Every exit leads somewhere you haven't been, so a long walk never runs out.
+You start outside, in the car park, facing the mall's grand entrance. Walk in through the **Grand Entrance** and straight down the main concourse, on either floor, to **The Grand Gate** at the far end, a two-storey hall with the glowing **Explore →** gate ahead. On the upper floor, bridges cross the food court and a wide staircase leads down to the gate.
+
+Beyond the gate, the districts follow one after another in a straight line. Each has a single exit, straight ahead, into the next, and each is about a minute's walk deep. After you have seen all nine you reach the **Grand Exit**: a glass-roofed hall with a "Thank you for visiting" sign, and doors out to a car park full of cars. That's the end.
 
 | District | What's there |
 |---|---|
@@ -53,7 +56,7 @@ Walk straight down the main concourse, on either floor, and it opens into **The 
 | Paramount Lights | A cinema with a concession hall, an arcade, a lounge, and two auditoriums you can walk into |
 | Lagoon Splash | A waterpark with seven slides you can ride (walk onto the top of one), a sandy wave pool, a lazy river around an island, a kids' splash zone and cabanas |
 
-The first nine districts you reach are all different. After that the themes repeat with new layouts. Press R at any time to go back to the hub.
+The nine districts come in a shuffled order. Press R at any time to go back to the main concourse and start the line again.
 
 ## How it looks real
 
@@ -76,7 +79,7 @@ No build step: `index.html` loads plain script files in order.
 | `js/sky.js` | Sun direction and sky lighting measured from the two sky photos |
 | `js/shaders.js` | All WebGPU shaders: surfaces, sky, glass and water, people and rides, reflections, light shafts, tone mapping |
 | `js/world.js` | Building blocks (boxes, shops, trees, fountains, escalators…), the hub mall, and the toolkit `K` handed to districts |
-| `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z, exits at (0,140), (−60,70) and (60,70) |
+| `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z and leave at (0,140) into the next district. `lot.js` holds the starting car park and the Grand Exit, which are not in the rotation |
 | `js/models.js`, `models/` | Poly Haven props and leaf cards, built by `tools/build_models.py` into one geometry file and texture layers. Then `tools/build_lods.mjs` adds lighter far-away versions (`cd tools && npm install && node build_lods.mjs`) |
 | `js/engine.js` | Loading, streaming districts in and out, collision, walking, the crowd, audio, controls and the render loop |
 
