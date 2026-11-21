@@ -511,18 +511,18 @@ function update(dt){
 
 
 /* ---------- audio: muzak, shop music, district backgrounds ---------- */
-let actx=null,master=null,muzG=null,noiseBuf=null,ambG=null,windG=null,windF=null,ambNext=0,ambStep=0;const SPK=[];
+let actx=null,master=null,muzG=null,noiseBuf=null,ambG=null,ambNext=0,ambStep=0;const SPK=[];
 // each district's own background sound (all synthesised, no voices). muz: how loud the mall music stays;
-// wind/windF: a soft rush of air (or traffic, low windF); the rest are events per second, or a tune.
-const AMB={hub:{muz:.3},dept:{muz:.3},market:{wind:.05,windF:700,chirp:.35},aquarium:{wind:.22,windF:110},arboretum:{wind:.04,windF:900,chirp:1.3},
- forest:{wind:.09,windF:650,chirp:.9},rink:{wind:.02,windF:300,tune:'waltz'},cinema:{muz:.08,bleep:2.2},amusement:{wind:.03,windF:500,tune:'organ',bleep:.5},
- waterpark:{wind:.05,windF:800,chirp:.3},lot:{wind:.1,windF:160,chirp:.4},exit:{wind:.1,windF:160,chirp:.4}};
+// the rest are events per second, or a tune. No constant hiss of any kind.
+const AMB={hub:{muz:.3},dept:{muz:.3},market:{chirp:.35},aquarium:{},arboretum:{chirp:1.3},
+ forest:{chirp:.9},rink:{tune:'waltz'},cinema:{muz:.08,bleep:2.2},amusement:{tune:'organ',bleep:.5},
+ waterpark:{chirp:.3},lot:{chirp:.4},exit:{chirp:.4}};
 const ORGAN=[72,76,79,84,83,79,76,79,74,77,81,86,84,81,77,74,72,76,79,84,86,84,81,79,77,76,74,71,72,0,0,0],WALTZ=[[48,64,67,72],[43,62,65,71],[45,64,69,72],[43,62,67,71]];
 function amb(kind,t0){const o=actx.createOscillator(),g=actx.createGain();g.connect(ambG);
  if(kind==='chirp'){o.type='sine';const f=2400+Math.random()*1800,n=2+Math.floor(Math.random()*3);for(let k=0;k<n;k++){const t=t0+k*.11;o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*1.35,t+.06);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.025,t+.01);g.gain.linearRampToValueAtTime(0,t+.07)}o.connect(g);o.start(t0);o.stop(t0+n*.11+.1);return}
  if(kind==='bleep'){o.type='square';o.frequency.value=[523,659,784,1047,1319,880][Math.floor(Math.random()*6)];g.gain.setValueAtTime(.014,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.09);o.connect(g);o.start(t0);o.stop(t0+.1);return}
 }
-function ambTick(now){const A=AMB[CUR?CUR.theme:'hub']||{};muzG.gain.setTargetAtTime(A.muz??0,now,1.5);windG.gain.setTargetAtTime(A.wind||0,now,1.5);windF.frequency.setTargetAtTime(A.windF||500,now,1);
+function ambTick(now){const A=AMB[CUR?CUR.theme:'hub']||{};muzG.gain.setTargetAtTime(A.muz??0,now,1.5);
  if(ambNext<now)ambNext=now;
  while(ambNext<now+.4){const t0=ambNext;for(const k of['chirp','bleep'])if(A[k]&&Math.random()<A[k]*.125)amb(k,t0+Math.random()*.12);
   if(A.tune==='organ'&&ambStep%2===0){const m=ORGAN[(ambStep/2)%ORGAN.length];if(m){tone(ambG,mf(m),t0,.22,.03,'square');tone(ambG,mf(m-12),t0,.22,.02,'triangle')}if(ambStep%8===0)tone(ambG,mf(48+(ambStep%32?7:0)),t0,.3,.04,'triangle')}
@@ -552,14 +552,12 @@ const panner=(x,y,z,ref,roll)=>{const p=actx.createPanner();p.panningModel='HRTF
 function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioContext||window.webkitAudioContext)()}catch{return}
  const comp=actx.createDynamicsCompressor();master=actx.createGain();master.gain.value=muted?0:.9;master.connect(comp);comp.connect(actx.destination);
  noiseBuf=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate);{const nd=noiseBuf.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1}
- // background muzak + air handling hum, quieter than before
+ // background muzak
  muzG=actx.createGain();muzG.gain.value=.3;muzG.connect(master);
  ambG=actx.createGain();ambG.gain.value=1;ambG.connect(master);
- {const ws=actx.createBufferSource();ws.buffer=noiseBuf;ws.loop=true;windF=actx.createBiquadFilter();windF.type='lowpass';windF.frequency.value=500;windG=actx.createGain();windG.gain.value=0;ws.connect(windF);windF.connect(windG);windG.connect(master);ws.start()}
  const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1700;
  const dl=actx.createDelay(1),fb=actx.createGain(),wet=actx.createGain();dl.delayTime.value=.37;fb.gain.value=.4;wet.gain.value=.35;
  lp.connect(muzG);lp.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(wet);wet.connect(muzG);
- const ns=actx.createBufferSource(),nf=actx.createBiquadFilter(),ng=actx.createGain();ns.buffer=noiseBuf;ns.loop=true;nf.type='lowpass';nf.frequency.value=240;ng.gain.value=.12;ns.connect(nf);nf.connect(ng);ng.connect(master);ns.start();
  const CH=[[60,64,67,71],[57,60,64,67],[53,57,60,64],[55,59,62,65]];let ci=0,next=actx.currentTime+.2;
  const note=(m,t0,dur,vol,type)=>{const o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.value=mf(m);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.35);g.gain.setTargetAtTime(0,t0+dur-.5,.3);o.connect(g);g.connect(lp);o.start(t0);o.stop(t0+dur+1.5)};
  // crowd murmur, loudness follows how many people are near you
