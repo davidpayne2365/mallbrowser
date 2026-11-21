@@ -470,8 +470,8 @@ function update(dt){
  return{fwd}}
 
 
-/* ---------- audio: muzak, crowd chatter, shop music, fountains (all positional) ---------- */
-let actx=null,master=null,chatG=null,muzG=null,noiseBuf=null;const SPK=[],WATER=[];
+/* ---------- audio: muzak, shop music, fountains (all positional) ---------- */
+let actx=null,master=null,muzG=null,noiseBuf=null;const SPK=[],WATER=[];
 const STY={apparel:{bpm:122,w:'sawtooth',cut:900,kick:1,hat:1,bass:1,arp:0,pad:1},shoes:{bpm:120,w:'sawtooth',cut:1100,kick:1,hat:1,bass:1},
  sports:{bpm:128,w:'sawtooth',cut:1600,kick:1,hat:1,bass:1,arp:1},tech:{bpm:110,w:'square',cut:1500,kick:1,arp:1,pad:1},arcade:{bpm:142,w:'square',cut:3500,arp:1,lead:1,hat:1},
  toys:{bpm:132,w:'square',cut:2600,lead:1,kick:1},candy:{bpm:126,w:'triangle',cut:3000,lead:1,kick:1,hat:1},books:{bpm:70,w:'sine',cut:2000,pad:1,arp:1,soft:1},
@@ -491,19 +491,6 @@ function playStep(sp){const st=sp.st,t0=sp.next,i=sp.step%16,bar=Math.floor(sp.s
  if(st.arp&&i%2===0)tone(d,mf(ch[(i/2)%3]+12+(i%8===6?12:0)),t0,beat*.4,.07,st.w);
  if(st.lead&&i%2===0&&Math.random()<.6)tone(d,mf(ch[Math.floor(Math.random()*3)]+24),t0,beat*.35,.05,'square');
  sp.step++;sp.next+=beat/4}
-function makeBabble(){const sr=actx.sampleRate,len=Math.floor(sr*9),b=actx.createBuffer(2,len,sr);
- for(let c=0;c<2;c++){const out=b.getChannelData(c);
-  for(let v=0;v<10;v++){const f0=95+Math.random()*140;let ph=0,env=0,tg=0,syl=0,talk=Math.random()*sr*2,on=Math.random()<.6,f=f0;
-   const A={b0:0,b2:0,a1:0,a2:0,x1:0,x2:0,y1:0,y2:0},Bq={...A};
-   const bp=(q,fr,Q)=>{const w=2*Math.PI*fr/sr,al=Math.sin(w)/(2*Q),a0=1+al;q.b0=al/a0;q.b2=-al/a0;q.a1=-2*Math.cos(w)/a0;q.a2=(1-al)/a0};
-   const run=(q,x)=>{const y=q.b0*x+q.b2*q.x2-q.a1*q.y1-q.a2*q.y2;q.x2=q.x1;q.x1=x;q.y2=q.y1;q.y1=y;return y};
-   for(let i=0;i<len;i++){
-    if(--talk<=0){on=!on;talk=sr*(on?1+Math.random()*2.5:.3+Math.random())}
-    if(--syl<=0){syl=sr*(.08+Math.random()*.17);tg=on?.3+Math.random()*.7:0;bp(A,300+Math.random()*600,4);bp(Bq,900+Math.random()*1700,6);f=f0*(.85+Math.random()*.35)}
-    env+=(tg-env)*.003;ph+=f/sr;if(ph>1)ph-=1;const x=(1-2*ph)+(Math.random()*2-1)*.35;
-    out[i]+=(run(A,x)+.6*run(Bq,x))*env*.14}}
-  const fl=Math.floor(sr*.08);for(let i=0;i<fl;i++){out[i]*=i/fl;out[len-1-i]*=i/fl}}
- return b}
 const panner=(x,y,z,ref,roll)=>{const p=actx.createPanner();p.panningModel='HRTF';p.distanceModel='inverse';p.refDistance=ref;p.maxDistance=80;p.rolloffFactor=roll;
  if(p.positionX){p.positionX.value=x;p.positionY.value=y;p.positionZ.value=z}else p.setPosition(x,y,z);return p};
 function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioContext||window.webkitAudioContext)()}catch{return}
@@ -518,8 +505,6 @@ function startAudio(){if(actx){actx.resume();return}try{actx=new(window.AudioCon
  const CH=[[60,64,67,71],[57,60,64,67],[53,57,60,64],[55,59,62,65]];let ci=0,next=actx.currentTime+.2;
  const note=(m,t0,dur,vol,type)=>{const o=actx.createOscillator(),g=actx.createGain();o.type=type;o.frequency.value=mf(m);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.35);g.gain.setTargetAtTime(0,t0+dur-.5,.3);o.connect(g);g.connect(lp);o.start(t0);o.stop(t0+dur+1.5)};
  // crowd murmur, loudness follows how many people are near you
- const cs=actx.createBufferSource(),cf=actx.createBiquadFilter();cs.buffer=makeBabble();cs.loop=true;cf.type='lowpass';cf.frequency.value=2600;chatG=actx.createGain();chatG.gain.value=0;
- cs.connect(cf);cf.connect(chatG);chatG.connect(master);const cw=actx.createGain();cw.gain.value=.25;chatG.connect(cw);cw.connect(dl);cs.start();
  for(const r of LOADED)addWater(r);
  // three shop speakers that follow the nearest open shops
  for(let k=0;k<3;k++){const g=actx.createGain(),f=actx.createBiquadFilter(),pn=panner(0,-100,0,2.5,1.6);g.gain.value=0;f.type='lowpass';f.connect(g);g.connect(pn);pn.connect(master);SPK.push({g,f,pn,dest:f,shop:null,st:null,step:0,next:0,prog:null})}
@@ -536,8 +521,6 @@ function audioFrame(fwd){if(!actx||actx.state!=='running')return;const L=actx.li
  if(L.positionX){L.positionX.value=P.x;L.positionY.value=P.y;L.positionZ.value=P.z;L.forwardX.value=fwd[0];L.forwardY.value=fwd[1];L.forwardZ.value=fwd[2];L.upX.value=0;L.upY.value=1;L.upZ.value=0}
  else{L.setPosition(P.x,P.y,P.z);L.setOrientation(fwd[0],fwd[1],fwd[2],0,1,0)}
  if(now-audT<.25)return;audT=now;
- let dens=0;for(const p of PPL){const dx=p.x-P.x,dy=(p.y+1.6-P.y)*2,dz=p.z-P.z,d2=dx*dx+dy*dy+dz*dz;if(d2<400)dens+=Math.exp(-d2/50)}
- chatG.gain.setTargetAtTime(Math.min(.85,dens*.09),now,.6);
  const near=SHOPS().filter(s=>!s.closed&&Math.abs(s.fy+1.7-P.y)<3).map(s=>[Math.hypot(s.x-P.x,s.z-P.z),s]).filter(a=>a[0]<16).sort((a,b)=>a[0]-b[0]).slice(0,3).map(a=>a[1]);
  muzG.gain.setTargetAtTime(near.length?.12:.3,now,1);
  for(const sp of SPK)if(sp.shop&&!near.includes(sp.shop)){sp.g.gain.setTargetAtTime(0,now,.25);sp.shop=null}
