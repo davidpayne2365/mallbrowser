@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id),body=document.body,cv=$('c'),bar=$('b'),msg=$('s');
 const QS=new URLSearchParams(location.search);
 // game mode: '' (walk around) or 'zombies' (js/zombies.js); ZM is set once the world is built
-const MODE=QS.get('mode')==='zombies'?'zombies':'';let ZM=null;
+let MODE=QS.get('mode')==='zombies'?'zombies':'';let ZM=null;
 const coarse=matchMedia('(pointer:coarse)').matches;
 // phones (and small tablets) get their own fast path: Super low by default, a shorter view, half the crowd,
 // smaller textures and a resolution that adjusts itself to hold the frame rate. ?phone=1 / ?phone=0 forces it.
@@ -33,6 +33,17 @@ const MODEL_FILES=[...Array(MODELS.layers).keys()].flatMap(i=>[`../models/tex/L$
 const modelP=Promise.all([fetch('models/geometry.bin').then(r=>{if(!r.ok)throw Error('models/geometry.bin');return r.arrayBuffer()}),...MODEL_FILES.map(IMG)]);modelP.catch(()=>{});
 assetP.catch(()=>{});
 prog(.05);await tick();
+// choose the game before the mall is built (the photos keep downloading meanwhile); ?mode=mall / ?mode=zombies skips this
+if(!QS.has('mode')&&!SNAP){MODE=await new Promise(res=>{let last='';try{last=localStorage.skyMallMode||''}catch{}
+ const box=document.createElement('div');box.id='pick';box.innerHTML='<p style="margin:.2em 0 .6em;letter-spacing:.12em;text-transform:uppercase;font-size:.8em;color:#ffb3d6">Choose how to play</p><button data-m="">Explore the mall</button><button data-m="zombies">Zombie Mode</button><p style="font-size:.7em;opacity:.7;margin-top:.8em">Click or tap · arrows + Enter · d-pad + A</p>';
+ $('l').prepend(box);const B=[...box.querySelectorAll('button')];let i=last==='zombies'?1:0,prev=[];
+ const hi=()=>B.forEach((b,j)=>b.classList.toggle('padsel',j===i));hi();
+ const done=m=>{clearInterval(iv);removeEventListener('keydown',kd);box.remove();try{localStorage.skyMallMode=m}catch{}res(m)};
+ B.forEach(b=>b.onclick=()=>done(b.dataset.m));
+ const kd=e=>{if(/Arrow(Up|Left)/.test(e.code)){i=0;hi()}else if(/Arrow(Down|Right)/.test(e.code)){i=1;hi()}else if(e.code==='Enter'||e.code==='Space')done(B[i].dataset.m);else if(e.code==='Digit1')done('');else if(e.code==='Digit2')done('zombies')};addEventListener('keydown',kd);
+ const iv=setInterval(()=>{const gp=[...(navigator.getGamepads?.()||[])].find(g=>g&&g.connected);if(!gp)return;const b=gp.buttons.map(x=>x.pressed),ax=gp.axes[1]||0,ax0=gp.axes[0]||0;
+  if((b[12]||b[14]||ax<-.5||ax0<-.5)&&i!==0){i=0;hi()}if((b[13]||b[15]||ax>.5||ax0>.5)&&i!==1){i=1;hi()}if(b[0]&&!prev[0])done(B[i].dataset.m);prev=b},60)})}
+msg.textContent=MODE?'Raising the dead…':'Opening the doors…';
 
 const WORLD=genWorld(),HUB=WORLD.hub();msg.textContent='Stocking '+HUB.stores+' stores…';await tick();
 const buf=(data,usage)=>{const b=device.createBuffer({size:Math.max(16,data.byteLength+3&~3),usage:usage|GU.COPY_DST});device.queue.writeBuffer(b,0,data);return b};
@@ -761,6 +772,6 @@ if(MODE==='zombies'){ZM=makeZombieMode({P,keys,get LOADED(){return LOADED},get C
  project:(x,y,z)=>{const cx=VP[0]*x+VP[4]*y+VP[8]*z+VP[12],cy=VP[1]*x+VP[5]*y+VP[9]*z+VP[13],cw=VP[3]*x+VP[7]*y+VP[11]*z+VP[15];if(cw<=.05)return null;return[(cx/cw*.5+.5)*innerWidth,(.5-cy/cw*.5)*innerHeight]}});window.__zm=ZM;
  // always night in zombie mode
  nightOverride=1;nightK=1;$('d').textContent='Start Zombie Mode';body.classList.add('zmode');$('zm').textContent='Back to normal mode'}
-$('zm').onclick=()=>{location.search=MODE?'':'?mode=zombies'};
+$('zm').onclick=()=>{try{localStorage.skyMallMode=MODE?'':'zombies'}catch{}location.search=MODE?'?mode=mall':'?mode=zombies'};
 requestAnimationFrame(frame);
 })();
