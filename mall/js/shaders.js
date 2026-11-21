@@ -126,6 +126,7 @@ struct Lt{p:vec4f,c:vec4f};
 @group(0)@binding(11)var smpR:sampler;
 @group(0)@binding(12)var mAlb:texture_2d_array<f32>;
 @group(0)@binding(13)var mNr:texture_2d_array<f32>;
+@group(0)@binding(14)var lblT:texture_2d<f32>;
 const STRIDE=33u;
 struct VO{
  @builtin(position)pos:vec4f,
@@ -269,6 +270,9 @@ fn inlay(wp:vec3f,w:f32)->f32{
  let cl=vec2f(si-u.misc.z*floor(si/u.misc.z),floor(si/u.misc.z));
  let suv=clamp(vec2f(dot(i.lp,rt)+.5,.5-i.lp.y),vec2f(.004),vec2f(.996));
  let tx=textureSample(atl,smp,(cl+suv)/u.misc.zw).r;
+ // packaged goods: the position along a shelf, measured to the viewer's right, and its screen-space rates of change
+ let anF=abs(Ng);let hc=select(-wp.x*sign(Ng.z),wp.z*sign(Ng.x),anF.x>anF.z);
+ let lp9=vec2f(hc,wp.y);let dlx=dpdx(lp9);let dly=dpdy(lp9);let dsx=dpdx(suv);let dsy=dpdy(suv);
  // photo materials: box-projected in world space
  var pat=i32(i.m.z+.5);
  if((pat==1||pat==7||pat==12)&&Ng.y<-.5){pat=11;}
@@ -325,11 +329,32 @@ fn inlay(wp:vec3f,w:f32)->f32{
   let bc=.5+.5*cos(6.2831*(h+vec3f(0.,.33,.67)));let sh=fract(wp.y*2.2);
   base=mix(bc*bc*.7*(.7+.3*h31(vec3f(floor(wp.x*40.),floor(wp.z*40.),3.))),i.col*.5,step(sh,.1));
  }
+ // labelled goods. 30: a box with a printed label on its front face. 33: shelves of packages, 31: shelves of books,
+ // 32: racks of records. Labels come from the generated label texture (16 x 16 designs).
+ var lt=-1.;var lu=vec2f(.5);var gx=vec2f(0.);var gy=vec2f(0.);
+ if(pat==30&&dot(i.ln,fd)>.5){lt=max(-i.sg.x-2.,0.);lu=clamp(suv,vec2f(.01),vec2f(.99));gx=dsx;gy=dsy;rough=.4;}
+ else if(pat>=31&&pat<=33&&!up){
+  let rows=select(select(2.2,2.6,pat==31),3.,pat==32);let ry=wp.y*rows;let row=floor(ry);let fy=fract(ry);
+  let iw=select(select(.19,.05,pat==31),.33,pat==32);let gcol=floor(hc/iw);let fx=fract(hc/iw);
+  let h=h31(vec3f(gcol,row,f32(pat)+floor(wp.y*.1)));
+  let hf=select(.6+.27*h,.8+.12*h,pat==31);
+  base=i.col*.3;if(fy<.1){base=i.col*.7;}
+  if(fy>.1&&fy<.1+hf&&fx>.06&&fx<.94){
+   if(pat==31){let grp=h31(vec3f(floor(hc/.25),row,7.));
+    if(grp<.18){lt=160.+floor(h31(vec3f(floor(hc/.25),row,9.))*64.);let gw=fract(hc/.25);lu=vec2f(gw,1.-(fy-.1)/hf);gx=vec2f(dlx.x/.25,-dlx.y*rows/hf);gy=vec2f(dly.x/.25,-dly.y*rows/hf);}
+    else{let sc=.5+.5*cos(6.2831*(h+vec3f(0.,.33,.67)));base=mix(vec3f(.32,.28,.24),sc*sc,.45)*(.35+.4*h31(vec3f(gcol,row,3.)));let by=(fy-.1)/hf;
+     if(h31(vec3f(gcol,row,5.))<.45&&(abs(by-.78)<.018||abs(by-.22)<.014)){base=vec3f(.42,.34,.16);}}}
+   else{lt=select(floor(h*160.),224.+floor(h*32.),pat==32);lu=vec2f((fx-.06)/.88,1.-(fy-.1)/hf);
+    gx=vec2f(dlx.x/(iw*.88),-dlx.y*rows/hf);gy=vec2f(dly.x/(iw*.88),-dly.y*rows/hf);}
+  }
+  rough=.55;
+ }
+ if(lt>=0.){let tl=vec2f(lt-16.*floor(lt/16.),floor(lt/16.));base=textureSampleGrad(lblT,smp,(tl+lu)/16.,gx/16.,gy/16.).rgb;emis=vec3f(0.);}
  return shade(wp,Ng,N,V,dist,base,rough,metal,emis);
 }
 // ---- Poly Haven models and foliage cards: textured meshes, instanced ----
 struct MO{@builtin(position)pos:vec4f,@location(0)wp:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)@interpolate(flat)m:vec4f,@location(4)tint:vec3f};
-@vertex fn vsModel(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->MO{
+@vertex fn vsModel(@location(0)p4:vec4f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->MO{let p=p4.xyz;let lay=p4.w;
  let r=modelXf(p,n,a,b,c,d);var o:MO;o.wp=r.p;o.n=r.n;o.uv=uv;o.m=vec4f(lay,b.w,d.z,d.w);o.tint=c.rgb;o.pos=u.vp*vec4f(r.p,1.);return o;}
 @fragment fn fsModel(i:MO,@builtin(front_facing)ff:bool)->FO{
  let lay=i32(i.m.x+.5);
@@ -384,10 +409,10 @@ struct MO{@builtin(position)pos:vec4f,@location(0)wp:vec3f,@location(1)n:vec3f,@
 const SHADOW_WGSL=COMMON+`
 @group(0)@binding(1)var mAlbS:texture_2d_array<f32>;@group(0)@binding(2)var smS:sampler;
 struct SO{@builtin(position)pos:vec4f,@location(0)uv:vec2f,@location(1)@interpolate(flat)lay:f32};
-@vertex fn vsModelA(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->SO{
+@vertex fn vsModelA(@location(0)p4:vec4f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->SO{let p=p4.xyz;let lay=p4.w;
  var o:SO;o.pos=u.lvp*vec4f(modelXf(p,n,a,b,c,d).p,1.);o.uv=uv;o.lay=lay;return o;}
 @fragment fn fsModelA(i:SO){if(textureSampleLevel(mAlbS,smS,i.uv,i32(i.lay+.5),0.).a<.45){discard;}}
-@vertex fn vsModel(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(3)lay:f32,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->@builtin(position)vec4f{
+@vertex fn vsModel(@location(0)p4:vec4f,@location(1)n:vec3f,@location(2)uv:vec2f,@location(4)a:vec4f,@location(5)b:vec4f,@location(6)c:vec4f,@location(7)d:vec4f)->@builtin(position)vec4f{let p=p4.xyz;let lay=p4.w;
  return u.lvp*vec4f(modelXf(p,n,a,b,c,d).p,1.);}
 @vertex fn vsDyn(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)part:f32,@location(3)a:vec4f,@location(4)b:vec4f,@location(5)c:vec4f,@location(6)d:vec4f)->@builtin(position)vec4f{
  return u.lvp*vec4f(dynXf(p,n,part,a,b,c,d).p,1.);}

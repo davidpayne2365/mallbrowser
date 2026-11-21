@@ -1,6 +1,6 @@
 // open-air street market: lanes of stalls between brick buildings, cafes, a fountain square and string lights
 DISTRICTS.market=function(K){
-const{slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
+const{goods,goodsRow,slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,ESC}=K;
 shell({title:'Old Town Market',floorPat:22,floor:hsl(30,.1,.6),h:14,wallCol:hsl(15,.4,.5),wallPat:25,titleCol:hsl(30,.9,.6)});
 // building facades: lit windows, balconies with plants, awnings over street-level shops
 for(const[x0,z0,x1,z1,face]of[[-DW,0,DW,.4,0],[-DW,DD-.4,DW,DD,1],[-DW,0,-DW+.4,DD,2],[DW-.4,0,DW,DD,3]]){
@@ -14,14 +14,23 @@ for(const[x0,z0,x1,z1,face]of[[-DW,0,DW,.4,0],[-DW,DD-.4,DW,DD,1],[-DW,0,-DW+.4,
   const[ax,ay,az]=P(.8,3.6);box(ax,ay,az,along?3.2:1.6,.12,along?1.6:3.2,hsl(pick([0,120,200,30,280]),.65,.45),{solid:false});
   const[dx,dy,dz]=P(.04,1.6);box(dx,dy,dz,along?2.4:.06,3.2,along?.06:2.4,hsl(30,.4,.25),{solid:false})}}
 // market lanes: rows of stalls back to back, leaving 4 m lanes between them
-const goodsFor=['fruit','flowers','bread','crafts','fish','cheese'];
+const goodsFor=['fruit','flowers','bread','crafts','fish','cheese','pantry','books','records','kitchenware','antiques','fruit','bread'];
+const FRUIT=['lemon','bananas','food_avocado_01','food_kiwi_01','food_lime_01','food_pears_asian_01','food_pomegranate_01','yellow_onion','sweet_potato','food_apple_01'];
 const stall=(x,z,nx)=>{const F=frame(x,z,0,1,nx,0),hue=pick([0,30,120,200,45,330]),goods=pick(goodsFor),at=(u,v)=>F.w(u,v);
  F(-2.3,0,0,2.3,.9,1.9,C.wood,{pat:23});for(const u of[-2.3,2.3])for(const v of[0,1.9])F(u-.05,.9,v-.05,u+.05,2.6,v+.05,C.wood);
  for(let k=0;k<8;k++)F(-2.5+k*.625,2.6,-.5,-1.875+k*.625,2.75,2.4,k%2?C.white:hsl(hue,.75,.5),{solid:false});
  const put=(name,s,o)=>{const[gx,gz]=at(rnd(-2,2),rnd(.2,1.6));model(name,gx,.9,gz,rnd(0,6.28),s,o)};
- if(goods==='bread')for(let k=0;k<14;k++)put('croissant',1.2);
- else if(goods==='fruit'){for(let k=0;k<18;k++)put('lemon',1.4,{tint:pick([[1,1,1],[1,.5,.3],[.6,1,.4]])});const[cx,cz]=at(-2.9,1);model('wooden_crate_01',cx,0,cz,rnd(-.3,.3),.8,{solid:true})}
+ const face=nx>0?3:2,row=(kind,v,y,n,s)=>{const[a,b]=at(-2.05,v),[c2,d]=at(2.05,v);goodsRow(kind,a,b,c2,d,y,face,n,s)};
+ const shelf=(names,n,s=1)=>{for(let k=0;k<n;k++){const[gx,gz]=at(-1.9+3.8*(k+.5)/n,rnd(.4,1.4));model(names[k%names.length],gx,.9,gz,rnd(0,6.28),s)}};
+ if(goods==='kitchenware'){shelf(['brass_pan_01','pot_enamel_01','jug_01','wooden_bowl_01','vintage_electric_kettle','tea_set_01','brass_goblets','wooden_cutting_board'],8)}
+ else if(goods==='antiques'){shelf(['mantel_clock_01','alarm_clock_01','brass_candleholders','carved_wooden_elephant','chess_set','Lantern_01','Camera_01','fancy_picture_frame_01','antique_ceramic_vase_01'],9)}
+ else if(goods==='pantry'){{const[a,b]=at(-2.2,1.2),[c2,d]=at(2.2,1.6);B(Math.min(a,c2),.9,Math.min(b,d),Math.max(a,c2),1.25,Math.max(b,d),C.wood,{pat:23})}for(const[v,y]of[[.35,.9],[.8,.9],[1.4,1.25]])row(['can','bottle','can','box'],v,y,12,1.3)}
+ else if(goods==='books'){for(const v of[.3,.75,1.2])row('book',v,.9+(v>1?.12:0),10,1.2)}
+ else if(goods==='records'){for(const v of[.4,1.1]){const[a,b]=at(-2,v),[c2,d]=at(2,v);B(Math.min(a,c2)-.2,.9,Math.min(b,d)-.2,Math.max(a,c2)+.2,1.05,Math.max(b,d)+.2,C.wood,{solid:false});row('record',v,1.05,11,1)}}
+ else if(goods==='bread'){for(let k=0;k<10;k++)put(pick(['croissant','croissant','hamburger_buns']),1.2);const[cx,cz]=at(-1.2,1),[dx,dz]=at(1.2,1);model('strawberry_chocolate_cake',cx,.9,cz,rnd(0,6),1);model('carrot_cake',dx,.9,dz,rnd(0,6),1)}
+ else if(goods==='fruit'){const f1=pick(FRUIT),f2=pick(FRUIT);for(let k=0;k<20;k++){const[gx,gz]=at((k<10?-1:1)*rnd(.2,2),rnd(.2,1.6));model(k<10?f1:f2,gx,.9,gz,rnd(0,6.28),f1==='bananas'&&k<10||f2==='bananas'&&k>=10?.9:1.2)}const[cx,cz]=at(-2.9,1);model('wooden_crate_01',cx,0,cz,rnd(-.3,.3),.8,{solid:true})}
  else if(goods==='flowers')for(let k=0;k<6;k++){const[fx,fz]=at(rnd(-1.8,1.8),rnd(.4,1.4));model('planter_pot_clay',fx,.9,fz,0,.5);model('card_shrub',fx,1.05,fz,rnd(0,6),.6,{tint:hsl(pick([340,45,280,0]),.8,.6).map(v=>v*3)})}
+ else if(goods==='cheese'){for(let k=0;k<5;k++){const[gx,gz]=at(-1.8+k*.9,.9);model('CheeseBox_01',gx,.9,gz,rnd(0,6),1.2)}const[bx,bz]=at(0,.4);model('wooden_cutting_board',bx,.9,bz,rnd(0,6),1);for(let k=0;k<10;k++){const[gx,gz]=at(rnd(-2,2),rnd(1.3,1.75)),sz=rnd(.1,.16);B(gx-sz,.9,gz-sz,gx+sz,.9+sz*1.2,gz+sz,hsl(45,.7,rnd(.5,.7)),{solid:false})}}
  else for(let k=0;k<22;k++){const[gx,gz]=at(rnd(-2.1,2.1),rnd(.15,1.75)),sz=rnd(.1,.2);B(gx-sz,.9,gz-sz,gx+sz,.9+sz*1.4,gz+sz,goods==='fish'?hsl(200,.1,rnd(.6,.8)):goods==='cheese'?hsl(45,.7,rnd(.5,.7)):hsl(rnd(0,360),.5,.5),{solid:false})}
  if(chance(.6)){const[bx,bz]=at(2.9,rnd(.4,1.4));model(chance(.5)?'Barrel_01':'barrel_03',bx,0,bz,rnd(0,6.28),1,{solid:true})}
  const[vx,vz]=at(0,2.5);stand(vx,vz,Math.atan2(-nx,0));const[lx,lz]=at(0,1);light(lx,2.3,lz,C.warm,3,6)};

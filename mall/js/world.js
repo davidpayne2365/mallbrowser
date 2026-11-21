@@ -32,7 +32,7 @@ function markRot(x,y,z,sx,sy,sz,r){
 }
 function box(x,y,z,sx,sy,sz,col,o){o=o||{};const r=o.rot||0;let pat=o.pat||0;
  if(!pat&&!o.glass){if(col===C.wood)pat=2;else if(col===C.facade||col===C.ceil)pat=11}
- const[wx,wz]=xp(x,z),q=XF.q,odd=q&1,[nax,sg]=AXM[q][o.ax||0],face=q&&(o.sign??-1)>=0?rotFace(o.face||0):o.face||0;
+ const[wx,wz]=xp(x,z),q=XF.q,odd=q&1,[nax,sg]=AXM[q][o.ax||0],face=q&&(o.sign??-1)!==-1?rotFace(o.face||0):o.face||0;
  (o.glass?glass:inst).push(wx,y,wz,r*sg,odd?sz:sx,sy,odd?sx:sz,o.e||0,col[0],col[1],col[2],o.s??.12,o.sign??-1,face,pat,nax);
  if(o.solid!==false&&!o.ax){r?markRot(x,y,z,sx,sy,sz,r):mark(x-sx/2,y-sy/2,z-sz/2,x+sx/2,y+sy/2,z+sz/2)}}
 function B(x0,y0,z0,x1,y1,z1,col,o){box((x0+x1)/2,(y0+y1)/2,(z0+z1)/2,Math.abs(x1-x0),Math.abs(y1-y0),Math.abs(z1-z0),col,o)}
@@ -109,13 +109,13 @@ const CATS={
   props(c){const{F,fy,hw,D}=c;for(const v of[3,6])if(v<D-2){F(-2,fy,v-.6,2,fy+.85,v+.6,C.white,{s:.5});
     for(const u of[-1.3,0,1.3]){F(u-.25,fy+.85,v-.18,u+.25,fy+.88,v+.18,C.dark);F(u-.25,fy+.88,v+.14,u+.25,fy+1.2,v+.18,hsl(200+rnd(-30,60),.6,.6),{e:1.6,pat:5,solid:false})}}
    for(let r=0;r<2;r++)for(const k of[-1,0,1])F(k*2.2-.95,fy+1.6+r*1.25,D-.32,k*2.2+.95,fy+2.7+r*1.25,D-.25,hsl(rnd(0,360),.6,.55),{e:1.8,pat:5});
-   for(const sd of[-1,1])sideUnit(c,sd,.8,D-1,1.8,.45,C.steel,{pat:9})}},
+   for(const sd of[-1,1])sideUnit(c,sd,.8,D-1,1.8,.45,C.steel,{pat:33})}},
  books:{h:[20,45],fp:2,font:'italic 600 {s} "Times New Roman",Georgia,serif',a:['Dog-Eared','Inkwell','Quill','Chapter','Margin','Folio','Paperback','Bookmark','Lantern','Parchment'],b:['Books','Reads','Bookshop','Pages','Booksellers','& Ink'],
-  props(c){const{F,fy,hw,D}=c;for(const sd of[-1,1])sideUnit(c,sd,.6,D-.6,2.4,.45,C.wood,{pat:9});backUnit(c,2.4,.45,C.wood,{pat:9});
-   F(-1.4,fy,2.4,-.9,fy+1.5,D-3.2,C.wood,{pat:9});F(.9,fy,2.4,1.4,fy+1.5,D-3.2,C.wood,{pat:9});
+  props(c){const{F,fy,hw,D}=c;for(const sd of[-1,1])sideUnit(c,sd,.6,D-.6,2.4,.45,C.wood,{pat:31});backUnit(c,2.4,.45,C.wood,{pat:31});
+   F(-1.4,fy,2.4,-.9,fy+1.5,D-3.2,C.wood,{pat:31});F(.9,fy,2.4,1.4,fy+1.5,D-3.2,C.wood,{pat:31});
    for(const u of[-hw+1.4,hw-1.4]){F(u-.4,fy,1.2,u+.4,fy+.45,1.9,hsl(rnd(0,40),.4,.35));F(u-.4,fy+.45,1.8,u+.4,fy+1,1.9,hsl(rnd(0,40),.4,.3))}counter(c)}},
  toys:{h:[0,360],fp:3,font:'900 {s} "Comic Sans MS","Chalkboard SE",cursive',a:['Wobble','Jumble','Zippy','Bouncy','Marble','Kite','Tiny','Giggle','Rocket','Pogo'],b:['Toys','Toy Box','Games','Fun Shop','Playhouse','Toy Chest'],
-  props(c){const{F,fy,hw,D,hue}=c;for(const sd of[-1,1])sideUnit(c,sd,.8,D-1,2,.45,C.white,{pat:9});
+  props(c){const{F,fy,hw,D,hue}=c;for(const sd of[-1,1])sideUnit(c,sd,.8,D-1,2,.45,C.white,{pat:33});
    for(const v of[3,5.8])if(v<D-2.4){F(-1.5,fy,v-.7,1.5,fy+.7,v+.7,hsl(hue,.6,.6));for(let k=0;k<10;k++){const s=rnd(.2,.45),u=rnd(-1.3,1.3),w=rnd(-.5,.5);F(u-s/2,fy+.7,v+w-s/2,u+s/2,fy+.7+s,v+w+s/2,hsl(rnd(0,360),.85,.55),{solid:false})}}
    const br=hsl(28,.5,.35);F(-hw+.9,fy,D-2.1,-hw+2.1,fy+1.2,D-.9,br);F(-hw+1.1,fy+1.2,D-1.9,-hw+1.9,fy+1.9,D-1.1,br);F(-hw+1,fy+1.8,D-1.6,-hw+1.25,fy+2.05,D-1.4,br);F(-hw+1.75,fy+1.8,D-1.6,-hw+2,fy+2.05,D-1.4,br);counter(c)}},
  food:{h:[0,50],fp:1,font:'900 {s} Impact,"Arial Black",sans-serif',up:1,a:['Golden','Sizzle','Noodle','Pretzel','Taco','Waffle','Dumpling','Crispy','Cinnamon','Burger','Pizza','Teriyaki','Corndog','Smoothie','Gyro','Lemonade'],b:['Kitchen','Express','Hut','Grill','Bar','Bakery','Stop','Corner','Palace','Stand'],
@@ -130,13 +130,13 @@ const CATS={
   props(c){const{F,fy,hw,D,hue}=c;F(-2,fy,2.3,2,fy+.04,5.6,hsl(hue,.4,.4),{pat:3,solid:false});const so=hsl(hue+150,.3,.45);
    F(-1.4,fy,4.2,1.4,fy+.45,5,so);F(-1.4,fy+.45,4.8,1.4,fy+1,5.05,so);F(-1.6,fy,4.2,-1.4,fy+.7,5.05,so);F(1.4,fy,4.2,1.6,fy+.7,5.05,so);F(-.6,fy,2.8,.6,fy+.4,3.5,C.wood);
    for(const u of[-hw+.9,hw-.9]){F(u-.03,fy,4.5,u+.03,fy+1.5,4.56,C.dark);F(u-.25,fy+1.5,4.3,u+.25,fy+1.85,4.76,C.warm,{e:2.2})}
-   if(D>8){F(-1.5,fy,D-3,1.5,fy+.55,D-.6,C.white);F(-1.6,fy,D-.6,1.6,fy+1.3,D-.35,C.wood)}sideUnit(c,-1,.8,4,1.8,.4,C.wood,{pat:9})}},
+   if(D>8){F(-1.5,fy,D-3,1.5,fy+.55,D-.6,C.white);F(-1.6,fy,D-.6,1.6,fy+1.3,D-.35,C.wood)}sideUnit(c,-1,.8,4,1.8,.4,C.wood,{pat:33})}},
  music:{h:[160,200],fp:2,font:'italic 800 {s} "Arial Black",sans-serif',a:['Vinyl','Groove','Echo','Tempo','Bassline','Melody','Riff','Treble','Encore','Backbeat'],b:['Records','Music','Sound','Guitars','Tapes','Audio Shop'],
-  props(c){const{F,fy,hw,D}=c;F(-2,fy,2.8,-.4,fy+.8,D-3.2,C.wood,{pat:9});F(.4,fy,2.8,2,fy+.8,D-3.2,C.wood,{pat:9});
+  props(c){const{F,fy,hw,D}=c;F(-2,fy,2.8,-.4,fy+.8,D-3.2,C.wood,{pat:32});F(.4,fy,2.8,2,fy+.8,D-3.2,C.wood,{pat:32});
    for(const sd of[-1,1]){const uw=sd<0?-hw+.25:hw-.25;for(let v=1.2;v<D-1.5;v+=.9){const a=Math.min(uw,uw-sd*.12),b=Math.max(uw,uw-sd*.12),gc=hsl(rnd(0,360),.6,.45);
     F(a,fy+1.2,v-.2,b,fy+1.75,v+.2,gc,{solid:false,s:.7});F(a,fy+1.75,v-.04,b,fy+2.55,v+.04,C.wood,{solid:false})}}counter(c)}},
  beauty:{h:[320,360],fp:1,font:'italic 400 {s} "Brush Script MT","Segoe Script",cursive',pale:1,a:['Bloom','Glow','Petal','Silk','Aura','Blush','Mist','Lotus','Velour','Primrose'],b:['Beauty','Cosmetics','Salon','Scents','Spa','Apothecary'],
-  props(c){const{F,fy,D}=c;for(const sd of[-1,1])sideUnit(c,sd,.8,D-1,2,.35,C.white,{pat:9});
+  props(c){const{F,fy,D}=c;for(const sd of[-1,1])sideUnit(c,sd,.8,D-1,2,.35,C.white,{pat:33});
    for(const k of[-1,1])F(k*1.5-.7,fy+1,D-.3,k*1.5+.7,fy+2.4,D-.26,hsl(40,.1,.9),{e:.6,s:.95});
    F(-1,fy,3.5,1,fy+.9,5,C.white,{s:.6});for(let k=0;k<12;k++){const u=rnd(-.85,.85),v=rnd(3.6,4.9);F(u-.05,fy+.9,v-.05,u+.05,fy+1.12,v+.05,hsl(rnd(280,400),.6,.6),{solid:false})}counter(c)}},
  sports:{h:[100,140],fp:1,font:'italic 900 {s} "Arial Black",sans-serif',up:1,a:['Summit','Peak','Rally','Sprint','Trail','Victory','Endzone','Ace','Overtime','Breakaway'],b:['Sports','Athletics','Outdoors','Gear','Fitness','Pro Shop'],
@@ -150,14 +150,25 @@ const CATS={
  pets:{h:[170,210],fp:1,font:'700 {s} Verdana,sans-serif',a:['Paws','Whisker','Fetch','Wag','Fuzzy','Purr','Biscuit','Scamper','Feather'],b:['Pet Supply','Pets','Pet Shop','& Friends','Pet Co.','Aquatics'],
   props(c){const{F,fy,hw,D}=c;for(const sd of[-1,1]){const ui=sd<0?-hw+.25:hw-.25,uo=ui-sd*.6,a=Math.min(ui,uo),b=Math.max(ui,uo);F(a,fy,1.2,b,fy+.8,D-1.5,C.dark);
     F(a,fy+.8,1.3,b,fy+1.9,D-1.6,hsl(190,.7,.5),{e:1.1,pat:8,s:.9});for(let k=0;k<6;k++){const v=rnd(1.6,D-2),y=fy+rnd(1,1.7);F((a+b)/2-.05,y,v-.12,(a+b)/2+.05,y+.08,v+.12,hsl(rnd(0,60),.9,.55),{e:1.2,solid:false})}}
-   F(-.5,fy,3,.5,fy+1.6,D-3,C.white,{pat:9});counter(c)}},
+   F(-.5,fy,3,.5,fy+1.6,D-3,C.white,{pat:33});counter(c)}},
 };
 const SHOPCATS=['apparel','apparel','apparel','shoes','shoes','tech','tech','books','toys','arcade','jewelry','home','music','beauty','beauty','sports','candy','pets','food'];
 const NAMES={"apparel":["Harlow & Reed","Northline","Maison Verre","Copper Thread","Ashford Lane","Blue Harbor Co.","Wren & Wilder","Fieldhouse","Marlow Denim","Saltwater Supply","Kestrel","Juniper & Main","Oakhurst","The Common Thread","Larkspur","Sable & Stone","Hollis","Avenue Nine","Rowan Street","Union Mill","Linden & Lace","Westbrook"],"shoes":["Paceline Shoes","Bootmaker & Co.","Kickstand","Heel & Arch","The Shoe Loft","Tread Lightly","Laceworks","Cobble Street Shoes"],"tech":["Voltline","Pixel Point","Circuit Avenue","Nimbus Mobile","Bytewise","Kilowatt","Arcadia Tech","Lumen Labs","Quanta Store","Signal & Co."],"books":["Lantern Books","Folio & Fern","Second Chapter","Inkwell Booksellers","The Margin","Paper Moon Books","Northwind Books"],"toys":["Jumbletown Toys","Kite & Kazoo","Tiny Tumbles","The Marble Jar","Rocket Pop Toys","Wobble & Co."],"food":["Golden Wok","Sizzle Street Grill","Noodle House","Pretzel Twist","Taco Rio","Waffle Corner","Dumpling Den","Crispy Coop","Cinnamon Swirl","Burger Barn","Slice of Napoli","Teriyaki Express","Smoothie Shack","Gyro Grove","Lemon Stand","Bao Bar"],"arcade":["Turbo Zone","Hyperdrive Arcade","Pixel Palace","High Score","Laser Lanes"],"jewelry":["Lumen Fine Jewelry","Gilded Hour","Opaline","Carat & Clasp","Sterling House","Halo Jewelers"],"home":["Hearth & Linen","Willow Home","Cedar & Co.","Nook Living","Ember Candle Co.","Meadow Home"],"music":["Groove Records","Backbeat Guitars","Echo Sound","Vinyl Vault","Encore Music"],"beauty":["Bloom Beauty","Petal & Mist","Glow Bar","Lotus Apothecary","Velour Cosmetics","Silk & Co. Salon"],"sports":["Summit Outfitters","Rally Athletics","Trailhead Sports","Breakaway","Endzone Pro Shop","Overtime Fitness"],"candy":["Sugar Shack","Fizzy Lizzy Sweets","Taffy Town","Bonbon Bar","Lolli & Pop"],"pets":["Paws & Whiskers","Fetch Pet Supply","Wag Street","Fin & Feather Aquatics","Purrfect Pets"]};
 const nameFor=(cat,key)=>{const free=(NAMES[key]||[]).filter(n=>!used.has(n));let t;
  if(free.length)t=pick(free);else for(let k=0;k<60;k++){t=pick(cat.a)+' '+pick(cat.b);if(!used.has(t))break}used.add(t);return t};
 // fuller shops: lightboxes, pendants, wall racks, folded tables, extra shelving
+// real items (Poly Haven models) each kind of shop puts on show
+const STOCK={home:['antique_ceramic_vase_01','ceramic_vase_03','brass_candleholders','mantel_clock_01','Lantern_01','carved_wooden_elephant','fancy_picture_frame_01','ceramic_vase_02','alarm_clock_01','desk_lamp_arm_01'],
+ tech:['Camera_01','classic_laptop','portable_cassette_player','television_02','vintage_video_camera','boombox','alarm_clock_01'],
+ music:['portable_cassette_player','boombox','Ukulele_01','vintage_video_camera'],toys:['chess_set','carved_wooden_elephant','garden_gnome','alarm_clock_01','Lantern_01'],
+ books:['stationery_supplies','book_encyclopedia_set_01','desk_lamp_arm_01','mantel_clock_01','fancy_picture_frame_01'],jewelry:['brass_goblets','brass_candleholders','fancy_picture_frame_01','mantel_clock_01'],
+ beauty:['antique_ceramic_vase_01','ceramic_vase_03','brass_candleholders'],sports:['metal_toolbox','Drill_01','Lantern_01'],pets:['wooden_bowl_01','jug_01','garden_gnome']};
+const FOODS=['croissant','hamburger_buns','strawberry_chocolate_cake','carrot_cake','croissant','food_apple_01','bananas'];
 const extras=(c,key)=>{const{F,fy,hw,D,hue}=c;
+ // a lit ledge along the back wall with real items on it, facing the door
+ const st=STOCK[key];if(st&&!c.big&&hw>=3){const y=key==='books'?fy+2.42:fy+2,v=D-.55,yaw=Math.atan2(-c.nx,-c.nz);if(key!=='books')F(-hw+1,y-.05,v-.25,hw-1,y,v+.25,C.wood,{solid:false});
+  let k=Math.floor(R()*st.length);for(let u=-hw+1.5;u<=hw-1.5;u+=.9){const[x,z]=F.w(u,v);model(st[k++%st.length],x,y,z,yaw+rnd(-.3,.3),1)}}
+ if(key==='food'&&fy===0&&hw>=3){const yaw=Math.atan2(-c.nx,-c.nz);for(let u=-hw+1;u<=hw-1;u+=.7){const[x,z]=F.w(u,1.55);model(FOODS[Math.floor(R()*FOODS.length)],x,fy+1.12,z,yaw+rnd(-.5,.5),1)}}
  if(!['food','arcade','books','music'].includes(key))F(-hw*.5,fy+2.7,D-.3,hw*.5,fy+4.2,D-.26,hsl(hue+rnd(-40,40),.45,.7),{e:1.1,solid:false});
  for(const v of[D*.38,D*.68])for(const u of[-hw*.45,hw*.45]){F(u-.01,fy+4.45,v-.01,u+.01,fy+5,v+.01,C.dark,{solid:false});F(u-.16,fy+4.25,v-.16,u+.16,fy+4.45,v+.16,C.warm,{e:3,solid:false})}
  if(key==='apparel'||key==='sports'){for(const sd of[-1,1]){const u=sd*(hw-.6);F(u-.02,fy+1.62,1.2,u+.02,fy+1.66,D-2.6,C.steel,{s:.8,solid:false});
@@ -185,7 +196,7 @@ function shop(px,pz,ax,az,nx,nz,w,D,lvl,key,o){o=o||{};
  const lc=cat.dark?hsl(rnd(250,330),.75,.6):tint(C.warm,neon,.25),I=(cat.dark?4:cat.velvet?6.5:5)*(closed?.35:1);
  if(o.big){for(let u=-hw+4;u<hw-2;u+=7)for(let v=3;v<D-1;v+=6.5){F(u-1.2,fy+4.96,v-.4,u+1.2,fy+5,v+.4,C.white,{e:2.4,solid:false});F.L(u,fy+4.4,v,C.warm,6,9.5)}}
  else for(const v of[D*.3,D*.72]){F(-1.2,fy+4.96,v-.4,1.2,fy+5,v+.4,tint(C.white,lc,.3),{e:closed?.4:2.4,solid:false});F.L(0,fy+4.4,v,lc,I,8.5,{f:closed||chance(.03)})}
- const c={F,fy,hw,D,hue,neon,accent};
+ const c={F,fy,hw,D,hue,neon,accent,nx,nz,big:!!o.big};
  if(o.big){for(let v=4;v<D-3;v+=3.2)for(let u=-hw+2;u<hw-6;u+=5.5){const gh=rnd(0,360);rack(c,v,u,u+4,()=>hsl(gh+rnd(-30,30),rnd(.3,.7),rnd(.25,.7)))}
   for(let u=-hw+2;u<hw-3;u+=4.2)if(Math.abs(u+1.4)>op+.5)glowCase(c,u,1.6,u+2.8,2.4);for(let u=-op+1;u<op-.5;u+=2.2)mannequin(c,u,.9,rnd(0,360))}
  else{cat.props(c);extras(c,key)}
@@ -242,6 +253,14 @@ const stand=(x,z,yaw,y=0)=>{const[a,b]=xp(x,z);idle.push(a,y,b,yaw+XF.q*Math.PI/
 const ride=(mesh,a,b,c,d)=>{const[wx,wz]=xp(a[0],a[2]);(rides[mesh]=rides[mesh]||[]).push(wx,a[1],wz,(a[3]||0)+XF.q*Math.PI/2,...b,...c,...d)};
 const idF=frame(0,0,1,0,0,1),ctx=(fy,hue)=>({F:idF,fy,hw:DW,D:DD,hue,neon:hsl(hue,.95,.62),accent:hsl(hue,.55,.42)});
 const T=t=>addName(t,'900 {s} system-ui,sans-serif',1);
+// packaged goods with printed labels (js/labels.js). Each kind steps through its designs, so neighbours never match.
+let LCNT={};
+const lblCode=kind=>{const[b,n]=LABEL_RANGES[kind],st={box:7,can:5,bottle:7,book:9,record:5}[kind];LCNT[kind]=((LCNT[kind]??Math.floor(R()*n))+st)%n;return-(b+LCNT[kind])-2};
+const GDIM={box:[.22,.3,.07],can:[.08,.11,.08],bottle:[.08,.28,.08],book:[.17,.25,.03],record:[.31,.31,.015]};
+// one item standing on a surface at (x,y,z), its label facing dir (0:+z 1:-z 2:+x 3:-x)
+const goods=(kind,x,y,z,dir,s=1)=>{const[w,h,d]=GDIM[kind].map(v=>v*s),ax=dir<2;box(x,y+h/2,z,ax?w:d,h,ax?d:w,hsl(0,0,.78),{pat:30,sign:lblCode(kind),face:dir,solid:false})};
+// a row of items along a line, evenly spaced
+const goodsRow=(kind,x0,z0,x1,z1,y,dir,n,s=1)=>{for(let k=0;k<n;k++){const t=(k+.5)/n;goods(typeof kind==='string'?kind:pick(kind),x0+(x1-x0)*t,y,z0+(z1-z0)*t,dir,s)}};
 function shell(o){
  const H=o.h??10,wc=o.wallCol??C.facade,wp=o.wallPat??11;
  B(-DW,-.4,0,DW,0,DD,o.floor??C.floor,{pat:o.floorPat??12,s:.3});
@@ -252,7 +271,11 @@ function shell(o){
  // one way in (behind you) and one way on (straight ahead): the districts form a single straight line
  dp(0,0,0,-1);if(!o.end)dp(0,DD,0,1);  // o.end: the last area, nothing beyond it
  const sy=o.signY??(H>5?5.2:3.4),SC=hsl(150,.9,.55);
-if(!o.end)box(0,sy,DD-1,5,.7,.2,SC,{e:3,sign:T('Explore →'),face:1,solid:false});
+if(!o.end)box(0,sy,DD-1,STOP.next?10:5,.7,.2,SC,{e:3,sign:T(STOP.next?'Next: '+STOP.next+'  →':'Explore →'),face:1,solid:false});
+ // a 'you are here' board just inside the entrance
+ if(STOP.num){const bx=-5.2,bz=3;B(bx-.08,0,bz-1,bx+.08,2.6,bz+1,C.dark);box(bx+.1,2.25,bz,.03,.32,1.8,hsl(45,.9,.62),{e:2.5,sign:T('You are here'),face:2,solid:false});
+  box(bx+.1,1.8,bz,.03,.36,1.8,C.white,{e:2,sign:addName(o.title||'',o.font??'900 {s} Georgia,serif',1),face:2,solid:false});
+  box(bx+.1,1.4,bz,.03,.26,1.8,hsl(150,.8,.55),{e:2,sign:T('District '+STOP.num+' of '+STOP.total),face:2,solid:false})}
  if(o.title)box(0,o.titleY??(H>7?7:3.8),12,16,1.8,.2,o.titleCol??hsl(45,.9,.62),{e:3.2,sign:addName(o.title,o.font??'900 {s} Georgia,serif',1),face:1,solid:false});
  if(o.title&&(o.titleY??(H>7?7:3.8))<5){B(-8.2,0,11.8,-7.9,(o.titleY??3.8)+.9,12.2,C.dark);B(7.9,0,11.8,8.2,(o.titleY??3.8)+.9,12.2,C.dark)}
  if(o.roof==='flat'){B(-DW,H,0,DW,H+.4,DD,o.ceil??C.ceil);if(o.panels!==false)for(let x=-48;x<=48;x+=12)for(let z=8;z<DD;z+=12){B(x-.9,H-.05,z-.9,x+.9,H,z+.9,C.white,{e:2.3,solid:false});light(x,H-.6,z,o.lightCol??C.warm,o.lightI??7,13)}}
@@ -285,7 +308,7 @@ const hedge=(x0,z0,x1,z1,h=1.1)=>{const l=Math.hypot(x1-x0,z1-z0),n=Math.max(2,M
 const grassPatch=(x0,z0,x1,z1,n)=>{for(let k=0;k<n;k++)model('card_grass',rnd(x0,x1),0,rnd(z0,z1),rnd(0,6.28),rnd(.7,1.3),{tint:leafTint(),sway:.4})};
 const log=(x,z,len,yaw,r=.35)=>{model('trunk_fir',x,r,z,yaw,[r,len,r],{pitch:Math.PI/2,tint:[.8,.75,.7]});const c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));mark(x-s*len-r,0,z-c*len-r,x+s*len+r,r*2,z+c*len+r)};
 // everything a district file may use (see js/districts/*.js)
-const K={slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
+const K={goods,goodsRow,slide,rockB,hedge,grassPatch,log,leafTint,model,trunk,MODELS,B,box,mark,part,stick,crown,tree,shrubs,palm,jet,bird,light,frame,addName,shop,rail,esc,vault,planter,fountain,bench,kiosk,seat,fpush,rack,mannequin,glowCase,counter,hsl,rnd,pick,chance,C,GL,STEEL,W8,BARK,chairC,xp,xd,idF,DW,DD,DH,MID,nn,nl,npath,ring,join,stand,ride,ctx,T,shell,lamp,bulbs,umbrella,rock,conifer,bigTree,flowers,bed,people,get ESC(){return ESC}};
 
 /* ---------- the hub ---------- */
 function buildHub(){
@@ -447,10 +470,15 @@ const gateHall=sd=>{const X=v=>v*sd,IN=sd<0,GRN=IN?hsl(42,.95,.6):hsl(150,.9,.55
   for(let k=0;k<=7;k++){const x=126+k*1.2,y=6-.4*Math.min(13,k*2);stick(X(x),y,z,X(x),y+1.05,z,.05,C.steel)}}
  // the gate: a glowing portal with a big sign above it, seen from all the way down the concourse
  for(const z of[-3.4,3])B(X(143.6),0,z,X(144.1),5.4,z+.4,GRN,{e:3});B(X(143.6),5,-3.4,X(144.1),5.4,3.4,GRN,{e:3});
- box(X(143.6),8.3,0,.2,2,11,GRN,{e:3.4,sign:addName(IN?'Parking':'Explore  →','900 {s} system-ui,sans-serif',1),face:sd>0?3:2,solid:false});
- box(X(120.6),10.6,0,.2,1.1,10,hsl(45,.9,.6),{e:3,sign:addName(IN?'Grand Entrance':'The Grand Gate','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:sd>0?2:3,solid:false});
+ const R0=typeof ROUTE!=='undefined'?ROUTE:[],TT=typeof TITLES!=='undefined'?TITLES:{};
+ box(X(143.6),8.3,0,.2,2,11,GRN,{e:3.4,sign:addName(IN?'Parking':R0.length?'Next: '+TT[R0[0]]+'  →':'Explore  →','900 {s} system-ui,sans-serif',1),face:sd>0?3:2,solid:false});
+ // directory board: the whole route, in order
+ if(R0.length){const bx=X(124),bz=-12.5,f=3,fx=bx-.1,lines=['Car Park','Grand Entrance','The Mall','The Grand Gate',...R0.map(t=>TT[t]||t),'Grand Exit'];
+  B(bx-.1,0,bz-1.6,bx+.1,4.6,bz+1.6,C.dark);box(fx,4.2,bz,.03,.4,3,hsl(45,.9,.62),{e:2.6,sign:addName('Mall Directory','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:f,solid:false});
+  lines.forEach((t,i)=>{const here=IN?t==='Grand Entrance':t==='The Grand Gate';box(fx,3.7-i*.24,bz,.03,.19,2.8,here?hsl(150,.85,.55):C.white,{e:here?2.6:1.6,sign:T((i+1)+'.  '+t+(here?'   ← you are here':'')),face:f,solid:false})})}
+ box(X(120.6),10.6,0,.2,1.1,10,hsl(45,.9,.6),{e:3,sign:addName(IN?'Grand Entrance':'The Grand Gate','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:sd>0?3:2,solid:false});
  // the west hall is the way in from the parking lot: a welcome sign greets you as you walk in
- if(IN)box(X(121),10.6,0,.2,1.2,14,hsl(45,.9,.62),{e:3,sign:addName('Welcome to Skylight Galleria','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:2,solid:false});
+ if(IN)box(X(121),10.6,0,.2,1.2,14,hsl(45,.9,.62),{e:3,sign:addName('Welcome to Skylight Galleria','400 {s} Didot,"Bodoni 72",Georgia,serif',1),face:3,solid:false});
  for(const x of[130,139]){model('Chandelier_01',X(x),8.2,0,0,3);light(X(x),9.2,0,C.warm,10,16)}
  light(X(141),4,0,GRN,6,10);for(let x=124;x<=140;x+=8)light(X(x),3.5,0,C.warm,5,10);
  for(const sz of[-1,1])bench(X(140),sz*12,1)};
@@ -462,17 +490,17 @@ for(const sd of[-1,1]){
 return{name:'Skylight Galleria'};
 }
 const seedOf=t=>{let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0};
-let hubNames=null;
+let hubNames=null,STOP={};
 function region(theme,build,xf,gs,seed){
  // shop names: the hub claims its own first; each district then picks from what is left, the same way every time
  used.clear();if(theme!=='hub'&&hubNames)for(const n of hubNames)used.add(n);
- R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};slides=[];stores=0;NK=new Map();
+ R=rng(seed);LCNT={};XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};slides=[];stores=0;NK=new Map();
  NAV={n:[],l:[]};G={...gs,d:new Uint8Array(gs.nx*gs.ny*gs.nz)};
  const info=build()||{};if(theme==='hub')hubNames=[...used];
  return{theme,xf,gs:G,inst:new Float32Array(inst),glass:new Float32Array(glass),fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),
   shops,seats,fountains,lights,names,ESC,doors,idle,slides,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
 return{hub:()=>region('hub',buildHub,{q:0,ox:0,oz:0},HUBG,19870611),
  // every area is built from a fixed seed (from its name), so the map is identical on every visit for everyone
- district:(n,theme,xf)=>region(theme,()=>DISTRICTS[theme](K),xf,DISTG,seedOf(theme)),themes:Object.keys(DISTRICTS)};
+ district:(n,theme,xf,stop={})=>{STOP=stop;return region(theme,()=>DISTRICTS[theme](K),xf,DISTG,seedOf(theme))},themes:Object.keys(DISTRICTS)};
 }
 

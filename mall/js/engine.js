@@ -146,7 +146,8 @@ const ORDER=ROUTE.filter(t=>WORLD.themes.includes(t)&&!SPECIAL.includes(t));
 // districts come one after another in a straight line; after all of them, the grand exit (and nothing beyond it)
 function spawnAt(from,door,theme){const n=districtCount++,th=theme||door.theme||(themed<ORDER.length?ORDER[themed]:'exit');const num=SPECIAL.includes(th)?0:++themed;
  const q=door.dz>.5?0:door.dx>.5?1:door.dz<-.5?2:3;
- const r=prepRegion(WORLD.district(n,th,{q,ox:door.x,oz:door.z}));r.doors[0].link=from;door.link=r;r.num=num;LOADED.push(r);dirty=true;return r}
+ const next=SPECIAL.includes(th)?'':themed<ORDER.length?TITLES[ORDER[themed]]:TITLES.exit;
+ const r=prepRegion(WORLD.district(n,th,{q,ox:door.x,oz:door.z},{next,num,total:ORDER.length}));r.doors[0].link=from;door.link=r;r.num=num;LOADED.push(r);dirty=true;return r}
 function enter(r){CUR=r;const keep=new Set([r,...r.doors.map(d=>d.link).filter(Boolean)]);
  for(const o of LOADED)if(!keep.has(o)){for(const d of o.doors)if(d.link&&keep.has(d.link)){/* forget the way back */}
   for(const k of keep)for(const d of k.doors)if(d.link===o)d.link=null;dropWater(o)}
@@ -194,6 +195,10 @@ function buildLights(){const all=LOADED.flatMap(r=>r.lights);let x0=1e9,x1=-1e9,
 const AW=detail===0?1024:2048,AH=AW*3,amips=Math.floor(Math.log2(AH))+1;
 const atlas=device.createTexture({size:[AW,AH],format:'rgba8unorm',mipLevelCount:amips,usage:TB|CD|RA});
 const atlasC=document.createElement('canvas');atlasC.width=AW;atlasC.height=AH;
+// printed labels for packaged goods (js/labels.js), drawn once
+const LBW=detail===0?1024:2048,lmips=Math.floor(Math.log2(LBW))+1,lblT=device.createTexture({size:[LBW,LBW],format:'rgba8unorm-srgb',mipLevelCount:lmips,usage:TB|CD|RA});
+{const lc=makeLabels(LBW);let prev=lc;for(let l=0;l<lmips;l++){const w=Math.max(1,LBW>>l);let src=lc;if(l){src=document.createElement('canvas');src.width=src.height=w;const g2=src.getContext('2d');g2.imageSmoothingQuality='high';g2.drawImage(prev,0,0,w,w)}
+ device.queue.copyExternalImageToTexture({source:src},{texture:lblT,mipLevel:l},[w,w]);prev=src}}
 function buildAtlas(){const g=atlasC.getContext('2d');g.fillStyle='#000';g.fillRect(0,0,AW,AH);g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';
  const cw=AW/ACOLS,ch=AH/AROWS;let slot=0;
  for(const r of LOADED){r.signBase=slot;for(const n of r.names){if(slot>=NAMECAP)break;const x=(slot%ACOLS)*cw,y=Math.floor(slot/ACOLS)*ch;let s=ch*.62;g.font=n.font.replace('{s}',s+'px');
@@ -298,7 +303,7 @@ const BGL=device.createBindGroupLayout({entries:[
  {binding:0,visibility:VSF,buffer:{type:'uniform'}},{binding:1,visibility:FSS,buffer:{type:'read-only-storage'}},{binding:2,visibility:FSS,buffer:{type:'read-only-storage'}},
  {binding:3,visibility:FSS,texture:{}},{binding:4,visibility:FSS,sampler:{}},{binding:5,visibility:FSS,texture:{viewDimension:'2d-array'}},{binding:6,visibility:FSS,texture:{viewDimension:'2d-array'}},
  {binding:7,visibility:FSS,texture:{sampleType:'depth'}},{binding:8,visibility:FSS,sampler:{type:'comparison'}},{binding:9,visibility:FSS,texture:{viewDimension:'3d'}},
- {binding:10,visibility:FSS,texture:{}},{binding:11,visibility:FSS,sampler:{}},{binding:12,visibility:FSS,texture:{viewDimension:'2d-array'}},{binding:13,visibility:FSS,texture:{viewDimension:'2d-array'}}]});
+ {binding:10,visibility:FSS,texture:{}},{binding:11,visibility:FSS,sampler:{}},{binding:12,visibility:FSS,texture:{viewDimension:'2d-array'}},{binding:13,visibility:FSS,texture:{viewDimension:'2d-array'}},{binding:14,visibility:FSS,texture:{}}]});
 const PL=device.createPipelineLayout({bindGroupLayouts:[BGL]});
 const sceneMod=device.createShaderModule({code:SCENE_WGSL}),shMod=device.createShaderModule({code:SHADOW_WGSL});
 const TG=[{format:'rgba16float'},{format:'rgba16float'},{format:'rgba8unorm'}],MS={count:4};
@@ -314,7 +319,8 @@ const[scenePipe,skyPipe,glassPipe,shPipe]=await Promise.all([
   depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:3,depthBiasSlopeScale:3}})]);
 const VBUF2=[{arrayStride:28,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'},{shaderLocation:2,offset:24,format:'float32'}]},
  {arrayStride:64,stepMode:'instance',attributes:[0,1,2,3].map(k=>({shaderLocation:3+k,offset:k*16,format:'float32x4'}))}];
-const VBUF3=[{arrayStride:36,attributes:[{shaderLocation:0,offset:0,format:'float32x3'},{shaderLocation:1,offset:12,format:'float32x3'},{shaderLocation:2,offset:24,format:'float32x2'},{shaderLocation:3,offset:32,format:'float32'}]},
+// model vertices are packed in 16 bytes (tools/build_lods.mjs): position+layer float16x4, normal snorm8x4, uv float16x2
+const VBUF3=[{arrayStride:16,attributes:[{shaderLocation:0,offset:0,format:'float16x4'},{shaderLocation:1,offset:8,format:'snorm8x4'},{shaderLocation:2,offset:12,format:'float16x2'}]},
  {arrayStride:64,stepMode:'instance',attributes:[0,1,2,3].map(k=>({shaderLocation:4+k,offset:k*16,format:'float32x4'}))}];
 const[modelPipe,modelShPipe]=await Promise.all([
  device.createRenderPipelineAsync({layout:PL,vertex:{module:sceneMod,entryPoint:'vsModel',buffers:VBUF3},fragment:{module:sceneMod,entryPoint:'fsModel',targets:TG},
@@ -358,7 +364,7 @@ function shadowPass(){ub.set(lightMat(),48);if(SK.has('shadow'))return;device.qu
  p.setPipeline(dynShPipe);p.setBindGroup(0,dynShBG);drawDyn(p,MESH.unit,folB);drawDyn(p,MESH.leaf,leafB);p.setPipeline(modelShPipe);p.setBindGroup(0,modelShBG);drawModels(p,true);p.end();device.queue.submit([e.finish()])}
 function makeSceneBG(){sceneBG=device.createBindGroup({layout:BGL,entries:[{binding:0,resource:{buffer:ubuf}},{binding:1,resource:{buffer:lightBuf}},{binding:2,resource:{buffer:gridBuf}},
  {binding:3,resource:atlas.createView()},{binding:4,resource:lin},{binding:5,resource:albT.createView({dimension:'2d-array'})},{binding:6,resource:nrT.createView({dimension:'2d-array'})},
- {binding:7,resource:shV},{binding:8,resource:cmpS},{binding:9,resource:visTex.createView()},{binding:10,resource:skyTex.createView()},{binding:11,resource:rep},{binding:12,resource:mAlbT.createView({dimension:'2d-array'})},{binding:13,resource:mNrT.createView({dimension:'2d-array'})}]})}
+ {binding:7,resource:shV},{binding:8,resource:cmpS},{binding:9,resource:visTex.createView()},{binding:10,resource:skyTex.createView()},{binding:11,resource:rep},{binding:12,resource:mAlbT.createView({dimension:'2d-array'})},{binding:13,resource:mNrT.createView({dimension:'2d-array'})},{binding:14,resource:lblT.createView()}]})}
 const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((r,i)=>({binding:i,resource:r}))});
 
 let T=null;

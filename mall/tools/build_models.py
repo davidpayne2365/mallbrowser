@@ -29,11 +29,22 @@ PROPS = {
  'Chandelier_01':30e3, 'hanging_industrial_lamp':15e3,
  'steel_frame_shelves_01':20e3, 'steel_frame_shelves_02':20e3, 'Shelf_01':15e3, 'wooden_bookshelf_worn':25e3,
  'CashRegister_01':15e3, 'CoffeeCart_01':30e3, 'WetFloorSign_01':5e3, 'Television_01':15e3, 'boombox':15e3,
- 'metal_trash_can':10e3, 'lifebuoy':10e3, 
- 'food_apple_01':5e3, 'croissant':10e3, 'carrot_cake':10e3, 'lemon':5e3, 
+ 'metal_trash_can':20e3, 'lifebuoy':10e3, 
+ 'food_apple_01':20e3, 'croissant':10e3, 'carrot_cake':20e3, 'lemon':5e3, 
  'Ukulele_01':15e3,
  'bronze_whale_statue':30e3, 'bronze_shark_statue':30e3, 
  'fern_02':10e3, 'moss_01':15e3,
+ # shop stock: food, kitchen, home, electronics, books, tools (heavy ones are capped later by build_lods.mjs)
+ 'bananas':40e3, 'food_avocado_01':40e3, 'food_kiwi_01':40e3, 'food_lime_01':40e3, 'food_pears_asian_01':40e3, 'food_pomegranate_01':40e3,
+ 'hamburger_buns':40e3, 'strawberry_chocolate_cake':40e3, 'sweet_potato':40e3, 'yellow_onion':40e3, 'CheeseBox_01':40e3, 'wooden_cutting_board':40e3,
+ 'long_life_food':40e3, 'russian_food_cans_01':40e3,
+ 'brass_pan_01':40e3, 'pot_enamel_01':40e3, 'tea_set_01':60e3, 'wine_bottles_01':60e3, 'wooden_bowl_01':40e3, 'jug_01':40e3, 'vintage_electric_kettle':40e3, 'brass_goblets':40e3,
+ 'antique_ceramic_vase_01':40e3, 'ceramic_vase_03':40e3, 'brass_candleholders':40e3, 'mantel_clock_01':40e3, 'alarm_clock_01':40e3, 'fancy_picture_frame_01':40e3,
+ 'carved_wooden_elephant':40e3, 'chess_set':80e3, 'potted_plant_02':60e3, 'Lantern_01':40e3, 'desk_lamp_arm_01':40e3,
+ 'Camera_01':40e3, 'classic_laptop':40e3, 'portable_cassette_player':40e3, 'television_02':40e3, 'vintage_video_camera':40e3,
+ 'book_encyclopedia_set_01':70e3, 'decorative_book_set_01':40e3, 'stationery_supplies':60e3, 'metal_toolbox':40e3, 'Drill_01':40e3,
+ # hidden finds
+ 'concrete_cat_statue':40e3, 'garden_gnome':40e3, 'marble_bust_01':60e3,
 }
 # foliage cards: (name, poly haven id, texture key prefix, card width, card height, uv crop u0,v0,u1,v1)
 FOLIAGE = [

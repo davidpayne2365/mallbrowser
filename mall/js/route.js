@@ -13,3 +13,9 @@ const ROUTE = [
   'amusement',  // Starlight Fair: night-time fair with rides
   'waterpark',  // Lagoon Splash: seven rideable waterslides
 ];
+// names shown on the signs ("Next: …") and the directory boards
+const TITLES = {
+  market: 'Old Town Market', dept: 'Hartwell & Co.', aquarium: 'Deep Blue Aquarium', arboretum: 'The Arboretum',
+  forest: 'Whispering Pines', rink: 'Glacier Ice Rink', cinema: 'Paramount Lights', amusement: 'Starlight Fair',
+  waterpark: 'Lagoon Splash', exit: 'Grand Exit', lot: 'Car Park',
+};
