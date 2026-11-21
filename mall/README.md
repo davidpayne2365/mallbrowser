@@ -30,7 +30,9 @@ The ⛶ button toggles full screen, and phones go full screen when you enter. Ot
 
 ## Zombie Mode
 
-Pick **Zombie Mode** on the menu (or open `index.html?mode=zombies`). It is always night, and the mall is as busy as ever, but a few of the shoppers in every zone are zombies. Zombies walk as fast as the shoppers. A zombie goes for the nearest person (or for you, if you're close), pulls them down and feeds; 10 to 16 seconds later the victim gets up as a zombie too, with grey-green skin and blood on their mouth and clothes, so the outbreak spreads through the crowd. People are scared: they spot a zombie from 22 m and run, panic spreads to anyone next to them, they tire after a few seconds of sprinting, and once nothing is chasing them they crouch and cover their heads. Nobody new appears: a zone is cleared when no zombies are left and nobody is still turning, and the top of the screen shows the zombies, people turning and people left in your zone, and how many zones you've cleared. You run faster and jump higher than in the normal mode; if they bite you to nothing you go back to the start of the zone.
+Pick **Zombie Mode** on the menu (or open `index.html?mode=zombies`). It is always night, and everyone in the mall has turned: every zone has its full crowd, all of them zombies, all of them walking, and the ones near you come after you. Zombies walk as fast as shoppers. A zone is cleared when every zombie in it is down; the top of the screen shows how many are left and how many zones you've cleared. You run faster and jump higher than in the normal mode; if they bite you to nothing you go back to the start of the zone.
+
+Where you hit matters: a headshot does four times the damage, the body normal damage, and arms and legs less, but enough damage to an arm or a leg blows it off (it flies away with a spray of blood). A zombie that loses a leg falls flat and crawls after you, dragging itself with its arms.
 
 You have a pistol with unlimited bullets. Each zombie you kill has a 5% chance to drop a weapon you don't have yet (a glowing gun on a ring of light), each with its own spread and kind of damage:
 
@@ -44,14 +46,14 @@ You have a pistol with unlimited bullets. Each zombie you kill has a 5% chance t
 | Tesla Coil | Lightning that jumps to three more zombies |
 | Frost Ray | Freezes zombies, slowing them right down |
 
-Headshots do two and a half times the damage. Controls: hold the left mouse button to fire, the wheel or 1–7 to switch weapons. On a controller, RT fires and LB/RB switch; on a phone there are Fire, Swap and Jump buttons. The mode's code is in `js/zombies.js` (the infection timing, drop chance and starting zombies are at the top).
+Controls: hold the left mouse button to fire, the wheel or 1–7 to switch weapons. On a controller, RT fires and LB/RB switch; on a phone there are Fire, Swap and Jump buttons. The mode's code is in `js/zombies.js` (the infection timing, drop chance and starting zombies are at the top).
 
 ## What's in it
 
 - **No flicker:** the lights stay steady.
 - **Day and night:** each time you pass under one of the upper-level bridges, the sky fades between day and a starry night with the Milky Way and a full moon.
 - **People:** each shopper has a face (eyes, eyebrows, nose, lips, ears), and some have long hair or beards. They wander the whole mall on a walking map. They ride the escalators, cross the bridges, take the loop corridors, go into shops to browse and eat at the food court. Cashiers stand at the counters. Shoppers vary in build, and some carry shopping bags or backpacks or wear coats, hats or glasses.
-- **Sound:** it starts when you enter. Each shop plays its own style of music as you pass. Some districts add their own sounds: birdsong in the forest, the Arboretum, the market and the car parks, a fairground organ at the fair, a waltz at the ice rink, and arcade bleeps at the cinema. There is no constant background hiss.
+- **Sound:** it starts when you enter. Each shop plays its own style of music as you pass. Some districts add their own sounds: a fairground organ at the fair, a waltz at the ice rink, and arcade bleeps at the cinema. There is no constant background hiss.
 - **Nature:** trees in the planters, palms around the fountain, living walls in the food court, birds circling above the roof, and drifting clouds whose shadows move across the floor.
 - **No dead ends:** a shop-lined loop corridor on both floors joins the end of each wing to the side door of the department store at the end of the concourse, so every route carries on.
 - **Escalators:** twelve in all. Four are in the food court, and two run up to and down from each of the four bridges.

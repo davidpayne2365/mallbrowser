@@ -29,15 +29,16 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   let ph=c.w*6.2831+t*(1.6+d.z*1.5)*3.1416;
   var sw=sin(ph)*.48*mv;
   if(pose==1){sw=sin(t*.6+c.w*40.)*.05;}
-  if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2||pose==5||pose==7){ang=-1.45;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
-  // poses: 0 walk, 1 stand, 2 sit, 3 zombie walk, 4 zombie fallen, 5 zombie feeding (crouched), 6 person pulled down, 7 cowering
-  let zomb=pose>=3&&pose<=5;
-  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}if(pose==5){ang=-.6+sin(t*7.+f32(pt))*.25;}if(pose==7){ang=-2.75+sin(t*9.+c.w*30.)*.06;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  if(pt==2||pt==3){var ang=select(-sw,sw,pt==2);if(pose==2||pose==5||pose==7){ang=-1.45;}if(pose==8){ang=sin(t*5.+f32(pt))*.15;}let pv=vec3f(0.,.9,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
+  // poses: 0 walk, 1 stand, 2 sit, 3 zombie walk, 4 zombie fallen, 5 zombie feeding (crouched), 6 person pulled down, 7 cowering, 8 zombie crawling
+  let zomb=(pose>=3&&pose<=5)||pose==8;
+  if(pt==4||pt==5||pt==13||pt==14){var ang=select(sw,-sw,pt==4||pt==14)*.8;if(pose==2){ang=-.75;}if(zomb){ang=-1.3+sin(t*2.+c.w*20.+f32(pt))*.12;}if(pose==5){ang=-.6+sin(t*7.+f32(pt))*.25;}if(pose==7){ang=-2.75+sin(t*9.+c.w*30.)*.06;}if(pose==8){ang=-2.9+sin(t*5.+select(0.,3.14,pt==5||pt==13))*.35;}let pv=vec3f(0.,1.47,0.);p=rx(p-pv,ang)+pv;n=rx(n,ang);}
   if(pose==2||pose==5||pose==7){p.y-=.43;}
   if(pose==7){p=rx(p-vec3f(0.,.5,0.),.45)+vec3f(0.,.5,0.);n=rx(n,.45);}
   if(pose==5){p=rx(p-vec3f(0.,.5,0.),.85)+vec3f(0.,.5,0.);n=rx(n,.85);}
   if(pose==3){p=rx(p-vec3f(0.,.9,0.),.22)+vec3f(0.,.9,0.);n=rx(n,.22);}
   if(pose==4||pose==6){p=rx(p,-1.5708)+vec3f(0.,.14,0.);n=rx(n,-1.5708);}
+  if(pose==8){p=rx(p,1.5708)+vec3f(0.,.16,0.);n=rx(n,1.5708);}
   if(pose==0){p.y+=abs(cos(ph))*.035*mv;}
   let h=c.w*97.13;
   let sk=hs1(h+1.);var skin=mix(vec3f(.07,.035,.02),vec3f(.62,.42,.32),sk*sk*.8+sk*.2);
@@ -60,6 +61,8 @@ fn dynXf(p0:vec3f,n0:vec3f,part:f32,a:vec4f,b:vec4f,c:vec4f,d:vec4f)->DV{
   if((pt==11&&!longHair)||(pt==12&&!beard)){p=vec3f(0.,1.62,0.);}
   // extras: shopping bags, a long coat, a hat, glasses, a backpack, a bun; and a heavier or slimmer build
   let bag=hs1(h+12.)<.45;let bag2=bag&&hs1(h+13.)<.3;let coat=hs1(h+14.)<.3;let hat=hs1(h+15.)<.15;let specs=hs1(h+16.)<.22;let pack=!bag&&hs1(h+17.)<.2;let bun=longHair&&hs1(h+18.)<.3;
+  // limbs that have been blown off (bit 1 left arm, 2 right arm, 4 left leg, 8 right leg)
+  let lm=u32(d.y+.5);if((pt==4&&(lm&1u)!=0u)||(pt==5&&(lm&2u)!=0u)||(pt==2&&(lm&4u)!=0u)||(pt==3&&(lm&8u)!=0u)){p=vec3f(0.,1.2,0.);}
   if(pt>=13&&(zomb||d.x>.5||(pt==13&&!bag)||(pt==14&&!bag2)||(pt==15&&!coat)||(pt==16&&!hat)||(pt==17&&!specs)||(pt==18&&!pack)||(pt==19&&!bun))){p=vec3f(0.,1.2,0.);}
   if(pt==13||pt==14){o.col=.15+.7*vec3f(hs1(h+20.+f32(pt)),hs1(h+21.+f32(pt)),hs1(h+22.+f32(pt)));if(hs1(h+23.)<.3){o.col=vec3f(.55,.42,.28);}}
   if(pt==15){o.col=select(c.rgb*.55,mix(vec3f(.08,.08,.09),vec3f(.35,.27,.18),hs1(h+24.)),hs1(h+25.)<.6);}

@@ -240,7 +240,7 @@ function stepPeople(dt,t){let i=0;for(const r of LOADED){const N=r.N;for(const p
    p.x=A.x+dx*k+dz/lh*o;p.z=A.z+dz*k-dx/lh*o;p.y=A.y+(Bn.y-A.y)*k+(g.esc?.2:0);
    if(!(p.wait>0))p.ty=Math.atan2(dx,dz);p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*5))}
   else if(p.pose===1){p.turn-=dt;if(p.turn<0){p.turn=rn(3,12);p.ty=p.yaw+rn(-1.6,1.6)}p.yaw=angLerp(p.yaw,p.ty,Math.min(1,dt*2))}
-  if(NOCULL||inView(sphere(p.x,p.y+1,p.z,1.4)))pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,(p.zc||p.c)[0],(p.zc||p.c)[1],(p.zc||p.c)[2],p.ph,p.fur?1:0,0,p.zs?p.zsp||0:p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i++*16)}}
+  if(NOCULL||inView(sphere(p.x,p.y+1,p.z,1.4)))pplData.set([p.x,p.y,p.z,p.yaw,p.s[0],p.s[1],p.s[2],1,(p.zc||p.c)[0],(p.zc||p.c)[1],(p.zc||p.c)[2],p.ph,p.fur?1:0,p.limb||0,p.zs?p.zsp||0:p.g&&p.pose===0?Math.min(p.speed,1.6):0,p.pose],i++*16)}}
  pplB.n=i;if(i)device.queue.writeBuffer(pplB.b,0,pplData,0,i*16)}
 
 // photo textures
@@ -526,9 +526,9 @@ function update(dt){
 let actx=null,master=null,muzG=null,noiseBuf=null,ambG=null,ambNext=0,ambStep=0;const SPK=[];
 // each district's own background sound (all synthesised, no voices). muz: how loud the mall music stays;
 // the rest are events per second, or a tune. No constant hiss of any kind.
-const AMB={hub:{muz:.3},dept:{muz:.3},market:{chirp:.35},aquarium:{},arboretum:{chirp:1.3},
- forest:{chirp:.9},rink:{tune:'waltz'},cinema:{muz:.08,bleep:2.2},amusement:{tune:'organ',bleep:.5},
- waterpark:{chirp:.3},lot:{chirp:.4},exit:{chirp:.4}};
+const AMB={hub:{muz:.3},dept:{muz:.3},market:{},aquarium:{},arboretum:{},
+ forest:{},rink:{tune:'waltz'},cinema:{muz:.08,bleep:2.2},amusement:{tune:'organ',bleep:.5},
+ waterpark:{},lot:{},exit:{}};
 const ORGAN=[72,76,79,84,83,79,76,79,74,77,81,86,84,81,77,74,72,76,79,84,86,84,81,79,77,76,74,71,72,0,0,0],WALTZ=[[48,64,67,72],[43,62,65,71],[45,64,69,72],[43,62,67,71]];
 function amb(kind,t0){const o=actx.createOscillator(),g=actx.createGain();g.connect(ambG);
  if(kind==='chirp'){o.type='sine';const f=2400+Math.random()*1800,n=2+Math.floor(Math.random()*3);for(let k=0;k<n;k++){const t=t0+k*.11;o.frequency.setValueAtTime(f,t);o.frequency.linearRampToValueAtTime(f*1.35,t+.06);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.025,t+.01);g.gain.linearRampToValueAtTime(0,t+.07)}o.connect(g);o.start(t0);o.stop(t0+n*.11+.1);return}
