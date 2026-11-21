@@ -141,7 +141,8 @@ for(const e of r.ESC){const b=nd(e.bx,0,e.z),t=nd(e.tx,6,e.z);lk(b,t,1);
 prepRegion(HUB);
 let LOADED=[HUB],CUR=HUB,PPL=[],dirty=true,districtCount=0;
 const SPECIAL=['lot','exit'];let themed=0;
-const ORDER=(()=>{const t=WORLD.themes.filter(x=>!SPECIAL.includes(x));for(let i=t.length-1;i>0;i--){const j=Math.floor(PR()*(i+1));[t[i],t[j]]=[t[j],t[i]]}return t})();
+// the fixed order of the line of districts lives in js/route.js
+const ORDER=ROUTE.filter(t=>WORLD.themes.includes(t)&&!SPECIAL.includes(t));
 // districts come one after another in a straight line; after all of them, the grand exit (and nothing beyond it)
 function spawnAt(from,door,theme){const n=districtCount++,th=theme||door.theme||(themed<ORDER.length?ORDER[themed]:'exit');const num=SPECIAL.includes(th)?0:++themed;
  const q=door.dz>.5?0:door.dx>.5?1:door.dz<-.5?2:3;

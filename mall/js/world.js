@@ -461,13 +461,18 @@ for(const sd of[-1,1]){
 }
 return{name:'Skylight Galleria'};
 }
+const seedOf=t=>{let h=2166136261;for(const c of t)h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0};
+let hubNames=null;
 function region(theme,build,xf,gs,seed){
+ // shop names: the hub claims its own first; each district then picks from what is left, the same way every time
+ used.clear();if(theme!=='hub'&&hubNames)for(const n of hubNames)used.add(n);
  R=rng(seed);XF=xf;inst=[];glass=[];lights=[];names=[];fol=[];leaves=[];drops=[];birds=[];shops=[];seats=[];fountains=[];ESC=[];doors=[];idle=[];rides={};models={};slides=[];stores=0;NK=new Map();
  NAV={n:[],l:[]};G={...gs,d:new Uint8Array(gs.nx*gs.ny*gs.nz)};
- const info=build()||{};
+ const info=build()||{};if(theme==='hub')hubNames=[...used];
  return{theme,xf,gs:G,inst:new Float32Array(inst),glass:new Float32Array(glass),fol:new Float32Array(fol),leaves:new Float32Array(leaves),drops:new Float32Array(drops),birds:new Float32Array(birds),
   shops,seats,fountains,lights,names,ESC,doors,idle,slides,rides:Object.fromEntries(Object.entries(rides).map(([k,v])=>[k,new Float32Array(v)])),models:Object.fromEntries(Object.entries(models).map(([k,v])=>[k,new Float32Array(v)])),nav:NAV,stores,...info}}
 return{hub:()=>region('hub',buildHub,{q:0,ox:0,oz:0},HUBG,19870611),
- district:(n,theme,xf)=>region(theme,()=>DISTRICTS[theme](K),xf,DISTG,1000+n*7919),themes:Object.keys(DISTRICTS)};
+ // every area is built from a fixed seed (from its name), so the map is identical on every visit for everyone
+ district:(n,theme,xf)=>region(theme,()=>DISTRICTS[theme](K),xf,DISTG,seedOf(theme)),themes:Object.keys(DISTRICTS)};
 }
 

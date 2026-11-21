@@ -56,7 +56,7 @@ Beyond the gate, the districts follow one after another in a straight line. Each
 | Paramount Lights | A cinema with a concession hall, an arcade, a lounge, and two auditoriums you can walk into |
 | Lagoon Splash | A waterpark with seven slides you can ride (walk onto the top of one), a sandy wave pool, a lazy river around an island, a kids' splash zone and cabanas |
 
-The nine districts come in a shuffled order. Press R at any time to go back to the main concourse and start the line again.
+The map is fixed: the same districts, in the same order, laid out the same way, for everyone and on every visit. The order is set in `js/route.js`: Old Town Market, Hartwell & Co., Deep Blue Aquarium, The Arboretum, Whispering Pines, Glacier Ice Rink, Paramount Lights, Starlight Fair, Lagoon Splash, then the Grand Exit. Press R at any time to go back to the main concourse and walk the line again.
 
 ## How it looks real
 
@@ -81,9 +81,10 @@ No build step: `index.html` loads plain script files in order.
 | `js/world.js` | Building blocks (boxes, shops, trees, fountains, escalators…), the hub mall, and the toolkit `K` handed to districts |
 | `js/districts/*.js` | One file per district. Each registers `DISTRICTS.name=function(K){…}` and builds in its own 120 × 140 m frame: enter at (0,0) facing +z and leave at (0,140) into the next district. `lot.js` holds the starting car park and the Grand Exit, which are not in the rotation |
 | `js/models.js`, `models/` | Poly Haven props and leaf cards, built by `tools/build_models.py` into one geometry file and texture layers. Then `tools/build_lods.mjs` adds lighter far-away versions (`cd tools && npm install && node build_lods.mjs`) |
+| `js/route.js` | The fixed order of the districts along the line |
 | `js/engine.js` | Loading, streaming districts in and out, collision, walking, the crowd, audio, controls and the render loop |
 
-To add a new area (for example a grand exit with a parking lot), copy a district file, rename the function, add a `<script>` tag for it in `index.html`, and it joins the rotation.
+Each area is built by its own file from a fixed seed (taken from its name), so it comes out the same every time. To upgrade an area, edit its file; everyone sees the change. To add a new area, copy a district file, rename the function, add a `<script>` tag for it in `index.html`, and put its name in `js/route.js` where you want it in the line.
 
 ## Credits
 

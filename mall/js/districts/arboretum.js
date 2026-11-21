@@ -51,7 +51,7 @@ let foot=null;
  for(let k=0;k<8;k++)rockB(cx+rnd(-20,20),cz+rnd(-22,22),rnd(.8,2));for(let k=0;k<5;k++)log(cx+rnd(-18,18),cz+rnd(-20,20),rnd(4,7),rnd(0,6.28));
  for(let k=0;k<30;k++){const x=cx+rnd(-20,20),z=cz+rnd(-22,22);part(x,.08,z,.05,.16,.05,hsl(30,.2,.85),0,0,0,0);part(x,.18,z,.16,.06,.16,hsl(pick([0,20,40]),.7,.45),0,0,0,0)}
  npath([[cx-6,cz-26],[cx-6,cz-8],[cx-6,cz+8],[cx-6,cz+26]],0);join(3.2,MID,cx-6,cz-26);
- if(chance(.45)){foot=[];const bx=cx+rnd(4,12),bz=cz+rnd(4,14);for(let k=0;k<10;k++){const a=k/10*6.283;foot.push(xp(bx+Math.cos(a)*rnd(5,8),bz+Math.sin(a)*rnd(5,9)))}}}
+ {foot=[];const bx=cx+rnd(4,12),bz=cz+rnd(4,14);for(let k=0;k<10;k++){const a=k/10*6.283;foot.push(xp(bx+Math.cos(a)*rnd(5,8),bz+Math.sin(a)*rnd(5,9)))}}}
 grassPatch(-56,4,-5,66,140);grassPatch(5,4,56,66,140);grassPatch(-56,74,-5,136,120);grassPatch(5,74,56,136,60);
 for(let k=0;k<26;k++)bird(rnd(-40,40),rnd(30,40),rnd(20,120),rnd(8,20),2,(chance(.5)?1:-1)*rnd(.12,.2));
 people(-3,5,3,135,10);people(-55,MID-2,55,MID+2,10);
