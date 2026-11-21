@@ -94,18 +94,24 @@ function makeZombieMode(api){
   for(const[part,c0,r]of L){let c=crawl?(v=>{const q=rxv(v,1.5708,0);return[q[0],q[1]+.16,q[2]]})(c0):rxv(c0,.22,.9);
    c=[c[0]*sx,c[1]*sh,c[2]*sz];out.push({part,c:[p.x+cy*c[0]+sy*c[2],p.y+c[1],p.z-sy*c[0]+cy*c[2]],r:r*sh})}
   return out}
- // which zombies a ray hits, nearest first, before it reaches a wall
- function trace(o,d,range,zs){const wd=wallDist(o,d,range),hits=[];
+ // which zombies a ray hits, nearest first, before it reaches a wall (Ghost Rounds ignore walls)
+ function trace(o,d,range,zs,ghost){const wd=ghost?range:wallDist(o,d,range),hits=[];
   for(const p of zs){const vx=p.x-o[0],vy=p.y+1-o[1],vz=p.z-o[2],along=vx*d[0]+vy*d[1]+vz*d[2];if(along<0||along>wd+1)continue;
    if(Math.hypot(vx-d[0]*along,vy-d[1]*along,vz-d[2]*along)>1.4)continue;let best=null;
    for(const b of bodyParts(p)){const t=raySphere(o,d,b.c,b.r);if(t>0&&t<wd&&(!best||t<best.t))best={p,t,part:b.part}}if(best)hits.push(best)}
   hits.sort((a,b)=>a.t-b.t);return{hits,wd}}
  // damage by where you hit: the head takes 4x (more with Deadeye and precise makers), the body 1x, arms and legs 0.7x
- // and are blown off after enough; elements add burning, acid, slowing or extra lightning
+ // and are blown off after enough; elements add burning, acid, slowing or extra lightning; abilities add the rest
  const LIMB={la:0,ra:1,ll:2,rl:3},HIT={torso:1,la:.7,ra:.7,ll:.7,rl:.7};
+ const has=(g,a)=>g.abil&&g.abil.includes(a);
  function hurt(p,dmg,g,part='torso',at,quiet){const z=p.zs;if(!isZ(p))return 0;const head=part==='head',mult=head?4*g.crit:HIT[part],v=dmg*mult;
-  z.hp-=v;z.flash=.12;if(g.elem==='fire')z.burn=4;if(g.elem==='acid')z.acid=3;if(g.elem==='frost')z.slow=4;
-  if(part in LIMB&&z.hp>0){const i=LIMB[part];z.lhp[i]-=dmg;if(z.lhp[i]<=0&&!(p.limb&(1<<i)))sever(p,i)}
+  z.hp-=v;z.flash=.12;if(g.elem==='fire')z.burn=4;if(g.elem==='acid')z.acid=3;if(g.elem==='frost')z.slow=4;if(has(g,'shatter'))z.slow=Math.max(z.slow,2.5);
+  // limbs: Dismember and the cleaver take them off far more easily
+  const lm=(has(g,'dismember')?4:1)*(g.cleave||1);
+  if(part in LIMB&&z.hp>0){const i=LIMB[part];z.lhp[i]-=dmg*lm;if(z.lhp[i]<=0&&!(p.limb&(1<<i)))sever(p,i)}
+  else if(part==='torso'&&has(g,'dismember')&&!quiet&&z.hp>0&&R()<.2){const i=Math.floor(R()*4);if(!(p.limb&(1<<i)))sever(p,i)}
+  if(has(g,'knockback')&&!quiet&&z.hp>0){const dx=p.x-P.x,dz=p.z-P.z,l=Math.hypot(dx,dz)||1,f=g.type==='shotgun'||g.shape?.arc?7:5;z.kb={vx:dx/l*f,vz:dz/l*f,t:.25};z.stag=.6}
+  if(has(g,'vortex')&&!quiet&&at)vortexAt(at);
   const pos=at||[p.x,p.y+1.6*p.s[1],p.z],col=head?'#ffd23a':g.elem?ELEMENTS[g.elem].css:'#ffffff';
   if(quiet){z.dot+=v;z.dcol=col}else popNum(pos[0],pos[1],pos[2],v,col,head);
   if(z.hp<=0)kill(p,g);return v}
@@ -114,30 +120,76 @@ function makeZombieMode(api){
   fx.push({k:'gib',a:[x,y,zz],v:[cy*side*2+(R()-.5)*2,2.5+R()*1.5,-sy*side*2+(R()-.5)*2],ground:p.y,size:arm?[.09,.55,.09]:[.13,.8,.13],col:arm?[.16,.22,.11]:p.zc.map(v=>v*.8),yaw:R()*6,pitch:R()*6,spin:6+R()*6,life:6,t:0});
   for(let k=0;k<10;k++)fx.push({k:'gib',a:[x,y,zz],v:[(R()-.5)*3,1+R()*2.5,(R()-.5)*3],ground:p.y,size:[.04,.04,.04],col:[.45,.02,.02],yaw:0,pitch:0,spin:0,life:1.2+R(),t:0});
   if(!arm&&!z.crawl){z.crawl=true;z.spd=.35+R()*.15}}
- function kill(p,g){const z=p.zs;if(z.st==='dead')return;z.st='dead';z.t=0;p.pose=4;p.zsp=0;groan(p,true);
+ // a kill can turn the zombie (Turncoat), shatter it (Shatter, when frozen) or set off a blast (Chain Reaction)
+ const chainQ=[],projs=[],ALLY={crit:1,elem:null,abil:[],dmg:18};
+ function kill(p,g){const z=p.zs;if(z.st==='dead'||z.st==='ally')return;
+  if(g&&has(g,'turncoat')&&R()<.35&&allyCount()<8){z.st='ally';z.t=12;z.hp=100;z.burn=z.acid=z.slow=0;p.zc=[.2,1,.45];popNum(p.x,p.y+2,p.z,0,'#5f5',false);fx.push({k:'vortex',a:[p.x,p.y+1,p.z],col:[.3,1,.5],life:.6,t:0});return}
+  z.st='dead';z.t=0;p.pose=4;p.zsp=0;groan(p,true);
+  if(g&&has(g,'shatter')&&z.slow>0)shards(p,g);
+  if(g&&has(g,'chainreact')&&chainQ.length<40)chainQ.push({at:[p.x,p.y+1,p.z],g,t:.15});
   if(drops.length<40&&R()<GUN_DROP)drops.push({g:makeGun(R),x:p.x,y:p.y,z:p.z,t:0});
   else if(R()<POTION_DROP)potions.push({x:p.x,y:p.y,z:p.z,r:null})}
+ const allyCount=()=>{let n=0;for(const r of api.LOADED)for(const p of r.P)if(p.zs&&p.zs.st==='ally')n++;return n};
+ function shards(p,g){const gs={...g,abil:g.abil.filter(a=>a!=='shatter'&&a!=='chainreact'),elem:'frost',cleave:1};
+  for(let k=0;k<12;k++)fx.push({k:'gib',a:[p.x,p.y+1.1,p.z],v:[(R()-.5)*8,1+R()*3,(R()-.5)*8],ground:p.y,size:[.07,.07,.07],col:[.7,.95,1],yaw:R()*6,pitch:R()*6,spin:10,life:1.2,t:0});
+  for(const q of zombiesNear([p.x,0,p.z],3.5))if(q!==p&&Math.hypot(q.x-p.x,q.z-p.z)<3.5)hurt(q,g.dmg*.4+10,gs,'torso',[q.x,q.y+1.4,q.z])}
+ function vortexAt(at){fx.push({k:'vortex',a:[...at],col:[.75,.4,1],life:.7,t:0});for(const q of zombiesNear([at[0],0,at[2]],5))if(Math.hypot(q.x-at[0],q.z-at[2])<5)q.zs.pull={x:at[0],z:at[2],t:.7}}
  // explosions hurt every zombie nearby, less towards the edge
  function blast(c,rad,dmg,g){fx.push({k:'boom',a:c,life:.45,t:0,rad});for(let k=0;k<14;k++)fx.push({k:'puff',a:[...c],v:[(R()-.5)*7,R()*4,(R()-.5)*7],life:.5+R()*.3,t:0,col:[1,.5+R()*.3,.1],s0:.15,s1:.6});
   boomSound();for(const p of zombiesNear(c,rad)){const d=Math.hypot(p.x-c[0],p.y+1-c[1],p.z-c[2]);if(d<rad)hurt(p,dmg*(1-d/rad*.6),g,'torso')}}
- function muzzle(){const o=eye(),{f,r,u}=dirs(),k=.46+.3*gun().len*.4;return[o[0]+r[0]*.24-u[0]*.17+f[0]*k,o[1]+r[1]*.24-u[1]*.17+f[1]*k,o[2]+r[2]*.24-u[2]*.17+f[2]*k]}
- function shoot(){const g=gun(),o=eye(),{f,r,u}=dirs(),muz=muzzle();
-  shots++;recoil=Math.min(1,recoil+(g.type==='sniper'||g.type==='launcher'||g.type==='shotgun'?1:.5));fx.push({k:'flash',a:muz,col:g.ecol,life:.05,t:0});gunSound(g);
-  const zs=zombiesNear(o,g.range);
-  for(let q=0;q<g.pellets;q++){const ja=R()*6.283,jr=g.spread*Math.sqrt(R());let d=[f[0]+(r[0]*Math.cos(ja)+u[0]*Math.sin(ja))*jr,f[1]+(r[1]*Math.cos(ja)+u[1]*Math.sin(ja))*jr,f[2]+(r[2]*Math.cos(ja)+u[2]*Math.sin(ja))*jr];
-   const l=Math.hypot(...d);d=d.map(v=>v/l);const{hits,wd}=trace(o,d,g.range,zs);const n=Math.min(hits.length,1+g.pierce);let end=wd;
-   for(let k=0;k<n;k++){const h=hits[k],at=[o[0]+d[0]*h.t,o[1]+d[1]*h.t,o[2]+d[2]*h.t];hitsN++;hurt(h.p,g.dmg,g,h.part,at);end=h.t;
-    // lightning and ricochets jump on to the next zombie
-    const jumps=g.chain+(g.elem==='shock'?1:0)+(g.abil.includes('ricochet')?1:0);let from=h.p;const done=new Set([h.p]);
-    for(let c=0;c<jumps;c++){const nx=nearZ(from.x,from.y,from.z,7,done);if(!nx)break;done.add(nx);fx.push({k:'beam',a:[from.x,from.y+1.2,from.z],b:[nx.x,nx.y+1.2,nx.z],col:g.ecol,life:.14,t:0,w:.02});hurt(nx,g.dmg*.6,g,'torso');from=nx}
-    if(g.abil.includes('explode'))blast(at,2.5,g.dmg*.5,g)}
-   const hp=[o[0]+d[0]*end,o[1]+d[1]*end,o[2]+d[2]*end];
-   if(g.blast)blast(hp,g.blast,g.dmg,g);
-   fx.push({k:'beam',a:muz,b:hp,col:g.ecol,life:g.type==='sniper'?.15:.05,t:0,w:g.type==='launcher'?.05:.012});fx.push({k:'spark',a:hp,col:n?[.6,.05,.03]:g.ecol,life:.12,t:0})}}
+ function muzzle(side=1){const o=eye(),{f,r,u}=dirs(),k=.46+.3*gun().len*.4;return[o[0]+r[0]*.24*side-u[0]*.17+f[0]*k,o[1]+r[1]*.24*side-u[1]*.17+f[1]*k,o[2]+r[2]*.24*side-u[2]*.17+f[2]*k]}
+ // one trigger pull: Twin Fire fires from both hands; every 10th Overcharge shot is a huge blast
+ function shoot(){const g=gun();shots++;let oc=false;if(has(g,'overcharge')){g.ocN=(g.ocN||0)+1;if(g.ocN>=10){g.ocN=0;oc=true;boomSound()}}
+  const sides=has(g,'twin')?[1,-1]:[1];recoil=Math.min(1,recoil+(oc||g.type==='sniper'||g.type==='launcher'||g.type==='shotgun'||g.shape.arc?1:.5));gunSound(g);
+  for(const side of sides)fireFrom(g,side,oc,sides.length>1?.7:1)}
+ function fireFrom(g,side,oc,mul){const o=eye(),{f,r,u}=dirs(),muz=muzzle(side),ghost=has(g,'ghost');fx.push({k:'flash',a:muz,col:oc?[1,1,1]:g.ecol,life:oc?.12:.05,t:0});
+  if(g.shape.arc){cleave(g,o,side,oc,mul);return}
+  const dmg=g.dmg*mul*(oc?6:1),range=g.range*(oc?1.5:1),pierce=g.pierce+(oc?5:0),zs=zombiesNear(o,range);
+  for(let q=0;q<g.pellets;q++){const ja=R()*6.283,jr=oc?0:g.spread*Math.sqrt(R());let d=[f[0]+(r[0]*Math.cos(ja)+u[0]*Math.sin(ja))*jr,f[1]+(r[1]*Math.cos(ja)+u[1]*Math.sin(ja))*jr,f[2]+(r[2]*Math.cos(ja)+u[2]*Math.sin(ja))*jr];
+   let l=Math.hypot(...d);d=d.map(v=>v/l);
+   // Boomerang: a spinning disc instead of a bullet
+   if(has(g,'boomerang')){projs.push({p:[...muz],d,out:true,dist:0,t:0,g,dmg:dmg*1.2,hitA:new Set(),hitB:new Set()});continue}
+   // Homing: lock on to the zombie closest to where you aim (within about 11 degrees)
+   if(has(g,'homing')){let best=null,ba=.2;for(const p of zs){const v=[p.x-o[0],p.y+1.25-o[1],p.z-o[2]],lv=Math.hypot(...v);if(lv>range)continue;const a=Math.acos(Math.min(1,(v[0]*d[0]+v[1]*d[1]+v[2]*d[2])/lv));
+     if(a<ba&&(ghost||wallDist(o,v.map(x=>x/lv),lv)>=lv-.3)){ba=a;best=v.map(x=>x/lv)}}if(best)d=best}
+   // the bullet's path: through zombies (up to its pierce), and off walls with Wall Bounce
+   let s=[...o],from=muz,left=range,hitsLeft=1+pierce,bounces=has(g,'bounce')?2:0,end=null;
+   while(true){const{hits,wd}=trace(s,d,left,zs,ghost);const n=Math.min(hits.length,hitsLeft);let stop=wd;
+    for(let k=0;k<n;k++){const h=hits[k],at=[s[0]+d[0]*h.t,s[1]+d[1]*h.t,s[2]+d[2]*h.t];hitsN++;hurt(h.p,dmg,g,h.part,at);stop=h.t;
+     const jumps=g.chain+(g.elem==='shock'?1:0)+(has(g,'ricochet')?1:0);let fr=h.p;const done=new Set([h.p]);
+     for(let c=0;c<jumps;c++){const nx=nearZ(fr.x,fr.y,fr.z,7,done);if(!nx)break;done.add(nx);fx.push({k:'beam',a:[fr.x,fr.y+1.2,fr.z],b:[nx.x,nx.y+1.2,nx.z],col:g.ecol,life:.14,t:0,w:.02});hurt(nx,dmg*.6,g,'torso');fr=nx}
+     if(has(g,'explode'))blast(at,2.5,dmg*.5,g)}
+    hitsLeft-=n;end=[s[0]+d[0]*stop,s[1]+d[1]*stop,s[2]+d[2]*stop];
+    fx.push({k:'beam',a:from,b:end,col:oc?[1,.95,.8]:ghost?[.85,.8,1]:g.ecol,life:oc?.25:g.type==='sniper'?.15:.05,t:0,w:oc?.07:g.type==='launcher'?.05:.012});
+    if(hitsLeft<=0||bounces<=0||stop<wd||wd>=left-.01||ghost)break;
+    // bounce: find which side of the wall we hit and mirror the direction
+    const b=[s[0]+d[0]*(wd-.25),s[1]+d[1]*(wd-.25),s[2]+d[2]*(wd-.25)],fl=[0,1,2].map(k=>{const q2=[...b];q2[k]+=d[k]*.6;return api.solid(...q2)});
+    if(!fl.some(Boolean))fl.fill(true);d=d.map((v,k)=>fl[k]?-v:v);fx.push({k:'spark',a:[...b],col:g.ecol,life:.15,t:0});
+    left-=wd;s=b;from=b;bounces--}
+   if(g.blast)blast(end,g.blast,dmg,g);if(oc)blast(end,3.5,g.dmg*3,g);fx.push({k:'spark',a:end,col:g.ecol,life:.12,t:0})}}
+ // the Plasma Cleaver: a crescent that sweeps out and hits everything in its arc, slicing limbs off
+ function cleave(g,o,side,oc,mul){const R0=g.range*(oc?1.8:1),half=g.shape.arc/2*Math.PI/180*(oc?1.3:1),fy=-Math.sin(P.yaw),fz=-Math.cos(P.yaw),gc={...g,cleave:2.5},ghost=has(g,'ghost');
+  fx.push({k:'arc',o:[o[0],o[1]-.25-(side<0?.25:0),o[2]],yaw:P.yaw,half,R:R0,col:oc?[1,.9,1]:g.ecol,life:.3,t:0,w:oc?.1:.05});
+  for(const p of zombiesNear(o,R0)){const dx=p.x-o[0],dz=p.z-o[2],dist=Math.hypot(dx,dz);if(dist>R0||Math.abs(p.y+1-o[1])>2.4)continue;
+   const a=Math.acos(Math.max(-1,Math.min(1,(dx*fy+dz*fz)/(dist||1))));if(a>half)continue;
+   if(!ghost&&dist>1&&wallDist([o[0],o[1]-.4,o[2]],[dx/dist,0,dz/dist],dist)<dist-.3)continue;
+   const lim=['la','ra','ll','rl'].filter((x,i)=>!(p.limb&(1<<i))),part=R()<.12?'head':R()<.45&&lim.length?lim[Math.floor(R()*lim.length)]:'torso',at=[p.x,p.y+1.2,p.z];
+   hitsN++;hurt(p,g.dmg*mul*(oc?4:1),gc,part,at);if(has(g,'explode'))blast(at,2.5,g.dmg*.5,g)}}
+ // boomerang discs: out up to 16 m (or until a wall), then back to you, hitting each zombie once each way
+ function stepProjs(dt){const o=eye();for(let i=projs.length-1;i>=0;i--){const q=projs[i];q.t+=dt;const a=[...q.p];
+   if(q.out){for(let k=0;k<3;k++)q.p[k]+=q.d[k]*22*dt;q.dist+=22*dt;if(q.dist>16||api.solid(...q.p))q.out=false}
+   else{const v=[o[0]-q.p[0],o[1]-.3-q.p[1],o[2]-q.p[2]],l=Math.hypot(...v);if(l<1.2||q.t>4){projs.splice(i,1);continue}for(let k=0;k<3;k++)q.p[k]+=v[k]/l*26*dt}
+   const set=q.out?q.hitA:q.hitB;for(const p of zombiesNear(q.p,2)){if(set.has(p))continue;const c=[p.x,p.y+1.1,p.z],ab=[q.p[0]-a[0],q.p[1]-a[1],q.p[2]-a[2]],lab=Math.hypot(...ab)||1;
+    const t=Math.max(0,Math.min(1,((c[0]-a[0])*ab[0]+(c[1]-a[1])*ab[1]+(c[2]-a[2])*ab[2])/(lab*lab))),cl=[a[0]+ab[0]*t-c[0],a[1]+ab[1]*t-c[1],a[2]+ab[2]*t-c[2]];
+    if(Math.hypot(...cl)<.8){set.add(p);hitsN++;hurt(p,q.dmg,q.g,R()<.25?'head':'torso',[p.x,p.y+1.3,p.z])}}}}
+ // turncoats: glowing green, they hunt the nearest zombie for 12 s, then fall
+ function ally(p,dt){const z=p.zs;z.t-=dt;p.zc=[.2,1,.45];if(z.t<=0){z.st='dead';z.t=0;p.pose=4;p.zsp=0;return}
+  const tg=nearZ(p.x,p.y,p.z,20);p.pose=z.crawl?8:3;if(!tg){p.zsp=0;return}const d=Math.hypot(tg.x-p.x,tg.z-p.z);
+  if(d>1){step(p,tg.x,tg.z,z.crawl?1:2.4,dt);p.zsp=1}else{p.yaw=Math.atan2(tg.x-p.x,tg.z-p.z);p.zsp=0;z.hit=(z.hit||0)-dt;if(z.hit<=0){z.hit=.5;hurt(tg,ALLY.dmg,ALLY,'torso')}}}
  // beam guns (frost ray, flamethrower) hit continuously while you hold the trigger
- function beamTick(dt){const g=gun(),o=eye(),{f,r,u}=dirs(),muz=muzzle(),zs=zombiesNear(o,g.range),dps=g.dmg*g.rate;
+ function beamTick(dt){const g=gun(),o=eye(),{f,r,u}=dirs(),muz=muzzle(),zs=zombiesNear(o,g.range),dps=g.dmg*g.rate,ghost=has(g,'ghost');
   const rays=g.beam==='flame'?5:1;for(let q=0;q<rays;q++){const ja=q/rays*6.283,jr=g.beam==='flame'&&q?.09:0;const d0=[f[0]+(r[0]*Math.cos(ja)+u[0]*Math.sin(ja))*jr,f[1]+(r[1]*Math.cos(ja)+u[1]*Math.sin(ja))*jr,f[2]+(r[2]*Math.cos(ja)+u[2]*Math.sin(ja))*jr];
-   const l=Math.hypot(...d0),d=d0.map(v=>v/l),{hits,wd}=trace(o,d,g.range,zs);const end=hits.length?hits[0].t:wd;
+   const l=Math.hypot(...d0),d=d0.map(v=>v/l),{hits,wd}=trace(o,d,g.range,zs,ghost);const end=hits.length?hits[0].t:wd;
    if(hits.length)hurt(hits[0].p,dps*dt/rays,g,hits[0].part,null,true);
    if(g.beam==='frost'&&q===0)fx.push({k:'beam',a:muz,b:[o[0]+d[0]*end,o[1]+d[1]*end,o[2]+d[2]*end],col:[.7,.95,1],life:.04,t:0,w:.03+Math.sin(performance.now()*.03)*.008})}
   if(g.beam==='flame')for(let k=0;k<3;k++){const s=6+R()*4;fx.push({k:'puff',a:[...muz],v:[f[0]*s+(R()-.5)*1.4,f[1]*s+(R()-.5)*1.4+.4,f[2]*s+(R()-.5)*1.4],life:.35+R()*.25,t:0,col:[1,.45+R()*.4,.08],s0:.04,s1:.5})}
@@ -166,6 +218,9 @@ function makeZombieMode(api){
   if(z.burn>0||z.acid>0){const v=(z.burn>0?12:0)+(z.acid>0?15:0);z.burn-=dt;z.acid-=dt;z.hp-=v*dt;z.dot+=v*dt;z.dcol=z.burn>0?ELEMENTS.fire.css:ELEMENTS.acid.css;z.flash=Math.max(z.flash,.02);if(z.hp<=0){kill(p);return}}
   z.dotT-=dt;if(z.dotT<0&&z.dot>0){z.dotT=.45;if(dP<40)popNum(p.x,p.y+1.7*p.s[1],p.z,z.dot,z.dcol||'#fff');z.dot=0}
   p.zc=z.flash>0?[.7,.05,.03]:z.burn>0?[.9,.35,.05]:z.acid>0?[.45,.85,.2]:z.slow>0?[.45,.7,.95]:blood(p.c);
+  if(z.kb){const m=z.kb;m.t-=dt;const nx=p.x+m.vx*dt,nz=p.z+m.vz*dt;if(free(nx,p.y,nz)){p.x=nx;p.z=nz}if(m.t<=0)z.kb=null}
+  if(z.pull){const q=z.pull;q.t-=dt;const dx=q.x-p.x,dz=q.z-p.z,l=Math.hypot(dx,dz);if(l>.6){const sp2=Math.min(l,7*dt),nx=p.x+dx/l*sp2,nz=p.z+dz/l*sp2;if(free(nx,p.y,nz)){p.x=nx;p.z=nz}}if(q.t<=0)z.pull=null}
+  if(z.stag>0||z.pull){z.stag=Math.max(0,(z.stag||0)-dt);p.zsp=0;return}
   if(z.st==='eat'){z.t+=dt;p.zsp=0;p.pose=5;if(z.t>6){z.st='zombie';p.pose=3}return}
   z.think-=dt;if(z.think<0){z.think=.6;z.tgt=dP<16&&Math.abs(dy)<3?'you':nearest(gridH,p.x,p.y,p.z,28)}
   const sp=z.spd*(z.slow>0?.3:1);let tx,tz,s=sp;
@@ -212,7 +267,7 @@ function makeZombieMode(api){
   const fg=inv[frames[0]],g={...fg,base:{...fg.base},abil:[]};g.rarity=Math.max(...inv.map(x=>x.rarity));g.rar=RARITIES[g.rarity];g.col=g.rar.col;
   if(!fg.shape.elem)g.elem=null;
   picks.forEach((p,i)=>{const a=aspects(inv[i])[p];if(a.k==='elem'&&!g.beam)g.elem=a.v;if(a.k==='abil'&&!g.abil.includes(a.v))g.abil.push(a.v);if(a.k==='power')g.base.dmg*=inv[i].rar.mul/fg.rar.mul});
-  if(g.beam)g.abil=g.abil.filter(a=>!['split','ricochet','pierce','explode'].includes(a));applyAbilities(g);g.ecol=g.elem?ELEMENTS[g.elem].col:g.col;
+  g.abil=g.abil.filter(a=>fitsGun(g,a));applyAbilities(g);g.ocN=0;g.ecol=g.elem?ELEMENTS[g.elem].col:g.shape.arc?[1,.4,1]:g.col;
   g.name=`Forged ${g.makerName} ${GUN_TYPES[g.type].name}`;g.parts=gunParts(g,R);return{g}}
  function drawForge(){const res=forged(),focus=cur2.row<inv.length?aspects(inv[cur2.row])[cur2.col]:null;
   const chip=(r,c,a)=>{const sel=picks[r]===c,cur=cur2.row===r&&cur2.col===c,g=inv[r];return`<span data-r="${r}" data-c="${c}" style="display:inline-block;margin:3px 4px 0 0;padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;background:${sel?g.rar.css:'rgba(255,255,255,.08)'};color:${sel?'#111':'#eee'};outline:${cur?'2px solid #fff':'none'}">${a.label}</span>`};
@@ -262,7 +317,10 @@ function makeZombieMode(api){
    if(isZ(p)){if(dd>40){z.acc=(z.acc||0)+dt;if(((frameNo+z.k)&3)!==0)continue;zombie(p,Math.min(.2,z.acc));z.acc=0}else zombie(p,dt)}
    else if(z.st==='down'){z.t+=dt;if(z.t>z.turn)turn(p)}
    else if(z.st==='dead'){z.t+=dt;if(z.t>4)p.y-=dt*.25;if(z.t>7)z.st='gone'}
+   else if(z.st==='ally')ally(p,dt);
    else if(z.st==='flee'||z.st==='cower')human(p,dt)}
+  for(let i=chainQ.length-1;i>=0;i--){const c=chainQ[i];c.t-=dt;if(c.t<=0){chainQ.splice(i,1);blast(c.at,3,30+c.g.dmg*.5,c.g)}}
+  stepProjs(dt);
   // guns on the floor: the nearest one within reach shows its card
   near=null;let nd=2.2;for(let i=drops.length-1;i>=0;i--){const d=drops[i];d.t+=dt;if(d.t>180){drops.splice(i,1);continue}const dd=Math.hypot(d.x-P.x,d.z-P.z);if(dd<nd&&Math.abs(d.y-P.feet)<1.5){nd=dd;near=d}}
   if(near!==cardFor){cardFor=near;hud.card.style.display=near?'':'none';if(near)hud.card.innerHTML=card(near.g)}
@@ -280,7 +338,7 @@ function makeZombieMode(api){
   const line=!c?'':cleared.has(CUR.theme)?'cleared':`${c.zs} zombies${c.down?` · ${c.down} turning`:''}${c.hum?` · ${c.hum} people left`:''}`;
   const zl=`${title}${c?` · ${c.zs} zombies here`:''}<br><span style="font-size:12px;opacity:.85">${escaped?'You escaped!':reached?'Get to the helicopter':'Get through the mall to the Grand Exit'}</span>`;if(zl!==zoneLast){hud.zone.innerHTML=zl;zoneLast=zl}
   hud.hp.firstChild.style.width=health+'%';hud.hpn.textContent=Math.ceil(health)+' / 100';
-  const g=gun(),gl=`<div style="font-size:18px;font-weight:800;color:${g.rar.css}">${g.name} <span style="opacity:.8;color:#fff">∞</span></div><div style="font-size:12px;opacity:.85">${g.rar.name} ${GUN_TYPES[g.type].name} · ${g.makerName}${g.elem?' · '+ELEMENTS[g.elem].name:''}${g.abil.length?' · '+g.abil.map(a=>ABILITIES[a].name).join(', '):''}</div>
+  const g=gun(),gl=`<div style="font-size:18px;font-weight:800;color:${g.rar.css}">${g.name} <span style="opacity:.8;color:#fff">∞</span></div><div style="font-size:12px;opacity:.85">${g.rar.name} ${GUN_TYPES[g.type].name} · ${g.makerName}${g.elem?' · '+ELEMENTS[g.elem].name:''}${g.abil.length?' · '+g.abil.map(a=>ABILITIES[a].name).join(', '):''}${has(g,'overcharge')?' · <b style="color:#fff">Overcharge '+(g.ocN||0)+'/10</b>':''}</div>
    <div style="margin-top:4px">${inv.map((x,i)=>`<span style="display:inline-block;min-width:18px;margin-left:3px;padding:1px 4px;border-radius:4px;font-size:11px;background:${i===ci?x.rar.css:'rgba(0,0,0,.5)'};color:${i===ci?'#111':x.rar.css};border:1px solid ${x.rar.css}">${i+1}</span>`).join('')}</div>`;
   if(gl!==gunLast){hud.gun.innerHTML=gl;gunLast=gl}
   hud.red.style.opacity=hurtT>0?1:0;if(bannerT>0){bannerT-=dt;if(bannerT<=0)hud.banner.style.opacity=0}
@@ -298,14 +356,20 @@ function makeZombieMode(api){
     if(m==='b')part(...p,yaw,w*sc,h*sc,l*sc,g.tint,pitch,0,g.skin);else if(m==='d')part(...p,yaw,w*sc,h*sc,l*sc,DARK,pitch,0,41);
     else part(...p,yaw,w*sc,h*sc,l*sc,m==='g'?g.col:g.ecol,pitch,m==='g'?1.6:2.2)}};
   if(deadT<=0){const o=eye(),{f,r,u}=dirs(),k=.46-recoil*.06-swapT*.6,dn=.2+swapT*.4,p0=[o[0]+r[0]*.24-u[0]*dn+f[0]*k,o[1]+r[1]*.24-u[1]*dn+f[1]*k,o[2]+r[2]*.24-u[2]*dn+f[2]*k];
-   drawGun(gun(),(df,du,dr)=>[p0[0]+f[0]*df+u[0]*du+r[0]*dr,p0[1]+f[1]*df+u[1]*du+r[1]*dr,p0[2]+f[2]*df+u[2]*du+r[2]*dr],P.yaw,P.pitch+recoil*.08,1)}
+   drawGun(gun(),(df,du,dr)=>[p0[0]+f[0]*df+u[0]*du+r[0]*dr,p0[1]+f[1]*df+u[1]*du+r[1]*dr,p0[2]+f[2]*df+u[2]*du+r[2]*dr],P.yaw,P.pitch+recoil*.08,1);
+   // Twin Fire: a mirrored copy in the left hand
+   if(has(gun(),'twin')){const q0=[p0[0]-r[0]*.48,p0[1]-r[1]*.48,p0[2]-r[2]*.48];drawGun(gun(),(df,du,dr)=>[q0[0]+f[0]*df+u[0]*du-r[0]*dr,q0[1]+f[1]*df+u[1]*du-r[1]*dr,q0[2]+f[2]*df+u[2]*du-r[2]*dr],P.yaw,P.pitch+recoil*.08,1)}}
   for(const e of fx){const a=1-e.t/e.life;
    if(e.k==='gib'){part(...e.a,e.yaw,...e.size,e.col,e.pitch,0);continue}
    if(e.k==='puff'){const s=e.s0+(e.s1-e.s0)*(e.t/e.life);part(...e.a,e.t*7,s,s,s,e.col,e.t*5,3.5*a);continue}
+   if(e.k==='arc'){const n=18,k0=e.t/e.life,rr=1+(e.R-1)*Math.pow(k0,.6);for(let k=0;k<n;k++){const a=-e.half+(k+.5)/n*2*e.half,ang=e.yaw+a,dx=-Math.sin(ang),dz=-Math.cos(ang);
+     part(e.o[0]+dx*rr,e.o[1],e.o[2]+dz*rr,ang+1.5708,e.w,.3*(1-k0*.5),rr*2*e.half/n*1.1,e.col,0,5*(1-k0))}continue}
+   if(e.k==='vortex'){const k0=e.t/e.life;for(let k=0;k<10;k++){const a=k/10*6.283+t*9,rr=1.8*(1-k0)+.15;part(e.a[0]+Math.cos(a)*rr,e.a[1]+Math.sin(a*1.7)*.4,e.a[2]+Math.sin(a)*rr,a,.08,.08,.08,e.col,0,3.5)}continue}
    if(e.k==='boom'){const s=e.rad*(.3+e.t/e.life*.9);part(...e.a,0,s,s,s,[1,.55,.15],0,5*a);continue}
    if(e.k==='beam'){const[x0,y0,z0]=e.a,[x1,y1,z1]=e.b,dx=x1-x0,dy=y1-y0,dz=z1-z0,l=Math.hypot(dx,dy,dz);if(l<.01)continue;const w=e.w||.012;
     part((x0+x1)/2,(y0+y1)/2,(z0+z1)/2,Math.atan2(-dx,-dz),w,w,l,e.col,Math.asin(dy/l),4*a);continue}
    part(...e.a,t*20,e.k==='flash'?.1:.07,e.k==='flash'?.1:.07,e.k==='flash'?.1:.07,e.col,t*13,(e.k==='flash'?8:3)*a)}
+  for(const q of projs){const g=q.g,a=t*25;part(...q.p,a,.45,.03,.12,g.ecol,0,3.5);part(...q.p,a+1.5708,.45,.03,.12,g.ecol,0,3.5)}
   // health bars over zombies you've hurt
   const {r:cr}=dirs();let bars=0;for(const r of api.LOADED)for(const p of r.P){if(bars>50)break;if(!isZ(p)||p.zs.hp>=100)continue;const d=Math.hypot(p.x-P.x,p.z-P.z);if(d>30)continue;bars++;
    const fr=Math.max(0,p.zs.hp/100),y=p.y+(p.zs.crawl?.75:2.05*p.s[1]),off=-(1-fr)*.25;
@@ -334,7 +398,8 @@ function makeZombieMode(api){
   return{alive:a.length,limbs,crawl,near:a[0],health,gun:gun().name,guns:inv.length,drops:drops.length,potions:potions.length,shots,hits:hitsN,nums:nums.length}};
  // for automated tests: give yourself a gun of a type and rarity (?zgun=flamer etc. does it at the start)
  const give=(type,rarity=2)=>{inv.push(makeGun(R,{type,rarity}));ci=inv.length-1};if(QSZ.get('zgun'))give(QSZ.get('zgun'),+(QSZ.get('zrar')||2));
+ if(QSZ.get('zab')){const g=gun();g.abil=QSZ.get('zab').split(',');applyAbilities(g)}
  showHud(true);banner('Zombie Mode','Fight your way through the mall to the Grand Exit',4);
- return{forgeOpen:()=>forgeOpen,flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
+ return{forgeOpen:()=>forgeOpen,gun,allies:allyCount,flying:()=>flyT>0,flyStep,debug,give,update,fxB,fire:v=>{firing=v},swap,select,setHud:showHud,
   // one speed: quick on your feet, no need to hold anything to run
   walk:5,run:5,jump:7.4}}

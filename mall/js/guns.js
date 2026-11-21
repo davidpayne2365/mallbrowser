@@ -11,7 +11,9 @@ const GUN_TYPES={
  flamer:  {name:'Flamethrower',dmg:5,rate:20,beam:'flame',range:10,elem:'fire',len:1.4,tank:1},
  frost:   {name:'Frost Ray',dmg:3.2,rate:20,beam:'frost',range:35,elem:'frost',len:1.2,tank:1},
  tesla:   {name:'Tesla Coil',dmg:36,rate:2.5,pellets:1,spread:.01,range:45,chain:3,elem:'shock',len:1.1,coil:1},
- acid:    {name:'Acid Sprayer',dmg:9,rate:7,pellets:2,spread:.05,range:30,elem:'acid',len:1.2,tank:1}};
+ acid:    {name:'Acid Sprayer',dmg:9,rate:7,pellets:2,spread:.05,range:30,elem:'acid',len:1.2,tank:1},
+ // a wide glowing crescent that sweeps out and cleaves through everything in a 75° arc, slicing limbs off
+ plasma:  {name:'Plasma Cleaver',dmg:45,rate:1.6,pellets:1,spread:0,range:9,arc:75,len:1.25,emitter:1}};
 // makers (all invented): each has its own metal finish, colour and habit
 const GUN_MAKERS=[
  {id:'hammerjack',name:'Hammerjack',skin:44,tint:[.85,.45,.3],trait:'Hits hard, fires slow',mod:{dmg:1.35,rate:.75}},
@@ -24,17 +26,35 @@ const RARITIES=[
  {id:'common',name:'Common',col:[.85,.85,.85],css:'#e0e0e0',mul:1,abil:0,w:48},
  {id:'uncommon',name:'Uncommon',col:[.3,1,.35],css:'#58f06a',mul:1.15,abil:0,w:28},
  {id:'rare',name:'Rare',col:[.3,.6,1],css:'#4ea0ff',mul:1.3,abil:1,w:15},
- {id:'epic',name:'Epic',col:[.75,.35,1],css:'#c066ff',mul:1.5,abil:1,elem:1,w:7},
- {id:'legendary',name:'Legendary',col:[1,.55,.1],css:'#ff9a1f',mul:1.85,abil:2,elem:1,w:2}];
+ {id:'epic',name:'Epic',col:[.75,.35,1],css:'#c066ff',mul:1.5,abil:2,elem:1,w:7},
+ {id:'legendary',name:'Legendary',col:[1,.55,.1],css:'#ff9a1f',mul:1.85,abil:3,elem:1,w:2}];
 const ELEMENTS={fire:{name:'Fire',col:[1,.45,.1],css:'#ff8a3a',word:'Scorching'},frost:{name:'Frost',col:[.6,.9,1],css:'#9fe6ff',word:'Frozen'},
  shock:{name:'Shock',col:[.5,.7,1],css:'#7fb0ff',word:'Shocking'},acid:{name:'Acid',col:[.5,1,.25],css:'#8cff5a',word:'Corrosive'}};
 const ABILITIES={ricochet:{name:'Ricochet',tip:'Bullets bounce to another zombie',word:'Bouncing'},pierce:{name:'Pierce',tip:'Shots pass through 2 more zombies',word:'Piercing'},
  explode:{name:'Explosive',tip:'Hits explode',word:'Volatile'},
  split:{name:'Split',tip:'Every shot splits in three',word:'Splitting'},crit:{name:'Deadeye',tip:'Headshots do far more damage',word:'Deadeye'},
- rapid:{name:'Rapid',tip:'Fires much faster',word:'Hasty'},heavy:{name:'Heavy',tip:'Much more damage per shot',word:'Heavy'}};
+ rapid:{name:'Rapid',tip:'Fires much faster',word:'Hasty'},heavy:{name:'Heavy',tip:'Much more damage per shot',word:'Heavy'},
+ homing:{name:'Homing',tip:'Bullets lock on to the nearest zombie near your aim',word:'Seeking'},
+ chainreact:{name:'Chain Reaction',tip:'Zombies you kill explode, and the blasts can set off more',word:'Cascading'},
+ turncoat:{name:'Turncoat',tip:'Some zombies you kill get back up and fight for you for 12 s',word:"Traitor's"},
+ vortex:{name:'Vortex',tip:'Hits pull nearby zombies into a tight clump',word:'Gravity'},
+ shatter:{name:'Shatter',tip:'Hits chill; frozen zombies burst into ice shards that hit others',word:'Shattering'},
+ boomerang:{name:'Boomerang',tip:'Fires a spinning disc that flies out and comes back, hitting both ways',word:'Returning'},
+ bounce:{name:'Wall Bounce',tip:'Bullets ricochet off walls, up to twice',word:'Rebounding'},
+ overcharge:{name:'Overcharge',tip:'Every 10th shot is a huge charged blast',word:'Overcharged'},
+ knockback:{name:'Knockback',tip:'Hits shove zombies back and stagger them',word:'Thumping'},
+ dismember:{name:'Dismember',tip:'Limbs come off much more easily',word:"Butcher's"},
+ ghost:{name:'Ghost Rounds',tip:'Bullets pass through walls',word:'Phantom'},
+ twin:{name:'Twin Fire',tip:'A second gun in your other hand fires with you',word:'Twin'}};
+// which abilities make sense on which guns: beams and the cleaver can't use the per-bullet ones
+const NOT_ON_BEAM=['split','ricochet','pierce','explode','homing','boomerang','bounce','overcharge','twin','knockback','vortex'];
+const NOT_ON_ARC=['split','ricochet','pierce','homing','boomerang','bounce'];
+const fitsGun=(g,a)=>!(g.beam&&NOT_ON_BEAM.includes(a))&&!(g.shape&&g.shape.arc&&NOT_ON_ARC.includes(a));
 const LEGEND_NAMES=['Clearance Sale','The Mall Cop','Food Court Fury','Black Friday','Last Call','Lost & Found','Store Credit','Escalator','Final Markdown','Closing Time','Gift Wrap','Price Check'];
 // stats = the gun's base roll with its abilities applied (used again when guns are forged together)
-function applyAbilities(g){Object.assign(g,g.base);for(const a of g.abil){if(a==='pierce')g.pierce+=2;if(a==='split')g.pellets*=3,g.spread=Math.max(g.spread,.03)*1.3;if(a==='crit')g.crit*=1.8;if(a==='rapid')g.rate*=1.5;if(a==='heavy')g.dmg*=1.5,g.rate*=.85}}
+function applyAbilities(g){Object.assign(g,g.base);const M={homing:.85,chainreact:.9,turncoat:.9,vortex:.85,shatter:.9,bounce:.9,ghost:.85};
+ for(const a of g.abil){if(a==='pierce')g.pierce+=2;if(a==='split')g.pellets*=3,g.spread=Math.max(g.spread,.03)*1.3;if(a==='crit')g.crit*=1.8;if(a==='rapid')g.rate*=1.5;if(a==='heavy')g.dmg*=1.5,g.rate*=.85;
+  if(M[a])g.dmg*=M[a];if(a==='boomerang')g.rate*=.75;if(a==='knockback')g.rate*=.9;if(a==='twin')g.rate*=.9}}
 function makeGun(rand,o={}){
  const pick=a=>a[Math.floor(rand()*a.length)];
  const types=Object.keys(GUN_TYPES),type=o.type||pick(types),T=GUN_TYPES[type],M=o.maker?GUN_MAKERS.find(m=>m.id===o.maker):pick(GUN_MAKERS);
@@ -44,11 +64,11 @@ function makeGun(rand,o={}){
   range:T.range,pierce:T.pierce||0,chain:T.chain||0,blast:T.blast||0,crit:(T.crit||1)*(M.mod.crit||1),elem:T.elem||null,abil:[]};
  // element: guaranteed for Vexley, epic and legendary guns; a chance otherwise
  if(!g.elem&&!g.beam&&(M.mod.elemental||Rr.elem||rand()<.15))g.elem=pick(Object.keys(ELEMENTS));
- let n=Rr.abil+(M.mod.extra?1:0);const pool=Object.keys(ABILITIES).filter(a=>!(g.beam&&(a==='split'||a==='ricochet'||a==='pierce'||a==='explode')));   // beams can't use per-shot abilities
- if(M.mod.ability&&!g.beam)g.abil.push(M.mod.ability);
+ let n=Rr.abil+(M.mod.extra?1:0)+(ri===1&&rand()<.3?1:0);const pool=Object.keys(ABILITIES).filter(a=>fitsGun(g,a));
+ if(M.mod.ability&&fitsGun(g,M.mod.ability))g.abil.push(M.mod.ability);
  while(n-->0){const a=pick(pool);if(!g.abil.includes(a))g.abil.push(a)}
  g.base={dmg:g.dmg,rate:g.rate,pellets:g.pellets,spread:g.spread,pierce:g.pierce,crit:g.crit};applyAbilities(g);
- g.col=Rr.col;g.ecol=g.elem?ELEMENTS[g.elem].col:Rr.col;
+ g.col=Rr.col;g.ecol=g.elem?ELEMENTS[g.elem].col:T.arc?[1,.4,1]:Rr.col;
  const word=g.abil.length?ABILITIES[g.abil[0]].word:g.elem?ELEMENTS[g.elem].word:'';
  g.name=ri===4?`“${pick(LEGEND_NAMES)}”`:`${word?word+' ':''}${M.name} ${T.name}`;
  g.id=Math.floor(rand()*1e9).toString(36);g.parts=gunParts(g,rand);return g}
@@ -67,6 +87,7 @@ function gunParts(g,rand){const L=g.len,S=g.shape,P=[],add=(f,u,r,w,h,l,m)=>P.pu
  if(S.scope||g.maker==='kessler'){add(.01,.06,0,.024,.024,.13,'d');add(.08,.06,0,.026,.026,.01,'e')}
  if(S.tank){add(-.02,-.055,.045,.05,.05,.11,'e');add(.08,-.02,0,.03,.03,.05,'d')}
  if(S.coil)for(let k=0;k<4;k++)add(.14+k*.04,.012,0,.05,.05,.012,'e');
+ if(S.emitter){add(.17,.01,0,.16,.02,.05,'e');for(const s of[-1,1])add(.12,.01,s*.07,.012,.05,.12,'e');add(.07,.01,0,.06,.06,.08,'b')}
  if(g.maker==='hammerjack')add(.1*L+.16,.012,0,.04,.04,.04,'d');            // muzzle brake
  if(g.maker==='vexley')for(const s of[-1,1])add(.02,0,s*.035,.006,.04,.12,'e'); // fins
  if(g.maker==='torrin')add(.05,.045,0,.02,.012,.14*L,'d');                  // rail
